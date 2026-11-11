@@ -14,22 +14,21 @@ containers, images, networks and volumes managed from the UI stay fully compatib
 
 ## Quick start
 
-### Binary
+On a Linux host with containerd and nerdctl (e.g. `nerdctl-full`), install the binary and run it
+as a systemd service:
 
 ```bash
-# on a Linux host with containerd + nerdctl
-curl -fsSLO https://github.com/pessom/nerdui/releases/latest/download/nerdui_<version>_linux_amd64.tar.gz
-tar -xzf nerdui_*_linux_amd64.tar.gz
-sudo ./nerdui --listen 127.0.0.1:9443   # then open https://localhost:9443
+VERSION=0.1.0 ARCH=amd64   # or arm64
+curl -fsSLO https://github.com/pessom/nerdui/releases/download/v${VERSION}/nerdui_${VERSION}_linux_${ARCH}.tar.gz
+tar -xzf nerdui_${VERSION}_linux_${ARCH}.tar.gz
+sudo install -m 0755 nerdui /usr/local/bin/nerdui
+sudo install -m 0644 deploy/systemd/nerdui.service /etc/systemd/system/nerdui.service
+sudo install -m 0644 deploy/systemd/nerdui.env /etc/default/nerdui
+sudo systemctl daemon-reload && sudo systemctl enable --now nerdui
+journalctl -u nerdui | grep setup_token   # then open https://<host>:9443
 ```
 
-### Container image
-
-```bash
-sudo nerdctl compose -f deploy/docker/compose.yaml up -d
-```
-
-See [docs/deployment.md](docs/deployment.md) for required mounts and privileges.
+Details, upgrades and the (experimental) container image: [docs/deployment.md](docs/deployment.md).
 
 ## First run
 

@@ -15,20 +15,46 @@
   exactly like CLI-created ones ([ADR-0003](adr/0003-nerdctl-binary-runtime-dependency.md))
 - root privileges (rootful containerd/nerdctl; rootless is not supported yet)
 
-## Binary
+## Binary with systemd (recommended)
+
+Release archives contain the binary and `deploy/systemd/` (unit and settings file).
 
 ```bash
 VERSION=0.1.0
-ARCH=amd64
+ARCH=amd64   # or arm64
 curl -fsSLO https://github.com/pessom/nerdui/releases/download/v${VERSION}/nerdui_${VERSION}_linux_${ARCH}.tar.gz
 tar -xzf nerdui_${VERSION}_linux_${ARCH}.tar.gz
+
 sudo install -m 0755 nerdui /usr/local/bin/nerdui
-sudo nerdui --listen 127.0.0.1:9443
+sudo install -m 0644 deploy/systemd/nerdui.service /etc/systemd/system/nerdui.service
+sudo install -m 0644 deploy/systemd/nerdui.env /etc/default/nerdui   # edit settings here
+sudo systemctl daemon-reload
+sudo systemctl enable --now nerdui
+
+systemctl status nerdui
+journalctl -u nerdui | grep setup_token   # one-time token for the first-run setup
 ```
 
 Verify signatures before installing — see [SECURITY.md](../SECURITY.md#verifying-releases).
 
-## Container image
+The unit runs nerdui as root after `containerd.service` (`Wants=`, so nerdui keeps running and
+reconnects while containerd restarts), keeps state in `/var/lib/nerdui` (`StateDirectory`, mode
+0700) and restarts it on failure. Settings live in `/etc/default/nerdui` as `NERDUI_*`
+variables (see `nerdui --help`).
+
+**Upgrade:** replace `/usr/local/bin/nerdui` and `sudo systemctl restart nerdui`. Containers are not
+affected by restarting nerdui. Keep the host nerdctl on the minor version the release requires
+(ADR-0011).
+
+**Uninstall:** `sudo systemctl disable --now nerdui`, remove the unit, `/etc/default/nerdui`,
+the binary and — to delete all nerdui data — `/var/lib/nerdui`.
+
+## Container image (experimental)
+
+> [!NOTE]
+> The container image is not yet tested end to end; making it a first-class installation method is
+> tracked in [#145](https://github.com/pessom/nerdui/issues/145). Use the binary with systemd.
+
 
 Image: `ghcr.io/pessom/nerdui:<version>` (multi-arch, distroless, signed with cosign, SBOM attached).
 

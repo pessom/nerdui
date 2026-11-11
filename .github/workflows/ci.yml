@@ -155,3 +155,27 @@ jobs:
           "NERDUI_TEST_EXPECT_CONTAINERD=$NERDUI_TEST_EXPECT_CONTAINERD"
           "NERDUI_TEST_RESTART_CONTAINERD=$NERDUI_TEST_RESTART_CONTAINERD"
           go test -p 1 -race -tags integration -count=1 -run Integration -v ./...
+      - name: systemd unit (deploy/systemd)
+        run: |
+          CGO_ENABLED=0 go build -o /tmp/nerdui ./cmd/nerdui
+          sudo install -m 0755 /tmp/nerdui /usr/local/bin/nerdui
+          sudo install -m 0644 deploy/systemd/nerdui.service /etc/systemd/system/nerdui.service
+          sudo install -m 0644 deploy/systemd/nerdui.env /etc/default/nerdui
+          sudo systemctl daemon-reload
+          sudo systemctl enable --now nerdui
+          for i in $(seq 1 30); do sudo nerdui healthcheck >/dev/null 2>&1 && break; sleep 1; done
+          sudo nerdui healthcheck
+          systemctl is-active nerdui
+          test "$(sudo stat -c %a /var/lib/nerdui)" = 700
+          for i in $(seq 1 30); do sudo journalctl -u nerdui --no-pager | grep -q '"containerd connected"' && break; sleep 1; done
+          sudo journalctl -u nerdui --no-pager | grep -q '"setup_token"'
+          sudo journalctl -u nerdui --no-pager | grep -q '"nerdctl compatible"'
+          sudo journalctl -u nerdui --no-pager | grep -q '"containerd connected"'
+          # nerdui survives a containerd restart and keeps serving.
+          sudo systemctl restart containerd
+          sleep 3
+          systemctl is-active nerdui
+          sudo nerdui healthcheck
+      - name: nerdui logs
+        if: always()
+        run: sudo journalctl -u nerdui --no-pager | tail -50 || true
