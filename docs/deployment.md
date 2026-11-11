@@ -8,8 +8,10 @@
 
 - Linux `amd64` or `arm64`
 - containerd 2.x (1.7 is expected to work but not tested)
-- nerdctl installed on the host is recommended (CNI plugins, BuildKit), e.g. `nerdctl-full`
-- root privileges
+- **nerdctl 2.x installed on the host (required)** with CNI plugins, e.g. `nerdctl-full`.
+  Containers created by nerdui use the host `nerdctl` binary for networking hooks and logging,
+  exactly like CLI-created ones ([ADR-0003](adr/0003-nerdctl-binary-runtime-dependency.md))
+- root privileges (rootful containerd/nerdctl; rootless is not supported yet)
 
 ## Binary
 
@@ -37,6 +39,10 @@ nerdui inside a container manages the **host** containerd, so it needs host moun
 | `/var/lib/nerdctl`        | nerdctl names, logs, volumes, network configs         |
 | `/etc/cni`, `/opt/cni/bin`, `/var/lib/cni` | CNI configs, plugins, IPAM state     |
 | `/run/netns` (`rshared`)  | container network namespaces                          |
+| `/usr/local/bin/nerdctl` (same path as on host) | required: OCI hooks, log driver, compose ([ADR-0003](adr/0003-nerdctl-binary-runtime-dependency.md)) |
+| `/etc/nerdctl` (ro)       | nerdctl configuration (`nerdctl.toml`)                |
+| `/root/.docker`           | registry logins shared with `nerdctl login`           |
+| `/var/lib/nerdui`         | nerdui database, TLS certificate, stacks              |
 | `--privileged`            | CNI setup, mounts                                     |
 | `--net=host`, `--pid=host`| CNI and port forwarding operate in host namespaces    |
 
@@ -59,6 +65,10 @@ sudo nerdctl run -d --name nerdui --restart unless-stopped \
   -v /etc/cni:/etc/cni \
   -v /var/lib/cni:/var/lib/cni \
   -v /run/netns:/run/netns:rshared \
+  -v /usr/local/bin/nerdctl:/usr/local/bin/nerdctl:ro \
+  -v /etc/nerdctl:/etc/nerdctl:ro \
+  -v /root/.docker:/root/.docker \
+  -v /var/lib/nerdui:/var/lib/nerdui \
   ghcr.io/pessom/nerdui:latest
 ```
 

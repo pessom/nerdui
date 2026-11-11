@@ -27,3 +27,11 @@ services:
       - /etc/cni:/etc/cni
       - /var/lib/cni:/var/lib/cni
       - /run/netns:/run/netns:rshared
+      # host nerdctl binary — required (ADR-0003). Mount it at the SAME path as on the host:
+      # containers record this path for their OCI hooks and log driver.
+      - /usr/local/bin/nerdctl:/usr/local/bin/nerdctl:ro
+      - /etc/nerdctl:/etc/nerdctl:ro
+      # registry logins shared with `nerdctl login`
+      - /root/.docker:/root/.docker
+      # nerdui data: database, TLS certificate, stacks (ADR-0004, ADR-0008)
+      - /var/lib/nerdui:/var/lib/nerdui

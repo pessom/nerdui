@@ -1,6 +1,7 @@
 # 0001. Go backend over the containerd socket with nerdctl packages
 
-- **Status:** Accepted
+- **Status:** Accepted, amended by [0003](0003-nerdctl-binary-runtime-dependency.md)
+  (the `nerdctl` binary is still required on the host)
 - **Date:** 2026-11-11
 
 ## Context
