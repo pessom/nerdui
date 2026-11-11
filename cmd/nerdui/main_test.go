@@ -288,3 +288,64 @@ func TestResetPassword(t *testing.T) {
 		t.Error("missing username accepted")
 	}
 }
+
+func TestHealthURL(t *testing.T) {
+	for listen, want := range map[string]string{
+		":9443":           "https://127.0.0.1:9443/healthz",
+		"0.0.0.0:9443":    "https://127.0.0.1:9443/healthz",
+		"[::]:9443":       "https://[::1]:9443/healthz",
+		"10.0.0.5:8443":   "https://10.0.0.5:8443/healthz",
+		"nas.local:9443":  "https://nas.local:9443/healthz",
+		"127.0.0.1:19443": "https://127.0.0.1:19443/healthz",
+	} {
+		c := config.Default()
+		c.Listen = listen
+		if got, err := healthURL(c); err != nil || got != want {
+			t.Errorf("healthURL(%q) = %q, %v; want %q", listen, got, err, want)
+		}
+	}
+	c := config.Default()
+	c.TLS = false
+	if got, _ := healthURL(c); got != "http://127.0.0.1:9443/healthz" {
+		t.Errorf("without TLS: %q", got)
+	}
+	c.Listen = "nonsense"
+	if _, err := healthURL(c); err == nil {
+		t.Error("invalid listen accepted")
+	}
+}
+
+func TestHealthcheck(t *testing.T) {
+	ctx := context.Background()
+
+	addr, stop := startServer(t, filepath.Join(t.TempDir(), "data"), insecureClient(), "https")
+	out, _, err := execute(ctx, t, noEnv, "healthcheck", "--listen", addr)
+	if err != nil || strings.TrimSpace(out) != "ok" {
+		t.Errorf("TLS server: %q, %v", out, err)
+	}
+	// Configuration from the environment only, as in a container.
+	env := func(k string) (string, bool) {
+		if k == "NERDUI_LISTEN" {
+			return addr, true
+		}
+		return "", false
+	}
+	if _, _, err := execute(ctx, t, env, "healthcheck"); err != nil {
+		t.Errorf("env-only configuration: %v", err)
+	}
+	// Wrong scheme is reported as unhealthy.
+	if _, _, err := execute(ctx, t, noEnv, "healthcheck", "--listen", addr, "--tls=false"); err == nil {
+		t.Error("plain HTTP probe of a TLS server reported healthy")
+	}
+	stop()
+
+	if _, _, err := execute(ctx, t, noEnv, "healthcheck", "--listen", addr, "--timeout", "1s"); err == nil || !strings.Contains(err.Error(), "unhealthy") {
+		t.Errorf("stopped server: %v", err)
+	}
+
+	addr, stop = startServer(t, filepath.Join(t.TempDir(), "data"), http.DefaultClient, "http", "--tls=false")
+	defer stop()
+	if _, _, err := execute(ctx, t, noEnv, "healthcheck", "--listen", addr, "--tls=false"); err != nil {
+		t.Errorf("plain HTTP server: %v", err)
+	}
+}

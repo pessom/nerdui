@@ -15,6 +15,13 @@ services:
       NERDUI_LISTEN: "127.0.0.1:9443"
       NERDUI_NAMESPACE: "default"
       NERDUI_LOG_LEVEL: "info"
+    # Uses the same NERDUI_* settings as the server; probes https://127.0.0.1:9443/healthz.
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/nerdui", "healthcheck"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     volumes:
       # containerd API
       - /run/containerd:/run/containerd
