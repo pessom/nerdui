@@ -27,10 +27,17 @@ type fakeRuntime struct {
 	ns      []string
 	err     error
 	nerdctl runtime.NerdctlStatus
+	events  runtime.EventSource
 }
 
 func (f *fakeRuntime) System() runtime.System { return f }
 func (f *fakeRuntime) Close() error           { return nil }
+func (f *fakeRuntime) Events() runtime.EventSource {
+	if f.events == nil {
+		return &fakeSource{}
+	}
+	return f.events
+}
 func (f *fakeRuntime) Versions(context.Context) (runtime.Versions, error) {
 	return f.v, f.err
 }

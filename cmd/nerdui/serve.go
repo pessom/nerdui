@@ -92,13 +92,16 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 		runtime.WithNerdctl(cfg.NerdctlPath, cfg.SkipNerdctlVersionCheck))
 	envs := environment.NewRegistry(environment.Local(rt, cfg.Namespace))
 	defer func() { _ = envs.Close() }()
-	// Runs in the background so an unreachable containerd does not delay startup; it is
+	// Background work (compatibility check, event hubs) does not delay startup; it is
 	// canceled and awaited when serving ends, so nothing outlives runServe.
 	var checks sync.WaitGroup
 	checkCtx, cancelChecks := context.WithCancel(ctx)
 	defer checks.Wait()
 	defer cancelChecks()
 	checks.Go(func() { logRuntimeCompatibility(checkCtx, logger, rt) })
+	for _, env := range envs.List() {
+		checks.Go(func() { env.Events.Run(checkCtx) })
+	}
 
 	// Hijacked WebSocket connections are neither tracked nor closed by Shutdown; their
 	// request contexts derive from streamsCtx, which is canceled after Shutdown so streams

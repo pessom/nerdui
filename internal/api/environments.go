@@ -38,6 +38,7 @@ func (h *Handler) Routes(r chi.Router, g *authz.Guard) {
 		r.Use(h.resolveEnv, h.requireWritable)
 		r.Method(http.MethodGet, "/", g.Protect(authz.SystemRead, h.get))
 		r.Method(http.MethodGet, "/namespaces", g.Protect(authz.SystemRead, h.namespaces))
+		r.Method(http.MethodGet, "/events/stream", g.Protect(authz.SystemRead, h.eventsStream))
 	})
 }
 
