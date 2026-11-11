@@ -51,6 +51,10 @@ make web-dev   # Vite on http://localhost:5173, proxies /api to https://localhos
 NERDUI_API_URL=http://localhost:9090 make web-dev
 ```
 
+The dev proxy rewrites the `Origin` header of API and WebSocket requests to the backend's origin:
+nerdui rejects cross-origin unsafe requests and WebSocket upgrades (CSRF protection), and the Vite
+dev server is a different origin. Production builds are served by nerdui itself and need no rewrite.
+
 ### Backend without a server
 
 `make run ARGS="--address /nonexistent.sock"` starts nerdui without containerd (data in `./.data`): `/healthz`

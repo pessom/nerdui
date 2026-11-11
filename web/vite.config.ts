@@ -14,7 +14,21 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      "/api": { target: apiTarget, changeOrigin: true, ws: true, secure: false },
+      // nerdui rejects requests whose Origin does not match the Host (CSRF protection for
+      // POST and WebSocket). The dev server is a different origin, so the proxy presents the
+      // backend's origin instead (development only).
+      "/api": {
+        target: apiTarget,
+        changeOrigin: true,
+        ws: true,
+        secure: false,
+        rewriteWsOrigin: true,
+        configure: (proxy) => {
+          proxy.on("proxyReq", (req) => {
+            if (req.getHeader("origin")) req.setHeader("origin", new URL(apiTarget).origin);
+          });
+        },
+      },
       "/healthz": { target: apiTarget, changeOrigin: true, secure: false },
     },
   },
