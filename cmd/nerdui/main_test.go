@@ -6,6 +6,9 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"encoding/pem"
 	"errors"
 	"net"
 	"net/http"
@@ -17,6 +20,7 @@ import (
 
 	"github.com/pessom/nerdui/internal/config"
 	"github.com/pessom/nerdui/internal/store"
+	"github.com/pessom/nerdui/internal/tlsutil"
 )
 
 func noEnv(string) (string, bool) { return "", false }
@@ -88,28 +92,30 @@ func TestPortInUse(t *testing.T) {
 	}
 }
 
-func TestServeStartsAndStops(t *testing.T) {
-	// Reserve a free port, then release it for the server.
+// startServer runs nerdui with args on a free port and returns the address and a stop
+// function that waits for a clean shutdown.
+func startServer(t *testing.T, dataDir string, client *http.Client, scheme string, args ...string) (addr string, stop func()) {
+	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
 	}
-	addr := ln.Addr().String()
+	addr = ln.Addr().String()
 	ln.Close()
 
-	dataDir := filepath.Join(t.TempDir(), "data")
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() {
-		_, _, err := execute(ctx, t, noEnv, "--listen", addr, "--data-dir", dataDir,
-			"--address", filepath.Join(t.TempDir(), "missing.sock"))
+		args = append([]string{"--listen", addr, "--data-dir", dataDir,
+			"--address", filepath.Join(t.TempDir(), "missing.sock")}, args...)
+		_, _, err := execute(ctx, t, noEnv, args...)
 		done <- err
 	}()
 
-	url := "http://" + addr + "/healthz"
-	deadline := time.Now().Add(5 * time.Second)
+	url := scheme + "://" + addr + "/healthz"
+	deadline := time.Now().Add(10 * time.Second)
 	for {
-		resp, err := http.Get(url) //nolint:noctx // test
+		resp, err := client.Get(url) //nolint:noctx // test
 		if err == nil {
 			resp.Body.Close()
 			if resp.StatusCode != http.StatusOK {
@@ -117,29 +123,114 @@ func TestServeStartsAndStops(t *testing.T) {
 			}
 			break
 		}
+		select {
+		case err := <-done:
+			t.Fatalf("server exited: %v", err)
+		default:
+		}
 		if time.Now().After(deadline) {
 			t.Fatalf("server did not start: %v", err)
 		}
 		time.Sleep(50 * time.Millisecond)
 	}
 
-	cancel()
-	select {
-	case err := <-done:
-		if err != nil {
-			t.Fatalf("serve returned %v", err)
+	return addr, func() {
+		cancel()
+		select {
+		case err := <-done:
+			if err != nil {
+				t.Fatalf("serve returned %v", err)
+			}
+		case <-time.After(10 * time.Second):
+			t.Fatal("server did not stop")
 		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("server did not stop")
 	}
+}
+
+func insecureClient() *http.Client {
+	return &http.Client{Transport: &http.Transport{
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // self-signed test certificate
+	}}
+}
+
+func TestServeTLSByDefault(t *testing.T) {
+	dataDir := filepath.Join(t.TempDir(), "data")
+	addr, stop := startServer(t, dataDir, insecureClient(), "https")
+
+	// The served certificate is exactly the one stored in <data-dir>/tls/cert.pem.
+	conn, err := tls.Dial("tcp", addr, &tls.Config{InsecureSkipVerify: true}) //nolint:gosec // self-signed test
+	if err != nil {
+		t.Fatal(err)
+	}
+	served := tlsutil.Fingerprint(conn.ConnectionState().PeerCertificates[0])
+	conn.Close()
+	pemBytes, err := os.ReadFile(filepath.Join(dataDir, "tls", "cert.pem"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	block, _ := pem.Decode(pemBytes)
+	stored, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := tlsutil.Fingerprint(stored); served != want {
+		t.Errorf("served certificate %s, stored %s", served, want)
+	}
+
+	// Plain HTTP is not served on the TLS port.
+	if resp, err := http.Get("http://" + addr + "/healthz"); err == nil { //nolint:noctx // test
+		resp.Body.Close()
+		if resp.StatusCode == http.StatusOK {
+			t.Error("plain HTTP served with TLS enabled")
+		}
+	}
+	stop()
 
 	c := config.Default()
 	c.DataDir = dataDir
 	if insecure, err := c.EnsureDataDir(); err != nil || insecure {
 		t.Errorf("data dir not created securely: insecure=%v err=%v", insecure, err)
 	}
-	if _, err := os.Stat(filepath.Join(dataDir, store.FileName)); err != nil {
-		t.Errorf("database not created: %v", err)
+	for _, f := range []string{store.FileName, "tls/cert.pem", "tls/key.pem"} {
+		if _, err := os.Stat(filepath.Join(dataDir, f)); err != nil {
+			t.Errorf("%s not created: %v", f, err)
+		}
+	}
+}
+
+func TestServeWithoutTLS(t *testing.T) {
+	dataDir := filepath.Join(t.TempDir(), "data")
+	_, stop := startServer(t, dataDir, http.DefaultClient, "http", "--tls=false")
+	stop()
+	if _, err := os.Stat(filepath.Join(dataDir, "tls")); !os.IsNotExist(err) {
+		t.Errorf("TLS material created with --tls=false: %v", err)
+	}
+}
+
+func TestServeUserCertificate(t *testing.T) {
+	// Generate a certificate pair with a first run, then pass it explicitly.
+	gen := filepath.Join(t.TempDir(), "gen")
+	_, stop := startServer(t, gen, insecureClient(), "https")
+	stop()
+
+	dataDir := filepath.Join(t.TempDir(), "data")
+	_, stop = startServer(t, dataDir, insecureClient(), "https",
+		"--tls-cert", filepath.Join(gen, "tls/cert.pem"), "--tls-key", filepath.Join(gen, "tls/key.pem"))
+	stop()
+	if _, err := os.Stat(filepath.Join(dataDir, "tls")); !os.IsNotExist(err) {
+		t.Errorf("self-signed certificate generated although user files were given: %v", err)
+	}
+}
+
+func TestTLSFlagValidation(t *testing.T) {
+	for _, args := range [][]string{
+		{"--tls-cert", "/x/cert.pem"},
+		{"--tls=false", "--tls-cert", "/x/c.pem", "--tls-key", "/x/k.pem"},
+	} {
+		_, _, err := execute(context.Background(), t, noEnv, append(args, "--data-dir", t.TempDir())...)
+		if err == nil || !strings.Contains(err.Error(), "--tls") {
+			t.Errorf("%v: err = %v", args, err)
+		}
 	}
 }
 

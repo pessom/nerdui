@@ -49,6 +49,12 @@ type Config struct {
 	NerdctlPath string
 	// SkipNerdctlVersionCheck disables the major.minor compatibility check (ADR-0011).
 	SkipNerdctlVersionCheck bool
+	// TLS enables HTTPS (default). Disable only behind a TLS-terminating reverse proxy.
+	TLS bool
+	// TLSCert and TLSKey are a user-provided PEM certificate and key; when both are empty a
+	// self-signed certificate is generated in <DataDir>/tls (ADR-0005).
+	TLSCert string
+	TLSKey  string
 	// LogLevel is one of debug, info, warn, error.
 	LogLevel string
 }
@@ -61,9 +67,13 @@ func Default() Config {
 		Namespace:         DefaultNamespace,
 		DataDir:           DefaultDataDir,
 		NerdctlPath:       DefaultNerdctlPath,
+		TLS:               true,
 		LogLevel:          DefaultLogLevel,
 	}
 }
+
+// TLSDir is where the self-signed certificate is kept.
+func (c Config) TLSDir() string { return filepath.Join(c.DataDir, "tls") }
 
 // EffectiveStacksDir returns StacksDir or its default inside DataDir.
 func (c Config) EffectiveStacksDir() string {
@@ -106,6 +116,12 @@ func (c Config) Validate() error {
 	}
 	if c.NerdctlPath == "" {
 		errs = append(errs, errors.New("--nerdctl-path must not be empty"))
+	}
+	if (c.TLSCert == "") != (c.TLSKey == "") {
+		errs = append(errs, errors.New("--tls-cert and --tls-key must be set together"))
+	}
+	if !c.TLS && (c.TLSCert != "" || c.TLSKey != "") {
+		errs = append(errs, errors.New("--tls-cert/--tls-key cannot be used with --tls=false"))
 	}
 	var l slog.Level
 	if err := l.UnmarshalText([]byte(c.LogLevel)); err != nil {

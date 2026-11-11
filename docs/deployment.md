@@ -74,6 +74,26 @@ sudo nerdctl run -d --name nerdui --restart unless-stopped \
   ghcr.io/pessom/nerdui:latest
 ```
 
+## HTTPS and certificates
+
+nerdui serves **HTTPS on port 9443** by default ([ADR-0005](adr/0005-authentication-sessions-tls.md)).
+
+- **Self-signed (default).** On first start nerdui generates an ECDSA certificate in
+  `<data-dir>/tls/` for `localhost`, the hostname and all local IP addresses (valid 825 days,
+  renewed automatically 30 days before expiry). Browsers show a warning on the first visit.
+  The startup log prints the certificate's SHA-256 fingerprint — compare it with the one your
+  browser shows before accepting:
+
+  ```bash
+  journalctl -u nerdui | grep sha256        # binary as a service
+  sudo nerdctl logs nerdui | grep sha256    # container
+  ```
+
+- **Your own certificate.** `--tls-cert /path/fullchain.pem --tls-key /path/privkey.pem`. Files are
+  re-read when they change (e.g. certbot renewals), no restart needed.
+- **Behind a reverse proxy** that terminates TLS (Caddy, Traefik, nginx): `--tls=false` and bind
+  to localhost (`--listen 127.0.0.1:9443`). Never expose plain HTTP to the network.
+
 ## Health check
 
 `GET /healthz` returns `200 {"status":"ok"}`. `GET /api/v1/version` reports containerd connectivity.

@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -18,6 +19,7 @@ import (
 	"github.com/pessom/nerdui/internal/runtime"
 	"github.com/pessom/nerdui/internal/server"
 	"github.com/pessom/nerdui/internal/store"
+	"github.com/pessom/nerdui/internal/tlsutil"
 	"github.com/pessom/nerdui/internal/version"
 	"github.com/pessom/nerdui/web"
 )
@@ -59,6 +61,19 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 	if err != nil {
 		return err
 	}
+	scheme := "http"
+	if cfg.TLS {
+		tlsCfg, err := tlsConfig(cfg, logger)
+		if err != nil {
+			_ = ln.Close()
+			return err
+		}
+		ln = tls.NewListener(ln, tlsCfg)
+		scheme = "https"
+	} else {
+		logger.Warn("TLS is disabled: passwords and terminal sessions travel unencrypted; " +
+			"use --tls=false only behind a TLS-terminating reverse proxy")
+	}
 
 	rt := runtime.New(cfg.ContainerdAddress, cfg.Namespace)
 	defer func() { _ = rt.Close() }()
@@ -72,7 +87,7 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 	go func() { errCh <- srv.Serve(ln) }()
 
 	logger.Info("nerdui started",
-		"listen", ln.Addr().String(),
+		"url", scheme+"://"+ln.Addr().String(),
 		"containerd", cfg.ContainerdAddress,
 		"namespace", cfg.Namespace,
 		"data_dir", cfg.DataDir,
@@ -94,6 +109,37 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 		}
 		return nil
 	}
+}
+
+// tlsConfig prepares the certificate manager (ADR-0005) and logs what is served so users
+// can compare the fingerprint with the one shown by their browser.
+func tlsConfig(cfg config.Config, logger *slog.Logger) (*tls.Config, error) {
+	logf := func(format string, args ...any) { logger.Info(fmt.Sprintf(format, args...)) }
+	var (
+		mgr *tlsutil.Manager
+		err error
+	)
+	if cfg.TLSCert != "" {
+		mgr, err = tlsutil.FromFiles(cfg.TLSCert, cfg.TLSKey, tlsutil.WithLogf(logf))
+	} else {
+		mgr, err = tlsutil.SelfSigned(cfg.TLSDir(), tlsutil.LocalHosts(), tlsutil.WithLogf(logf))
+	}
+	if err != nil {
+		return nil, err
+	}
+	info := mgr.Info()
+	ips := make([]string, 0, len(info.IPAddresses))
+	for _, ip := range info.IPAddresses {
+		ips = append(ips, ip.String())
+	}
+	logger.Info("TLS certificate",
+		"self_signed", info.SelfSigned,
+		"file", info.CertFile,
+		"expires", info.NotAfter.Format(time.DateOnly),
+		"dns_names", info.DNSNames,
+		"ip_addresses", ips,
+		"sha256", info.SHA256)
+	return mgr.TLSConfig(), nil
 }
 
 // listen opens the TCP listener and turns common failures into actionable messages.

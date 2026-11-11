@@ -20,7 +20,7 @@ containers, images, networks and volumes managed from the UI stay fully compatib
 # on a Linux host with containerd + nerdctl
 curl -fsSLO https://github.com/pessom/nerdui/releases/latest/download/nerdui_<version>_linux_amd64.tar.gz
 tar -xzf nerdui_*_linux_amd64.tar.gz
-sudo ./nerdui --listen 127.0.0.1:9443
+sudo ./nerdui --listen 127.0.0.1:9443   # then open https://localhost:9443
 ```
 
 ### Container image
@@ -37,7 +37,7 @@ Every flag has an environment variable `NERDUI_<FLAG>`; command-line flags take 
 
 | Flag | Env | Default | Description |
 | ---- | --- | ------- | ----------- |
-| `--listen` | `NERDUI_LISTEN` | `:9443` | Listen address (HTTPS once TLS lands, #120) |
+| `--listen` | `NERDUI_LISTEN` | `:9443` | Listen address |
 | `--address` | `NERDUI_ADDRESS` | `/run/containerd/containerd.sock` | containerd socket |
 | `--namespace` | `NERDUI_NAMESPACE` | `default` | Default containerd namespace |
 | `--data-dir` | `NERDUI_DATA_DIR` | `/var/lib/nerdui` | nerdui state (database, TLS, stacks); created with mode `0700` |
@@ -45,6 +45,8 @@ Every flag has an environment variable `NERDUI_<FLAG>`; command-line flags take 
 | `--stacks-scan-dirs` | `NERDUI_STACKS_SCAN_DIRS` | — | Comma-separated directories scanned for existing compose projects |
 | `--nerdctl-path` | `NERDUI_NERDCTL_PATH` | `nerdctl` | Host nerdctl binary |
 | `--skip-nerdctl-version-check` | `NERDUI_SKIP_NERDCTL_VERSION_CHECK` | `false` | Allow an unsupported nerdctl version |
+| `--tls` | `NERDUI_TLS` | `true` | Serve HTTPS; `--tls=false` only behind a TLS-terminating reverse proxy |
+| `--tls-cert` / `--tls-key` | `NERDUI_TLS_CERT` / `NERDUI_TLS_KEY` | self-signed in `<data-dir>/tls` | Your own PEM certificate and key (reloaded when the files change) |
 | `--log-level` | `NERDUI_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
 
 Subcommands: `nerdui serve` (default), `nerdui version`, `nerdui admin reset-password <user>`.

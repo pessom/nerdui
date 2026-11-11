@@ -38,7 +38,7 @@ ssh server 'sudo /tmp/nerdui --listen 127.0.0.1:9443 --log-level debug'
 # 3. In another terminal: tunnel the port
 ssh -N -L 9443:127.0.0.1:9443 server
 
-# 4. Open http://localhost:9443
+# 4. Open https://localhost:9443 (accept the self-signed certificate)
 ```
 
 ### Frontend hot reload
@@ -46,7 +46,7 @@ ssh -N -L 9443:127.0.0.1:9443 server
 Run the backend on the server (steps 2–3 above), then locally:
 
 ```bash
-make web-dev   # Vite on http://localhost:5173, proxies /api to http://localhost:9443
+make web-dev   # Vite on http://localhost:5173, proxies /api to https://localhost:9443
 # or point to another backend:
 NERDUI_API_URL=http://localhost:9090 make web-dev
 ```
