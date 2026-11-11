@@ -1,6 +1,6 @@
 # 0003. nerdctl binary is a required runtime dependency
 
-- **Status:** Accepted (amends [0001](0001-go-containerd-socket.md))
+- **Status:** Accepted (amends [0001](0001-go-containerd-socket.md)); version policy in [0011](0011-nerdctl-version-policy.md)
 - **Date:** 2026-11-11
 
 ## Context
@@ -58,7 +58,8 @@ is used as follows:
 
 - Containers created via nerdui are indistinguishable from CLI-created ones and keep working if
   nerdui is removed.
-- nerdctl and nerdui versions should be compatible; we test against the nerdctl version pinned in
-  `go.mod` and document the supported range.
+- nerdctl and nerdui versions must match by `major.minor`
+  ([0011](0011-nerdctl-version-policy.md)); we test against the nerdctl version pinned in
+  `go.mod`.
 - Rootless containerd/nerdctl is out of scope for MVP (different hook wrapping via
   `rootlessutil`).

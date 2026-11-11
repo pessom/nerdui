@@ -116,7 +116,11 @@ web/src/
 
 - nerdui runs **on the containerd host, as root**, alongside a **rootful nerdctl** installation
   (rootless is out of scope for MVP).
-- Required: containerd 2.x, nerdctl 2.x binary, CNI plugins (e.g. `nerdctl-full`).
+- Required: containerd 2.x, nerdctl binary with the **same `major.minor` as the linked nerdctl
+  packages** (otherwise read-only mode, [ADR-0011](adr/0011-nerdctl-version-policy.md)), CNI
+  plugins (e.g. `nerdctl-full`).
+- Default port `9443` (HTTPS); change with `--listen`. On bind failure nerdui exits with a clear
+  error suggesting `--listen`.
 - The containerd connection is lazy: nerdui starts even if containerd is down and reports the
   error via `/api/v1/version` and the UI.
 
@@ -124,13 +128,14 @@ web/src/
 
 | Flag | Env | Default |
 | --- | --- | --- |
-| `--listen` | `NERDUI_LISTEN` | `:8443` |
+| `--listen` | `NERDUI_LISTEN` | `:9443` (HTTPS) |
 | `--address` | `NERDUI_ADDRESS` | `/run/containerd/containerd.sock` |
 | `--namespace` | `NERDUI_NAMESPACE` | `default` |
 | `--data-dir` | `NERDUI_DATA_DIR` | `/var/lib/nerdui` |
 | `--stacks-dir` | `NERDUI_STACKS_DIR` | `<data-dir>/stacks` |
 | `--stacks-scan-dirs` | `NERDUI_STACKS_SCAN_DIRS` | empty |
 | `--nerdctl-path` | `NERDUI_NERDCTL_PATH` | `nerdctl` from `PATH` |
+| `--skip-nerdctl-version-check` | `NERDUI_SKIP_NERDCTL_VERSION_CHECK` | `false` ([ADR-0011](adr/0011-nerdctl-version-policy.md)) |
 | `--tls` / `--tls-cert` / `--tls-key` | `NERDUI_TLS*` | `true` / generated |
 | `--log-level` | `NERDUI_LOG_LEVEL` | `info` |
 
