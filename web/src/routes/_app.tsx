@@ -3,7 +3,7 @@
 
 import { AppShell, Burger, Group, ScrollArea, Text } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { IconLayoutDashboard } from "@tabler/icons-react";
+import { IconBox, IconLayoutDashboard } from "@tabler/icons-react";
 import { Link, Outlet, createFileRoute, redirect, useParams } from "@tanstack/react-router";
 import { ApiError } from "../api/client";
 import { meQuery, setupQuery } from "../api/queries";
@@ -80,6 +80,13 @@ function AppLayout() {
             activeOptions={{ exact: true }}
             label="Overview"
             leftSection={<IconLayoutDashboard size={18} stroke={1.5} />}
+            onClick={close}
+          />
+          <RouterNavLink
+            to="/env/$env/containers"
+            params={{ env }}
+            label="Containers"
+            leftSection={<IconBox size={18} stroke={1.5} />}
             onClick={close}
           />
         </ScrollArea>

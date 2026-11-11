@@ -13,6 +13,7 @@ import "context"
 // together with the features that need them.
 type Runtime interface {
 	System() System
+	Containers() Containers
 	Events() EventSource
 	Close() error
 }

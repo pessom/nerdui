@@ -17,6 +17,7 @@ import (
 	containerd "github.com/containerd/containerd/v2/client"
 	"github.com/containerd/errdefs"
 	"github.com/containerd/errdefs/pkg/errgrpc"
+	ncdefaults "github.com/containerd/nerdctl/v2/pkg/defaults"
 	"github.com/containerd/nerdctl/v2/pkg/labels"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -57,6 +58,8 @@ type Client struct {
 	address   string
 	namespace string
 	nerdctl   *nerdctlChecker
+	// nerdctlDataRoot is nerdctl's data_root (names, ports, logs, volumes).
+	nerdctlDataRoot string
 
 	mu     sync.Mutex
 	client *containerd.Client
@@ -65,7 +68,11 @@ type Client struct {
 // New creates a client. The connection is established on first use, so nerdui
 // can start even when containerd is temporarily unavailable.
 func New(address, namespace string, opts ...Option) *Client {
-	c := &Client{address: address, namespace: namespace, nerdctl: newNerdctlChecker("nerdctl", false)}
+	c := &Client{
+		address: address, namespace: namespace,
+		nerdctl:         newNerdctlChecker("nerdctl", false),
+		nerdctlDataRoot: ncdefaults.DataRoot(),
+	}
 	for _, o := range opts {
 		o(c)
 	}
@@ -79,6 +86,15 @@ type Option func(*Client)
 // (ADR-0003, ADR-0011).
 func WithNerdctl(path string, skipVersionCheck bool) Option {
 	return func(c *Client) { c.nerdctl = newNerdctlChecker(path, skipVersionCheck) }
+}
+
+// WithNerdctlDataRoot sets nerdctl's data_root (from nerdctl.toml, see LoadNerdctlConfig).
+func WithNerdctlDataRoot(dir string) Option {
+	return func(c *Client) {
+		if dir != "" {
+			c.nerdctlDataRoot = dir
+		}
+	}
 }
 
 // Nerdctl reports the host nerdctl binary and whether mutations are allowed (ADR-0011).

@@ -20,6 +20,8 @@ tags:
     description: First-run setup, login and sessions (ADR-0005)
   - name: environments
     description: Managed containerd hosts (ADR-0006); MVP has only "local"
+  - name: containers
+    description: Containers of an environment
 security:
   - session: []
 paths:
@@ -243,6 +245,35 @@ paths:
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/containers:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - $ref: "#/components/parameters/Namespace"
+    get:
+      tags: [containers]
+      operationId: listContainers
+      summary: All containers of a namespace (any state), newest first
+      description: |
+        Requires `containers:read`. Filtering and sorting are done by clients (ADR-0006).
+        Live updates: refetch on events from `/events/stream`.
+      responses:
+        "200":
+          description: Containers
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [namespace, containers]
+                properties:
+                  namespace: { type: string }
+                  containers:
+                    type: array
+                    items: { $ref: "#/components/schemas/Container" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
 components:
   securitySchemes:
     session:
@@ -361,6 +392,47 @@ components:
             status: { type: string, enum: [connected, unavailable] }
             error: { type: string }
             runtime: { $ref: "#/components/schemas/RuntimeVersions" }
+    Container:
+      type: object
+      required: [id, name, namespace, image, command, state, createdAt, ports, labels]
+      properties:
+        id: { type: string, description: Full container ID (64 hex characters) }
+        name: { type: string, description: nerdctl name (may be empty for non-nerdctl containers) }
+        namespace: { type: string }
+        image: { type: string }
+        command: { type: string }
+        state: { type: string, enum: [created, running, paused, restarting, exited, unknown] }
+        health: { type: string, enum: [healthy, unhealthy, starting] }
+        exitCode: { type: integer }
+        exitedAt: { type: string, format: date-time }
+        startedAt:
+          type: string
+          format: date-time
+          description: Start time of the container's main process (running/paused containers)
+        createdAt: { type: string, format: date-time }
+        ports:
+          type: array
+          items: { $ref: "#/components/schemas/Port" }
+        compose: { $ref: "#/components/schemas/ComposeRef" }
+        platform: { type: string }
+        runtime: { type: string }
+        labels:
+          type: object
+          additionalProperties: { type: string }
+    Port:
+      type: object
+      required: [hostPort, containerPort, protocol]
+      properties:
+        hostIp: { type: string }
+        hostPort: { type: integer }
+        containerPort: { type: integer }
+        protocol: { type: string, enum: [tcp, udp, sctp] }
+    ComposeRef:
+      type: object
+      required: [project]
+      properties:
+        project: { type: string }
+        service: { type: string }
     Event:
       type: object
       required: [ts, topic, kind, action]
