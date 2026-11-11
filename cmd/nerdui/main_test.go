@@ -317,21 +317,36 @@ func TestHealthURL(t *testing.T) {
 
 func TestHealthcheck(t *testing.T) {
 	ctx := context.Background()
+	dataDir := filepath.Join(t.TempDir(), "data")
 
-	addr, stop := startServer(t, filepath.Join(t.TempDir(), "data"), insecureClient(), "https")
-	out, _, err := execute(ctx, t, noEnv, "healthcheck", "--listen", addr)
+	addr, stop := startServer(t, dataDir, insecureClient(), "https")
+	out, _, err := execute(ctx, t, noEnv, "healthcheck", "--listen", addr, "--data-dir", dataDir)
 	if err != nil || strings.TrimSpace(out) != "ok" {
 		t.Errorf("TLS server: %q, %v", out, err)
 	}
 	// Configuration from the environment only, as in a container.
 	env := func(k string) (string, bool) {
-		if k == "NERDUI_LISTEN" {
+		switch k {
+		case "NERDUI_LISTEN":
 			return addr, true
+		case "NERDUI_DATA_DIR":
+			return dataDir, true
 		}
 		return "", false
 	}
 	if _, _, err := execute(ctx, t, env, "healthcheck"); err != nil {
 		t.Errorf("env-only configuration: %v", err)
+	}
+	// The certificate is pinned: another certificate (other data dir) is rejected.
+	other := filepath.Join(t.TempDir(), "other")
+	_, stopOther := startServer(t, other, insecureClient(), "https")
+	stopOther()
+	if _, _, err := execute(ctx, t, noEnv, "healthcheck", "--listen", addr, "--data-dir", other); err == nil {
+		t.Error("server with a different certificate reported healthy")
+	}
+	// Missing certificate gives an actionable error.
+	if _, _, err := execute(ctx, t, noEnv, "healthcheck", "--listen", addr, "--data-dir", t.TempDir()); err == nil || !strings.Contains(err.Error(), "--data-dir") {
+		t.Errorf("missing certificate: %v", err)
 	}
 	// Wrong scheme is reported as unhealthy.
 	if _, _, err := execute(ctx, t, noEnv, "healthcheck", "--listen", addr, "--tls=false"); err == nil {
@@ -339,9 +354,17 @@ func TestHealthcheck(t *testing.T) {
 	}
 	stop()
 
-	if _, _, err := execute(ctx, t, noEnv, "healthcheck", "--listen", addr, "--timeout", "1s"); err == nil || !strings.Contains(err.Error(), "unhealthy") {
+	if _, _, err := execute(ctx, t, noEnv, "healthcheck", "--listen", addr, "--data-dir", dataDir, "--timeout", "1s"); err == nil || !strings.Contains(err.Error(), "unhealthy") {
 		t.Errorf("stopped server: %v", err)
 	}
+
+	// User-provided certificate.
+	cert, key := filepath.Join(dataDir, "tls/cert.pem"), filepath.Join(dataDir, "tls/key.pem")
+	addr, stop = startServer(t, filepath.Join(t.TempDir(), "data"), insecureClient(), "https", "--tls-cert", cert, "--tls-key", key)
+	if _, _, err := execute(ctx, t, noEnv, "healthcheck", "--listen", addr, "--tls-cert", cert); err != nil {
+		t.Errorf("user certificate: %v", err)
+	}
+	stop()
 
 	addr, stop = startServer(t, filepath.Join(t.TempDir(), "data"), http.DefaultClient, "http", "--tls=false")
 	defer stop()
