@@ -1,6 +1,7 @@
 # Architecture
 
-This document describes the target architecture for MVP (milestone `v0.1 (MVP)`) and the
+This document describes the target architecture for MVP (milestones `v0.1.0-alpha.1` …
+`v0.1.0`; foundation work is tracked with the `area/foundation` label) and the
 extension points reserved for v2. Decisions and their rationale are recorded as
 [ADRs](adr/README.md).
 

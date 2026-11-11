@@ -6,7 +6,8 @@ Releases are fully automated with [GoReleaser](https://goreleaser.com) in
 ## Versioning
 
 [Semantic Versioning](https://semver.org). Before 1.0, minor versions may contain breaking
-changes. Tags with a suffix (`v0.2.0-rc.1`) are published as pre-releases and do not update the
+changes. Tags with a suffix (`v0.1.0-alpha.1`, `v0.1.0-beta.1`, `v0.2.0-rc.1`) are published as
+pre-releases and do not update the
 `latest` image tag.
 
 ## Steps
