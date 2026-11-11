@@ -216,6 +216,34 @@ paths:
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
         "503": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/events/stream:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+    get:
+      tags: [environments]
+      operationId: streamEvents
+      summary: containerd events (WebSocket)
+      description: |
+        WebSocket stream (ADR-0007); requires `system:read` and a same-origin upgrade.
+        Text frames carry `StreamMessage` envelopes whose `data` is an `Event`. The first
+        message is the connection state (`kind: nerdui`, `action: connected|disconnected`);
+        clients refetch their data on `connected` because events missed during an outage are
+        not replayed. A client that falls behind is closed with code 1013 and should reconnect.
+      parameters:
+        - name: namespace
+          in: query
+          schema: { type: string }
+          description: containerd namespace; empty = environment default, `*` = all namespaces
+        - name: topics
+          in: query
+          schema: { type: string, examples: ["/containers/,/tasks/"] }
+          description: Comma-separated topic prefixes; empty = all topics
+      responses:
+        "101": { description: Switching protocols (WebSocket) }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
 components:
   securitySchemes:
     session:
@@ -334,6 +362,34 @@ components:
             status: { type: string, enum: [connected, unavailable] }
             error: { type: string }
             runtime: { $ref: "#/components/schemas/RuntimeVersions" }
+    Event:
+      type: object
+      required: [ts, topic, kind, action]
+      properties:
+        ts: { type: string, format: date-time }
+        namespace: { type: string }
+        topic: { type: string, examples: ["/containers/create", "/tasks/exit", "/nerdui/connected"] }
+        kind: { type: string, examples: ["container", "task", "image", "namespace", "nerdui"] }
+        action: { type: string, examples: ["create", "exit", "connected"] }
+        id: { type: string, description: Container ID for container/task events, name for image/namespace events }
+        attributes:
+          type: object
+          additionalProperties: { type: string }
+          description: e.g. image, runtime, pid, exitStatus, execId
+    StreamMessage:
+      type: object
+      description: WebSocket text-frame envelope (ADR-0007)
+      required: [type, ts]
+      properties:
+        type: { type: string, enum: [data, error, end] }
+        data: {}
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code: { type: string }
+            message: { type: string }
+        ts: { type: string, format: date-time }
     User:
       type: object
       required: [id, username, role]

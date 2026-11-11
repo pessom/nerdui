@@ -91,7 +91,7 @@ test-web: ## Run frontend unit tests
 
 .PHONY: test-integration
 test-integration: ## Run integration tests against real containerd (Linux, root)
-	go test -race -tags integration -count=1 ./...
+	go test -p 1 -race -tags integration -count=1 ./...
 
 .PHONY: lint
 lint: lint-go lint-web spdx-check ## Run all linters

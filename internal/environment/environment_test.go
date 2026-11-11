@@ -12,8 +12,9 @@ import (
 
 type rt struct{ closed *int }
 
-func (r rt) System() runtime.System { return nil }
-func (r rt) Close() error           { *r.closed++; return nil }
+func (r rt) System() runtime.System      { return nil }
+func (r rt) Events() runtime.EventSource { return nil }
+func (r rt) Close() error                { *r.closed++; return nil }
 
 var _ runtime.Runtime = rt{}
 

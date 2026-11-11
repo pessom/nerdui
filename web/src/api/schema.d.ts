@@ -179,6 +179,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/environments/{env}/events/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        /**
+         * containerd events (WebSocket)
+         * @description WebSocket stream (ADR-0007); requires `system:read` and a same-origin upgrade.
+         *     Text frames carry `StreamMessage` envelopes whose `data` is an `Event`. The first
+         *     message is the connection state (`kind: nerdui`, `action: connected|disconnected`);
+         *     clients refetch their data on `connected` because events missed during an outage are
+         *     not replayed. A client that falls behind is closed with code 1013 and should reconnect.
+         */
+        get: operations["streamEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -254,6 +281,49 @@ export interface components {
             status: "connected" | "unavailable";
             error?: string;
             runtime?: components["schemas"]["RuntimeVersions"];
+        };
+        Event: {
+            /** Format: date-time */
+            ts: string;
+            namespace?: string;
+            /**
+             * @example /containers/create
+             * @example /tasks/exit
+             * @example /nerdui/connected
+             */
+            topic: string;
+            /**
+             * @example container
+             * @example task
+             * @example image
+             * @example namespace
+             * @example nerdui
+             */
+            kind: string;
+            /**
+             * @example create
+             * @example exit
+             * @example connected
+             */
+            action: string;
+            /** @description Container ID for container/task events */
+            id?: string;
+            /** @description e.g. image, runtime, pid, exitStatus, execId */
+            attributes?: {
+                [key: string]: string;
+            };
+        };
+        /** @description WebSocket text-frame envelope (ADR-0007) */
+        StreamMessage: {
+            /** @enum {string} */
+            type: "data" | "error" | "end";
+            data?: unknown;
+            error?: {
+                code: string;
+                message: string;
+            };
+            /** Format: date-time */
+            ts: string;
         };
         User: {
             /** Format: int64 */
@@ -568,6 +638,36 @@ export interface operations {
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
             503: components["responses"]["Error"];
+        };
+    };
+    streamEvents: {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; empty = environment default, `*` = all namespaces */
+                namespace?: string;
+                /** @description Comma-separated topic prefixes; empty = all topics */
+                topics?: string;
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Switching protocols (WebSocket) */
+            101: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
         };
     };
 }

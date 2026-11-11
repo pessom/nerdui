@@ -37,7 +37,9 @@ func TestIntegrationVersions(t *testing.T) {
 
 	// CI runs a matrix of supported containerd versions (ADR-0012); make sure the expected
 	// daemon is actually the one under test.
-	if want := os.Getenv("NERDUI_TEST_EXPECT_CONTAINERD"); want != "" && !strings.HasPrefix(v.Containerd, want) {
+	want := os.Getenv("NERDUI_TEST_EXPECT_CONTAINERD")
+	t.Logf("NERDUI_TEST_EXPECT_CONTAINERD=%q", want)
+	if want != "" && !strings.HasPrefix(v.Containerd, want) {
 		t.Fatalf("containerd version = %q, want prefix %q", v.Containerd, want)
 	}
 }

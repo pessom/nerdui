@@ -77,6 +77,9 @@ func (o *Options) defaults() {
 	}
 }
 
+// StatusTryAgainLater (1013) tells clients to reconnect, e.g. after falling behind.
+const StatusTryAgainLater = websocket.StatusTryAgainLater
+
 // Close reasons sent to the client.
 const (
 	ReasonSlowConsumer = "slow consumer"

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/pessom/nerdui/internal/events"
 	"github.com/pessom/nerdui/internal/runtime"
 )
 
@@ -29,6 +30,8 @@ type Environment struct {
 	Kind             string
 	DefaultNamespace string
 	Runtime          runtime.Runtime
+	// Events fans out the environment's containerd events; Run it for the server lifetime.
+	Events *events.Hub
 }
 
 // Local returns the environment for the local containerd socket.
@@ -39,6 +42,7 @@ func Local(rt runtime.Runtime, defaultNamespace string) *Environment {
 		Kind:             KindLocal,
 		DefaultNamespace: defaultNamespace,
 		Runtime:          rt,
+		Events:           events.NewHub(rt.Events(), nil),
 	}
 }
 

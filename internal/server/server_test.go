@@ -16,6 +16,7 @@ import (
 	"testing/fstest"
 	"time"
 
+	"github.com/coder/websocket"
 	"github.com/go-chi/chi/v5"
 
 	"github.com/pessom/nerdui/internal/auth"
@@ -33,6 +34,7 @@ type fakeRuntime struct {
 
 func (f fakeRuntime) System() runtime.System                             { return f }
 func (f fakeRuntime) Close() error                                       { return nil }
+func (f fakeRuntime) Events() runtime.EventSource                        { return noEvents{} }
 func (f fakeRuntime) Versions(context.Context) (runtime.Versions, error) { return f.v, f.err }
 func (f fakeRuntime) Namespaces(context.Context) ([]string, error)       { return []string{"default"}, f.err }
 func (f fakeRuntime) Nerdctl(context.Context) runtime.NerdctlStatus {
@@ -262,9 +264,10 @@ func TestRouteAuthorization(t *testing.T) {
 		"GET /api/v1/auth/me":      "session:self",
 		"POST /api/v1/auth/logout": "session:self",
 
-		"GET /api/v1/environments":                  "system:read",
-		"GET /api/v1/environments/{env}/":           "system:read",
-		"GET /api/v1/environments/{env}/namespaces": "system:read",
+		"GET /api/v1/environments":                     "system:read",
+		"GET /api/v1/environments/{env}/":              "system:read",
+		"GET /api/v1/environments/{env}/namespaces":    "system:read",
+		"GET /api/v1/environments/{env}/events/stream": "system:read",
 	}
 	for k, v := range want {
 		if got[k] != v {
@@ -292,4 +295,39 @@ type denyAll struct{}
 
 func (denyAll) Authorize(context.Context, authz.Subject, authz.Action, authz.Resource) error {
 	return authz.ErrForbidden
+}
+
+type noEvents struct{}
+
+func (noEvents) Subscribe(context.Context) (<-chan runtime.Event, <-chan error, error) {
+	return nil, nil, runtime.ErrNotConnected
+}
+
+func TestEventsStreamThroughFullStack(t *testing.T) {
+	srv := newTestServer(t, Config{})
+	wsURL := "ws" + strings.TrimPrefix(srv.URL, "http") + "/api/v1/environments/local/events/stream"
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Without a session: rejected before the upgrade.
+	if _, resp, err := websocket.Dial(ctx, wsURL, nil); err == nil || resp == nil || resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("anonymous upgrade: %v %v", resp, err)
+	}
+
+	hdr := http.Header{"Cookie": {sessionCookie(t).String()}}
+	// Cross-origin upgrade with a valid session: rejected (CSRF protection).
+	cross := http.Header{"Cookie": hdr["Cookie"], "Origin": {"https://evil.example"}}
+	if _, resp, err := websocket.Dial(ctx, wsURL, &websocket.DialOptions{HTTPHeader: cross}); err == nil || resp == nil || resp.StatusCode != http.StatusForbidden {
+		t.Errorf("cross-origin upgrade: %v %v", resp, err)
+	}
+
+	c, _, err := websocket.Dial(ctx, wsURL, &websocket.DialOptions{HTTPHeader: hdr})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = c.CloseNow() }()
+	_, b, err := c.Read(ctx)
+	if err != nil || !strings.Contains(string(b), `"action":"disconnected"`) {
+		t.Errorf("first message: %s %v", b, err)
+	}
 }
