@@ -27,9 +27,10 @@ Success criteria for MVP (`v0.1`):
 
 ### 3.1 In scope (MVP)
 
-The 28 issues in milestone [`v0.1 (MVP)`](https://github.com/pessom/nerdui/milestone/1):
-containers (#10–#17), stacks (#24–#26, #28, #30, #31), images (#42–#44, #51, #52), volumes and
-networks (#57, #60, #62), host (#63, #65, #66), local users (#74), REST API (#87), dark theme (#90).
+28 feature issues — containers (#10–#17), stacks (#24–#26, #28, #30, #31), images (#42–#44,
+#51, #52), volumes and networks (#57, #60, #62), host (#63, #65, #66), local users (#74), REST API
+(#87), dark theme (#90) — plus 11 foundation issues (#118–#128, label `area/foundation`), release
+readiness (#129) and sponsorship (#116), delivered in four stages (see [Milestones](#11-milestones)).
 
 ### 3.2 Out of scope (MVP)
 
@@ -112,7 +113,7 @@ and `area/*` labels (maintainers also use the private project board "nerdui road
 
 ## 10. Acceptance criteria (MVP release)
 
-- All `v0.1 (MVP)` issues closed with tests.
+- All issues of the `v0.1.0-*` stage milestones and `v0.1.0` closed with tests.
 - NFR-001 … NFR-018 verified (performance measured on an arm64 SBC and an amd64 host).
 - Integration test suite covers create → inspect → logs → stop → remove for containers and
   up → status → down for stacks, cross-checked with the `nerdctl` CLI.
@@ -120,10 +121,17 @@ and `area/*` labels (maintainers also use the private project board "nerdui road
 
 ## 11. Milestones
 
-| Milestone | Scope | Target date |
-| --------- | ----- | ----------- |
-| `v0.1 (MVP)` | 28 issues listed above | TBD |
-| `v0.2` | 33 issues: updates, GitOps, templates, notifications, multi-host, SSO/MFA | TBD |
+The MVP is delivered in stages; each stage ends with a pre-release tag (`-alpha.N`, `-beta.N`
+are published as GitHub pre-releases and do not move the `latest` image tag). No target dates are
+set — stages are ordered by dependency, and dates may be added once the delivery pace is known.
+
+| # | Milestone | Scope |
+| - | --------- | ----- |
+| 1 | [`v0.1.0-alpha.1`](https://github.com/pessom/nerdui/milestone/3) | Foundation #118–#125, #127, #128 (config, storage, TLS, auth, authz, environments, WebSocket, events, version checks, UI shell); local users #74; containers #10–#14; host info #66 |
+| 2 | [`v0.1.0-alpha.2`](https://github.com/pessom/nerdui/milestone/4) | Jobs #126; exec #15, stats #16, create #17; images #42–#44, #51, #52; events feed #65 |
+| 3 | [`v0.1.0-beta.1`](https://github.com/pessom/nerdui/milestone/5) | Stacks #24–#26, #28, #30, #31; volumes/networks/ports #57, #60, #62; dashboard #63; OpenAPI #87; dark theme #90 |
+| 4 | [`v0.1.0`](https://github.com/pessom/nerdui/milestone/1) | Release readiness #129 (NFR verification, clean-host install, arm64); sponsorship #116 |
+| — | [`v0.2`](https://github.com/pessom/nerdui/milestone/2) | 35 issues: updates, GitOps, templates, notifications, multi-host, SSO/MFA, reverse-proxy mode, ACME |
 
 ## 12. Open questions
 
