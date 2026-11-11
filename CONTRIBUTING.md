@@ -98,4 +98,5 @@ Suggested scopes: `api`, `runtime`, `containers`, `images`, `volumes`, `networks
 | `make test-integration` | Tests tagged `integration` against a real containerd (root)   |
 
 Integration tests live next to the code in `*_integration_test.go` files with
-`//go:build integration`. They run in CI on every PR using `nerdctl-full`.
+`//go:build integration`. They run in CI on every PR using `nerdctl-full`, as a matrix over the
+supported containerd versions (2.3 LTS and 2.4, see [ADR-0012](docs/adr/0012-containerd-version-support.md)).

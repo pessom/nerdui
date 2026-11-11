@@ -20,3 +20,4 @@ We record significant architectural decisions as ADRs
 | 0009 | [Authorization layer with per-action permissions](0009-authorization.md)                | Accepted              |
 | 0010 | [Frontend stack](0010-frontend-stack.md)                                                | Accepted              |
 | 0011 | [nerdctl version compatibility policy](0011-nerdctl-version-policy.md)                  | Accepted              |
+| 0012 | [Supported containerd versions](0012-containerd-version-support.md)                     | Accepted              |

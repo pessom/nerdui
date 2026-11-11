@@ -40,7 +40,8 @@ hosts; Docker Engine, Podman, Swarm, Kubernetes.
 ## 4. Environment and constraints
 
 - **Host OS:** Linux `amd64`, `arm64`; nerdui runs as root on the containerd host.
-- **containerd:** 2.x (1.7 best effort).
+- **containerd:** officially supported **2.3 (LTS)** and **2.4**, both covered by CI; other
+  versions work with an "unsupported" warning ([ADR-0012](../adr/0012-containerd-version-support.md)).
 - **nerdctl:** binary installed on the host (rootful) with the **same `major.minor` as the nerdctl
   packages linked into nerdui** (2.4.x for the current `go.mod`), CNI plugins — e.g.
   `nerdctl-full` ([ADR-0003](../adr/0003-nerdctl-binary-runtime-dependency.md),
@@ -133,6 +134,7 @@ _None at the moment._ Resolved on 2026-11-11:
 | Supported nerdctl versions and enforcement | Same `major.minor` as the linked packages; otherwise read-only mode ([ADR-0011](../adr/0011-nerdctl-version-policy.md)) |
 | Default listen port | `9443` (HTTPS), configurable via `--listen` / `NERDUI_LISTEN` |
 | First-run protection | One-time setup token printed to the log ([ADR-0005](../adr/0005-authentication-sessions-tls.md)) |
+| Supported containerd versions | 2.3 (LTS) and 2.4 in one build, CI matrix; others with a warning ([ADR-0012](../adr/0012-containerd-version-support.md)) |
 
 ## 13. Glossary
 

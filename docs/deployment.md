@@ -7,7 +7,7 @@
 ## Requirements
 
 - Linux `amd64` or `arm64`
-- containerd 2.x (1.7 is expected to work but not tested)
+- containerd **2.3 (LTS) or 2.4** — supported and tested in CI; other versions work with an "unsupported" warning ([ADR-0012](adr/0012-containerd-version-support.md))
 - **nerdctl installed on the host (required)** with CNI plugins, e.g. `nerdctl-full`. Its
   `major.minor` must match the nerdctl version nerdui is built with (see release notes);
   otherwise nerdui runs read-only ([ADR-0011](adr/0011-nerdctl-version-policy.md)).

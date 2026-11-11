@@ -8,6 +8,7 @@ package runtime
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -32,4 +33,10 @@ func TestIntegrationVersions(t *testing.T) {
 		t.Fatal("containerd version is empty")
 	}
 	t.Logf("containerd %s (%s), nerdctl lib %s", v.Containerd, v.ContainerdRevision, v.NerdctlLibrary)
+
+	// CI runs a matrix of supported containerd versions (ADR-0012); make sure the expected
+	// daemon is actually the one under test.
+	if want := os.Getenv("NERDUI_TEST_EXPECT_CONTAINERD"); want != "" && !strings.HasPrefix(v.Containerd, want) {
+		t.Fatalf("containerd version = %q, want prefix %q", v.Containerd, want)
+	}
 }

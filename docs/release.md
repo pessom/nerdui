@@ -28,6 +28,15 @@ changes. Tags with a suffix (`v0.2.0-rc.1`) are published as pre-releases and do
    - multi-arch image `ghcr.io/pessom/nerdui:<version>` (and `latest`), signed, with SBOM
    - GitHub Release with notes grouped by Conventional Commit type
 
+## Runtime version updates
+
+- **nerdctl minor bump** ([ADR-0011](adr/0011-nerdctl-version-policy.md)): one PR that updates
+  `go.mod`, `NERDCTL_VERSION` in `.github/workflows/ci.yml` and the docs; followed by a release.
+- **containerd matrix** ([ADR-0012](adr/0012-containerd-version-support.md)): when containerd
+  releases a new minor or designates a new LTS, update the `integration` matrix in
+  `.github/workflows/ci.yml`, ADR-0012, the technical specification, and the required status
+  checks of the `main` ruleset (`Integration (containerd X.Y)`).
+
 ## Local dry run
 
 ```bash
