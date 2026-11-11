@@ -95,11 +95,21 @@ jobs:
           go-version-file: go.mod
 
   integration:
-    name: Integration (containerd + nerdctl)
+    # Supported containerd versions: ADR-0012. Job names are required status checks.
+    name: Integration (containerd ${{ matrix.containerd.minor }})
     runs-on: ubuntu-latest
     needs: go
+    strategy:
+      fail-fast: false
+      matrix:
+        containerd:
+          - minor: "2.3"   # LTS
+            version: "2.3.7"
+          - minor: "2.4"   # bundled with nerdctl-full
+            version: ""
     env:
       NERDCTL_VERSION: "2.4.2"
+      CONTAINERD_VERSION: ${{ matrix.containerd.version }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
@@ -111,7 +121,16 @@ jobs:
           url="https://github.com/containerd/nerdctl/releases/download/v${NERDCTL_VERSION}/nerdctl-full-${NERDCTL_VERSION}-linux-${arch}.tar.gz"
           curl -fsSL "$url" -o /tmp/nerdctl-full.tar.gz
           sudo tar -C /usr/local -xzf /tmp/nerdctl-full.tar.gz
-          # Replace the runner's Docker-bundled containerd with the nerdctl-full one.
+      - name: Override containerd ${{ matrix.containerd.version }}
+        if: matrix.containerd.version != ''
+        run: |
+          arch=$(dpkg --print-architecture)
+          url="https://github.com/containerd/containerd/releases/download/v${CONTAINERD_VERSION}/containerd-${CONTAINERD_VERSION}-linux-${arch}.tar.gz"
+          curl -fsSL "$url" -o /tmp/containerd.tar.gz
+          sudo tar -C /usr/local -xzf /tmp/containerd.tar.gz
+      - name: Start containerd
+        run: |
+          # Replace the runner's Docker-bundled containerd with the one installed above.
           sudo systemctl stop docker.socket docker.service || true
           sudo systemctl daemon-reload
           sudo systemctl restart containerd
@@ -119,4 +138,6 @@ jobs:
       - name: Smoke test with nerdctl
         run: sudo nerdctl run --rm docker.io/library/alpine:3 echo ok
       - name: Run integration tests
+        env:
+          NERDUI_TEST_EXPECT_CONTAINERD: v${{ matrix.containerd.minor }}.
         run: sudo -E env "PATH=$PATH" go test -race -tags integration -count=1 ./...

@@ -116,7 +116,8 @@ web/src/
 
 - nerdui runs **on the containerd host, as root**, alongside a **rootful nerdctl** installation
   (rootless is out of scope for MVP).
-- Required: containerd 2.x, nerdctl binary with the **same `major.minor` as the linked nerdctl
+- Required: containerd **2.3 (LTS) or 2.4** (other versions show an "unsupported" warning,
+  [ADR-0012](adr/0012-containerd-version-support.md)), nerdctl binary with the **same `major.minor` as the linked nerdctl
   packages** (otherwise read-only mode, [ADR-0011](adr/0011-nerdctl-version-policy.md)), CNI
   plugins (e.g. `nerdctl-full`).
 - Default port `9443` (HTTPS); change with `--listen`. On bind failure nerdui exits with a clear
