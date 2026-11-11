@@ -37,8 +37,10 @@ volumes, networks, compose projects) already live in containerd and nerdctl.
   ```
 
 - **Schema migrations** are plain SQL files embedded in the binary (`internal/store/migrations`)
-  and applied on startup in a transaction; forward-only. Before applying migrations, the database
-  is copied with `VACUUM INTO nerdui.db.bak-<version>`.
+  and applied on startup in a transaction ([goose](https://github.com/pressly/goose)); forward-only.
+  Before migrating an existing database, a consistent copy is written with
+  `VACUUM INTO nerdui.db.bak-v<current-version>-<unix-time>` (mode `0600`); the timestamp keeps a
+  retried migration from failing on an existing backup file.
 - **Access pattern:** WAL mode, `busy_timeout`, a single writer connection plus a read pool;
   repositories in `internal/store` expose typed methods, handlers never write SQL.
 - **Registry credentials** (#51) are *not* stored in SQLite: nerdui reads/writes the same
