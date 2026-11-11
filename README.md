@@ -31,6 +31,19 @@ sudo nerdctl compose -f deploy/docker/compose.yaml up -d
 
 See [docs/deployment.md](docs/deployment.md) for required mounts and privileges.
 
+## First run
+
+On first start nerdui prints a one-time **setup token** to its log. Open the UI, enter the token and
+create the admin account — this prevents anyone else on your network from claiming a fresh install.
+
+```bash
+journalctl -u nerdui | grep setup_token        # binary as a service
+sudo nerdctl logs nerdui | grep setup_token    # container
+```
+
+Lost the admin password? On the host: `sudo nerdui admin reset-password admin` (add
+`--data-dir` if you changed it). All sessions of that user are revoked.
+
 ## Configuration
 
 Every flag has an environment variable `NERDUI_<FLAG>`; command-line flags take precedence.

@@ -94,6 +94,19 @@ nerdui serves **HTTPS on port 9443** by default ([ADR-0005](adr/0005-authenticat
 - **Behind a reverse proxy** that terminates TLS (Caddy, Traefik, nginx): `--tls=false` and bind
   to localhost (`--listen 127.0.0.1:9443`). Never expose plain HTTP to the network.
 
+## First run and account recovery
+
+- **Setup token.** Until the first admin exists, nerdui logs a one-time token
+  (`"setup_token": "..."`, level WARN). The setup page asks for it, so only someone with access to
+  the host's logs can create the admin. A new token is generated on every restart until setup is
+  completed.
+- **Sessions.** Server-side, cookie `nerdui_session` (HttpOnly, SameSite=Strict, Secure with TLS);
+  idle timeout 24 h, absolute lifetime 30 days. Failed logins are rate limited per IP and per
+  username (5 per minute, then blocks of 1–15 minutes) and logged.
+- **Password reset.** `nerdui admin reset-password <user>` on the host prompts for a new password
+  (or reads it with `--password-stdin`) and revokes that user's sessions. For the container image:
+  `sudo nerdctl exec -it nerdui nerdui admin reset-password admin`.
+
 ## Health check
 
 `GET /healthz` returns `200 {"status":"ok"}`. `GET /api/v1/version` reports containerd connectivity.

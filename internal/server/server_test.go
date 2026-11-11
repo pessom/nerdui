@@ -14,8 +14,12 @@ import (
 	"strings"
 	"testing"
 	"testing/fstest"
+	"time"
 
+	"github.com/pessom/nerdui/internal/auth"
 	"github.com/pessom/nerdui/internal/runtime"
+	"github.com/pessom/nerdui/internal/store"
+	"github.com/pessom/nerdui/internal/store/db"
 )
 
 type fakeRuntime struct {
@@ -25,17 +29,55 @@ type fakeRuntime struct {
 
 func (f fakeRuntime) Versions(context.Context) (runtime.Versions, error) { return f.v, f.err }
 
+const testPassword = "correct horse battery"
+
+// newTestServer starts the server with a real auth service backed by a temporary store that
+// already contains the user "admin"; sessionCookie logs in and returns the cookie.
+var sessionCookie func(t *testing.T) *http.Cookie
+
 func newTestServer(t *testing.T, cfg Config) *httptest.Server {
 	t.Helper()
-	cfg.Logger = slog.New(slog.NewTextHandler(io.Discard, nil))
+	ctx := context.Background()
+	st, err := store.Open(ctx, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	fast := auth.Argon2Params{Memory: 64, Time: 1, Threads: 1, SaltLen: 16, KeyLen: 32}
+	hash, _ := auth.HashPassword(testPassword, fast)
+	if _, err := st.Write().CreateUser(ctx, db.CreateUserParams{
+		Username: "admin", PasswordHash: hash, Role: auth.RoleAdmin, Now: time.Now().Unix(),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	svc, err := auth.New(ctx, st, auth.Options{Argon2: fast, Logger: logger})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sessionCookie = func(t *testing.T) *http.Cookie {
+		t.Helper()
+		_, is, err := svc.Login(ctx, "admin", testPassword, auth.Client{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return &http.Cookie{Name: auth.CookieName, Value: is.Token}
+	}
+
+	cfg.Auth = svc
+	cfg.Logger = logger
 	srv := httptest.NewServer(New(cfg))
 	t.Cleanup(srv.Close)
 	return srv
 }
 
-func get(t *testing.T, url string) (*http.Response, string) {
+func get(t *testing.T, url string, cookies ...*http.Cookie) (*http.Response, string) {
 	t.Helper()
-	resp, err := http.Get(url) //nolint:gosec,noctx // test helper
+	req, _ := http.NewRequest(http.MethodGet, url, nil) //nolint:noctx // test helper
+	for _, c := range cookies {
+		req.AddCookie(c)
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("GET %s: %v", url, err)
 	}
@@ -55,6 +97,47 @@ func TestHealthz(t *testing.T) {
 	}
 }
 
+func TestSecurityHeaders(t *testing.T) {
+	srv := newTestServer(t, Config{})
+	resp, _ := get(t, srv.URL+"/healthz")
+	for k, want := range map[string]string{
+		"X-Content-Type-Options": "nosniff",
+		"X-Frame-Options":        "DENY",
+		"Referrer-Policy":        "same-origin",
+	} {
+		if got := resp.Header.Get(k); got != want {
+			t.Errorf("%s = %q, want %q", k, got, want)
+		}
+	}
+}
+
+func TestVersionPublicWithoutRuntime(t *testing.T) {
+	srv := newTestServer(t, Config{Runtime: fakeRuntime{v: runtime.Versions{Containerd: "v2.4.2"}}})
+	resp, body := get(t, srv.URL+"/api/v1/version")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d", resp.StatusCode)
+	}
+	if strings.Contains(body, "v2.4.2") || strings.Contains(body, `"runtime"`) {
+		t.Errorf("runtime details exposed without a session: %s", body)
+	}
+	if !strings.Contains(body, `"source"`) || !strings.Contains(body, "AGPL-3.0-only") {
+		t.Errorf("source/license missing (AGPL section 13): %s", body)
+	}
+}
+
+func TestAuthRoutesMounted(t *testing.T) {
+	srv := newTestServer(t, Config{})
+	if resp, _ := get(t, srv.URL+"/api/v1/auth/me"); resp.StatusCode != http.StatusUnauthorized {
+		t.Errorf("me without session: %d", resp.StatusCode)
+	}
+	if resp, body := get(t, srv.URL+"/api/v1/auth/me", sessionCookie(t)); resp.StatusCode != http.StatusOK {
+		t.Errorf("me with session: %d %s", resp.StatusCode, body)
+	}
+	if resp, body := get(t, srv.URL+"/api/v1/setup"); resp.StatusCode != http.StatusOK || !strings.Contains(body, `"required":false`) {
+		t.Errorf("setup status: %d %s", resp.StatusCode, body)
+	}
+}
+
 func TestVersion(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -68,13 +151,16 @@ func TestVersion(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			srv := newTestServer(t, Config{Runtime: tt.rt})
-			resp, body := get(t, srv.URL+"/api/v1/version")
+			resp, body := get(t, srv.URL+"/api/v1/version", sessionCookie(t))
 			if resp.StatusCode != http.StatusOK {
 				t.Fatalf("status = %d", resp.StatusCode)
 			}
 			var got VersionResponse
 			if err := json.Unmarshal([]byte(body), &got); err != nil {
 				t.Fatalf("decode: %v", err)
+			}
+			if got.Runtime == nil {
+				t.Fatal("runtime missing for an authenticated request")
 			}
 			if got.Runtime.Containerd != tt.wantCtrd {
 				t.Errorf("containerd = %q, want %q", got.Runtime.Containerd, tt.wantCtrd)

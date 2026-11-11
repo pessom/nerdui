@@ -15,6 +15,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/pessom/nerdui/internal/auth"
 	"github.com/pessom/nerdui/internal/config"
 	"github.com/pessom/nerdui/internal/runtime"
 	"github.com/pessom/nerdui/internal/server"
@@ -75,11 +76,20 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 			"use --tls=false only behind a TLS-terminating reverse proxy")
 	}
 
+	authSvc, err := auth.New(ctx, st, auth.Options{SecureCookie: cfg.TLS, Logger: logger})
+	if err != nil {
+		_ = ln.Close()
+		return fmt.Errorf("init authentication: %w", err)
+	}
+	cleanupCtx, stopCleanup := context.WithCancel(ctx)
+	defer stopCleanup()
+	go authSvc.CleanupLoop(cleanupCtx)
+
 	rt := runtime.New(cfg.ContainerdAddress, cfg.Namespace)
 	defer func() { _ = rt.Close() }()
 
 	srv := &http.Server{
-		Handler:           server.New(server.Config{Runtime: rt, UI: web.Dist(), Logger: logger}),
+		Handler:           server.New(server.Config{Auth: authSvc, Runtime: rt, UI: web.Dist(), Logger: logger}),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 

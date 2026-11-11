@@ -6,7 +6,6 @@ package server
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"io/fs"
 	"log/slog"
@@ -18,6 +17,8 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
+	"github.com/pessom/nerdui/internal/auth"
+	"github.com/pessom/nerdui/internal/httpjson"
 	"github.com/pessom/nerdui/internal/runtime"
 	"github.com/pessom/nerdui/internal/version"
 )
@@ -29,6 +30,8 @@ type Runtime interface {
 
 // Config configures the HTTP server.
 type Config struct {
+	// Auth provides sessions and the authentication endpoints (required).
+	Auth    *auth.Service
 	Runtime Runtime
 	// UI is the compiled frontend. When nil, the UI is not served.
 	UI     fs.FS
@@ -36,10 +39,12 @@ type Config struct {
 }
 
 // VersionResponse is returned by GET /api/v1/version. Keep in sync with api/openapi.yaml.
+// Build information (including the AGPL source link) is public; runtime details are only
+// returned to authenticated users.
 type VersionResponse struct {
-	Nerdui  version.Info     `json:"nerdui"`
-	Runtime runtime.Versions `json:"runtime"`
-	Error   string           `json:"error,omitempty"`
+	Nerdui  version.Info      `json:"nerdui"`
+	Runtime *runtime.Versions `json:"runtime,omitempty"`
+	Error   string            `json:"error,omitempty"`
 }
 
 // New returns the root HTTP handler.
@@ -52,13 +57,15 @@ func New(cfg Config) http.Handler {
 	r.Use(middleware.RequestID)
 	r.Use(requestLogger(cfg.Logger))
 	r.Use(middleware.Recoverer)
+	r.Use(securityHeaders)
 
 	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
-		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+		httpjson.Write(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 
 	r.Route("/api/v1", func(r chi.Router) {
-		r.Get("/version", versionHandler(cfg.Runtime))
+		cfg.Auth.Routes(r)
+		r.With(cfg.Auth.OptionalSession).Get("/version", versionHandler(cfg.Runtime))
 	})
 
 	if cfg.UI != nil {
@@ -70,16 +77,16 @@ func New(cfg Config) http.Handler {
 func versionHandler(rt Runtime) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		resp := VersionResponse{Nerdui: version.Get()}
-		if rt != nil {
+		if _, ok := auth.PrincipalFrom(r.Context()); ok && rt != nil {
 			ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 			defer cancel()
 			v, err := rt.Versions(ctx)
-			resp.Runtime = v
+			resp.Runtime = &v
 			if err != nil {
 				resp.Error = err.Error()
 			}
 		}
-		writeJSON(w, http.StatusOK, resp)
+		httpjson.Write(w, http.StatusOK, resp)
 	}
 }
 
@@ -88,7 +95,7 @@ func spaHandler(ui fs.FS) http.HandlerFunc {
 	files := http.FileServerFS(ui)
 	return func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/api/") {
-			writeJSON(w, http.StatusNotFound, map[string]string{"error": "not found"})
+			httpjson.WriteError(w, http.StatusNotFound, httpjson.CodeNotFound, "not found")
 			return
 		}
 		name := strings.TrimPrefix(path.Clean(r.URL.Path), "/")
@@ -107,10 +114,16 @@ func spaHandler(ui fs.FS) http.HandlerFunc {
 	}
 }
 
-func writeJSON(w http.ResponseWriter, status int, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(v)
+// securityHeaders sets conservative browser security headers on every response.
+// A Content-Security-Policy is added together with the frontend shell (#128).
+func securityHeaders(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("X-Frame-Options", "DENY")
+		h.Set("Referrer-Policy", "same-origin")
+		next.ServeHTTP(w, r)
+	})
 }
 
 func requestLogger(log *slog.Logger) func(http.Handler) http.Handler {

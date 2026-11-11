@@ -53,6 +53,19 @@ describe("App", () => {
     expect(screen.getByText(/connection refused/)).toBeInTheDocument();
   });
 
+  it("hides runtime details for anonymous users", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json({ nerdui: versionResponse.nerdui })),
+    );
+
+    render(<App />);
+
+    expect(await screen.findByText("v0.1.0")).toBeInTheDocument();
+    expect(screen.getByText(/Sign in to see runtime details/)).toBeInTheDocument();
+    expect(screen.queryByText("containerd")).not.toBeInTheDocument();
+  });
+
   it("links to the source code of the running build (AGPL-3.0 section 13)", async () => {
     vi.stubGlobal(
       "fetch",

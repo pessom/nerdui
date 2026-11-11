@@ -101,6 +101,40 @@ func (q *Queries) GetSession(ctx context.Context, tokenHash []byte) (Session, er
 	return i, err
 }
 
+const getSessionWithUser = `-- name: GetSessionWithUser :one
+SELECT sessions.token_hash, sessions.user_id, sessions.csrf_token, sessions.created_at, sessions.last_seen_at, sessions.expires_at, sessions.client_ip, sessions.user_agent, users.id, users.username, users.password_hash, users.role, users.created_at, users.updated_at
+FROM sessions
+JOIN users ON users.id = sessions.user_id
+WHERE sessions.token_hash = ?
+`
+
+type GetSessionWithUserRow struct {
+	Session Session
+	User    User
+}
+
+func (q *Queries) GetSessionWithUser(ctx context.Context, tokenHash []byte) (GetSessionWithUserRow, error) {
+	row := q.db.QueryRowContext(ctx, getSessionWithUser, tokenHash)
+	var i GetSessionWithUserRow
+	err := row.Scan(
+		&i.Session.TokenHash,
+		&i.Session.UserID,
+		&i.Session.CsrfToken,
+		&i.Session.CreatedAt,
+		&i.Session.LastSeenAt,
+		&i.Session.ExpiresAt,
+		&i.Session.ClientIp,
+		&i.Session.UserAgent,
+		&i.User.ID,
+		&i.User.Username,
+		&i.User.PasswordHash,
+		&i.User.Role,
+		&i.User.CreatedAt,
+		&i.User.UpdatedAt,
+	)
+	return i, err
+}
+
 const touchSession = `-- name: TouchSession :execrows
 UPDATE sessions SET last_seen_at = ?1 WHERE token_hash = ?2
 `

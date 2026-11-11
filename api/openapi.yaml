@@ -16,12 +16,17 @@ servers:
 tags:
   - name: system
     description: Health and version information
+  - name: auth
+    description: First-run setup, login and sessions (ADR-0005)
+security:
+  - session: []
 paths:
   /healthz:
     get:
       tags: [system]
       operationId: getHealth
       summary: Liveness probe
+      security: []
       responses:
         "200":
           description: Server is alive
@@ -35,8 +40,11 @@ paths:
       operationId: getVersion
       summary: nerdui and runtime versions
       description: |
-        Always returns 200. When containerd is unreachable, `runtime.containerd`
+        Public. Build information, including the source URL required by AGPL-3.0
+        section 13, is always returned. `runtime` and `error` are only included for
+        authenticated requests. When containerd is unreachable, `runtime.containerd`
         is empty and `error` describes the problem.
+      security: [{}, session: []]
       responses:
         "200":
           description: Version information
@@ -44,7 +52,135 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/VersionResponse"
+  /api/v1/setup:
+    get:
+      tags: [auth]
+      operationId: getSetupStatus
+      summary: Whether the first admin account still has to be created
+      security: []
+      responses:
+        "200":
+          description: Setup status
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [required]
+                properties:
+                  required: { type: boolean }
+    post:
+      tags: [auth]
+      operationId: setup
+      summary: Create the first admin account using the setup token from the server log
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, username, password]
+              additionalProperties: false
+              properties:
+                token: { type: string, description: One-time token printed to the server log }
+                username: { type: string, pattern: "^[A-Za-z0-9._-]{1,64}$" }
+                password: { type: string, minLength: 12, maxLength: 1024 }
+      responses:
+        "201":
+          description: Admin created and logged in; sets the session cookie
+          headers:
+            Set-Cookie: { schema: { type: string }, description: "nerdui_session (HttpOnly, SameSite=Strict)" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SessionResponse" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "415": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+  /api/v1/auth/login:
+    post:
+      tags: [auth]
+      operationId: login
+      summary: Log in with username and password
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              additionalProperties: false
+              properties:
+                username: { type: string }
+                password: { type: string }
+      responses:
+        "200":
+          description: Logged in; sets the session cookie
+          headers:
+            Set-Cookie: { schema: { type: string }, description: "nerdui_session (HttpOnly, SameSite=Strict)" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SessionResponse" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "415": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+  /api/v1/auth/me:
+    get:
+      tags: [auth]
+      operationId: getMe
+      summary: Current user and CSRF token
+      responses:
+        "200":
+          description: Current session
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SessionResponse" }
+        "401": { $ref: "#/components/responses/Error" }
+  /api/v1/auth/logout:
+    post:
+      tags: [auth]
+      operationId: logout
+      summary: Revoke the current session
+      parameters:
+        - $ref: "#/components/parameters/CSRFToken"
+      responses:
+        "204": { description: Logged out; clears the session cookie }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
 components:
+  securitySchemes:
+    session:
+      type: apiKey
+      in: cookie
+      name: nerdui_session
+      description: |
+        Server-side session (ADR-0005). Unsafe requests (POST, PUT, PATCH, DELETE) must also
+        send the session's CSRF token in the X-CSRF-Token header.
+  parameters:
+    CSRFToken:
+      name: X-CSRF-Token
+      in: header
+      required: true
+      schema: { type: string }
+      description: CSRF token from SessionResponse.csrfToken
+  responses:
+    Error:
+      description: Error (ADR-0006)
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    RateLimited:
+      description: Too many attempts
+      headers:
+        Retry-After: { schema: { type: integer }, description: Seconds to wait }
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
   schemas:
     Health:
       type: object
@@ -80,7 +216,7 @@ components:
         nerdctlLibrary: { type: string, examples: ["v2.4.2"] }
     VersionResponse:
       type: object
-      required: [nerdui, runtime]
+      required: [nerdui]
       properties:
         nerdui:
           $ref: "#/components/schemas/BuildInfo"
@@ -88,8 +224,30 @@ components:
           $ref: "#/components/schemas/RuntimeVersions"
         error:
           type: string
+    User:
+      type: object
+      required: [id, username, role]
+      properties:
+        id: { type: integer, format: int64 }
+        username: { type: string }
+        role: { type: string, enum: [admin] }
+    SessionResponse:
+      type: object
+      required: [user, csrfToken, expiresAt]
+      properties:
+        user: { $ref: "#/components/schemas/User" }
+        csrfToken: { type: string }
+        expiresAt: { type: string, format: date-time }
     Error:
       type: object
       required: [error]
       properties:
-        error: { type: string }
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              enum: [invalid_argument, unauthenticated, forbidden, csrf_failed, not_found, conflict,
+                     rate_limited, unsupported_media_type, internal, unavailable]
+            message: { type: string }
