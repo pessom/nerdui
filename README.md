@@ -20,7 +20,7 @@ containers, images, networks and volumes managed from the UI stay fully compatib
 # on a Linux host with containerd + nerdctl
 curl -fsSLO https://github.com/pessom/nerdui/releases/latest/download/nerdui_<version>_linux_amd64.tar.gz
 tar -xzf nerdui_*_linux_amd64.tar.gz
-sudo ./nerdui --listen 127.0.0.1:8080
+sudo ./nerdui --listen 127.0.0.1:9443
 ```
 
 ### Container image
@@ -33,13 +33,21 @@ See [docs/deployment.md](docs/deployment.md) for required mounts and privileges.
 
 ## Configuration
 
-| Flag          | Env                | Default                           | Description                    |
-| ------------- | ------------------ | --------------------------------- | ------------------------------ |
-| `--listen`    | `NERDUI_LISTEN`    | `:8080`                           | HTTP listen address            |
-| `--address`   | `NERDUI_ADDRESS`   | `/run/containerd/containerd.sock` | containerd socket              |
-| `--namespace` | `NERDUI_NAMESPACE` | `default`                         | Default containerd namespace   |
-| `--log-level` | `NERDUI_LOG_LEVEL` | `info`                            | `debug`, `info`, `warn`, `error` |
-| `--version`   |                    |                                   | Print version and exit         |
+Every flag has an environment variable `NERDUI_<FLAG>`; command-line flags take precedence.
+
+| Flag | Env | Default | Description |
+| ---- | --- | ------- | ----------- |
+| `--listen` | `NERDUI_LISTEN` | `:9443` | Listen address (HTTPS once TLS lands, #120) |
+| `--address` | `NERDUI_ADDRESS` | `/run/containerd/containerd.sock` | containerd socket |
+| `--namespace` | `NERDUI_NAMESPACE` | `default` | Default containerd namespace |
+| `--data-dir` | `NERDUI_DATA_DIR` | `/var/lib/nerdui` | nerdui state (database, TLS, stacks); created with mode `0700` |
+| `--stacks-dir` | `NERDUI_STACKS_DIR` | `<data-dir>/stacks` | Compose stacks managed by nerdui |
+| `--stacks-scan-dirs` | `NERDUI_STACKS_SCAN_DIRS` | — | Comma-separated directories scanned for existing compose projects |
+| `--nerdctl-path` | `NERDUI_NERDCTL_PATH` | `nerdctl` | Host nerdctl binary |
+| `--skip-nerdctl-version-check` | `NERDUI_SKIP_NERDCTL_VERSION_CHECK` | `false` | Allow an unsupported nerdctl version |
+| `--log-level` | `NERDUI_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
+
+Subcommands: `nerdui serve` (default), `nerdui version`, `nerdui admin reset-password <user>`.
 
 ## Development
 

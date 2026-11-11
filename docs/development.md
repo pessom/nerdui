@@ -32,12 +32,12 @@ GOARCH=amd64 make build-linux
 scp bin/nerdui-linux-amd64 server:/tmp/nerdui
 
 # 2. Run it on the server, bound to localhost
-ssh server 'sudo /tmp/nerdui --listen 127.0.0.1:8080 --log-level debug'
+ssh server 'sudo /tmp/nerdui --listen 127.0.0.1:9443 --log-level debug'
 
 # 3. In another terminal: tunnel the port
-ssh -N -L 8080:127.0.0.1:8080 server
+ssh -N -L 9443:127.0.0.1:9443 server
 
-# 4. Open http://localhost:8080
+# 4. Open http://localhost:9443
 ```
 
 ### Frontend hot reload
@@ -45,14 +45,14 @@ ssh -N -L 8080:127.0.0.1:8080 server
 Run the backend on the server (steps 2–3 above), then locally:
 
 ```bash
-make web-dev   # Vite on http://localhost:5173, proxies /api to http://localhost:8080
+make web-dev   # Vite on http://localhost:5173, proxies /api to http://localhost:9443
 # or point to another backend:
 NERDUI_API_URL=http://localhost:9090 make web-dev
 ```
 
 ### Backend without a server
 
-`go run ./cmd/nerdui --address /nonexistent.sock` starts nerdui without containerd: `/healthz`
+`make run ARGS="--address /nonexistent.sock"` starts nerdui without containerd (data in `./.data`): `/healthz`
 and the UI work, runtime calls return errors. Useful for UI and API work with fakes.
 
 Forwarding just the socket (`ssh -L /tmp/containerd.sock:/run/containerd/containerd.sock`) works

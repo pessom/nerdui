@@ -23,7 +23,7 @@ ARCH=amd64
 curl -fsSLO https://github.com/pessom/nerdui/releases/download/v${VERSION}/nerdui_${VERSION}_linux_${ARCH}.tar.gz
 tar -xzf nerdui_${VERSION}_linux_${ARCH}.tar.gz
 sudo install -m 0755 nerdui /usr/local/bin/nerdui
-sudo nerdui --listen 127.0.0.1:8080
+sudo nerdui --listen 127.0.0.1:9443
 ```
 
 Verify signatures before installing — see [SECURITY.md](../SECURITY.md#verifying-releases).
@@ -59,7 +59,7 @@ Equivalent `nerdctl run`:
 ```bash
 sudo nerdctl run -d --name nerdui --restart unless-stopped \
   --privileged --net host --pid host \
-  -e NERDUI_LISTEN=127.0.0.1:8080 \
+  -e NERDUI_LISTEN=127.0.0.1:9443 \
   -v /run/containerd:/run/containerd \
   -v /var/lib/containerd:/var/lib/containerd \
   -v /var/lib/nerdctl:/var/lib/nerdctl \

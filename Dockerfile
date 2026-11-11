@@ -36,5 +36,5 @@ FROM gcr.io/distroless/static-debian12
 LABEL org.opencontainers.image.licenses="AGPL-3.0-only"
 COPY LICENSE NOTICE /usr/share/doc/nerdui/
 COPY --from=build /out/nerdui /usr/local/bin/nerdui
-EXPOSE 8080
+EXPOSE 9443
 ENTRYPOINT ["/usr/local/bin/nerdui"]

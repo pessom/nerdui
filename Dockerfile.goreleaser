@@ -5,5 +5,5 @@ LABEL org.opencontainers.image.licenses="AGPL-3.0-only"
 COPY LICENSE NOTICE /usr/share/doc/nerdui/
 COPY third_party /usr/share/doc/nerdui/third_party
 COPY $TARGETPLATFORM/nerdui /usr/local/bin/nerdui
-EXPOSE 8080
+EXPOSE 9443
 ENTRYPOINT ["/usr/local/bin/nerdui"]

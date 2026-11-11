@@ -25,11 +25,13 @@ THIRD_PARTY_DIR  := third_party
 ##@ Development
 
 .PHONY: run
-run: ## Run nerdui locally (pass flags via ARGS="--address ...")
-	go run ./cmd/nerdui $(ARGS)
+RUN_ARGS    ?= --data-dir $(CURDIR)/.data --listen 127.0.0.1:9443
+
+run: ## Run nerdui locally with a project-local data dir (extra flags via ARGS="...")
+	go run ./cmd/nerdui $(RUN_ARGS) $(ARGS)
 
 .PHONY: web-dev
-web-dev: ## Run Vite dev server (proxies API to NERDUI_API_URL, default http://localhost:8080)
+web-dev: ## Run Vite dev server (proxies API to NERDUI_API_URL, default http://localhost:9443)
 	cd web && npm run dev
 
 .PHONY: deps

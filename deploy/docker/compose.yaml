@@ -12,7 +12,7 @@ services:
     network_mode: host # CNI and port forwarding operate in the host netns
     pid: host
     environment:
-      NERDUI_LISTEN: "127.0.0.1:8080"
+      NERDUI_LISTEN: "127.0.0.1:9443"
       NERDUI_NAMESPACE: "default"
       NERDUI_LOG_LEVEL: "info"
     volumes:
