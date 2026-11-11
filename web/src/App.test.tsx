@@ -16,7 +16,13 @@ const versionResponse = {
     source: "https://example.com/fork/nerdui",
     license: "AGPL-3.0-only",
   },
-  runtime: { containerd: "v2.4.2", containerdRevision: "rev", nerdctlLibrary: "v2.4.2" },
+  runtime: {
+    containerd: "v2.4.2",
+    containerdRevision: "rev",
+    containerdSupported: true,
+    nerdctlLibrary: "v2.4.2",
+    nerdctl: { path: "nerdctl", version: "2.4.2", required: "2.4", compatible: true },
+  },
 };
 
 describe("App", () => {
@@ -51,6 +57,41 @@ describe("App", () => {
 
     expect(await screen.findByText("not connected")).toBeInTheDocument();
     expect(screen.getByText(/connection refused/)).toBeInTheDocument();
+  });
+
+  it("warns about read-only mode and unsupported containerd", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        Response.json({
+          ...versionResponse,
+          runtime: {
+            ...versionResponse.runtime,
+            containerd: "v2.0.14",
+            containerdSupported: false,
+            nerdctl: { path: "nerdctl", version: "2.3.5", required: "2.4", compatible: false },
+          },
+        }),
+      ),
+    );
+
+    render(<App />);
+
+    expect(await screen.findByText(/Read-only mode: host nerdctl 2.3.5/)).toBeInTheDocument();
+    expect(screen.getByText(/containerd v2.0.14 is not a supported version/)).toBeInTheDocument();
+  });
+
+  it("shows no runtime warnings for a supported setup", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Response.json(versionResponse)),
+    );
+
+    render(<App />);
+
+    await screen.findByText("v0.1.0");
+    expect(screen.queryByText(/Read-only mode/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/not a supported version/)).not.toBeInTheDocument();
   });
 
   it("hides runtime details for anonymous users", async () => {

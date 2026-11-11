@@ -30,6 +30,9 @@ const (
 	CodeUnsupportedType = "unsupported_media_type"
 	CodeInternal        = "internal"
 	CodeUnavailable     = "unavailable"
+	// CodeNerdctlIncompatible: the host nerdctl is missing or its version does not match
+	// (ADR-0011); nerdui is read-only.
+	CodeNerdctlIncompatible = "nerdctl_incompatible"
 )
 
 // MaxBodyBytes limits JSON request bodies.

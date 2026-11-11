@@ -12,9 +12,11 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"sync"
 	"syscall"
 	"time"
 
+	"github.com/pessom/nerdui/internal/api"
 	"github.com/pessom/nerdui/internal/auth"
 	"github.com/pessom/nerdui/internal/config"
 	"github.com/pessom/nerdui/internal/environment"
@@ -86,8 +88,17 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 	defer stopCleanup()
 	go authSvc.CleanupLoop(cleanupCtx)
 
-	envs := environment.NewRegistry(environment.Local(runtime.New(cfg.ContainerdAddress, cfg.Namespace), cfg.Namespace))
+	rt := runtime.New(cfg.ContainerdAddress, cfg.Namespace,
+		runtime.WithNerdctl(cfg.NerdctlPath, cfg.SkipNerdctlVersionCheck))
+	envs := environment.NewRegistry(environment.Local(rt, cfg.Namespace))
 	defer func() { _ = envs.Close() }()
+	// Runs in the background so an unreachable containerd does not delay startup; it is
+	// canceled and awaited when serving ends, so nothing outlives runServe.
+	var checks sync.WaitGroup
+	checkCtx, cancelChecks := context.WithCancel(ctx)
+	defer checks.Wait()
+	defer cancelChecks()
+	checks.Go(func() { logRuntimeCompatibility(checkCtx, logger, rt) })
 
 	srv := &http.Server{
 		Handler:           server.New(server.Config{Auth: authSvc, Environments: envs, UI: web.Dist(), Logger: logger}),
@@ -119,6 +130,38 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 			return fmt.Errorf("shutdown: %w", err)
 		}
 		return nil
+	}
+}
+
+// logRuntimeCompatibility reports the nerdctl and containerd checks at startup
+// (ADR-0011, ADR-0012). It never fails startup: problems put nerdui into read-only mode or
+// show warnings in the UI.
+func logRuntimeCompatibility(ctx context.Context, logger *slog.Logger, rt *runtime.Client) {
+	// nerdctl is checked first: it does not depend on containerd being reachable.
+	st := rt.Nerdctl(ctx)
+	switch {
+	case st.Compatible:
+		logger.Info("nerdctl compatible", "path", st.Path, "version", st.Version, "required", st.Required+".x")
+	case st.CheckSkipped:
+		logger.Warn("nerdctl version check skipped (--skip-nerdctl-version-check): unsupported configuration",
+			"path", st.Path, "version", st.Version, "required", st.Required+".x", "error", st.Error)
+	default:
+		logger.Warn(api.ReadOnlyReason(st), "path", st.Path)
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	v, err := rt.Versions(ctx)
+	switch {
+	case err != nil:
+		if ctx.Err() == nil || errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			logger.Warn("containerd is not reachable yet", "error", err)
+		}
+	case !v.ContainerdSupported:
+		logger.Warn("unsupported containerd version: nerdui works but is not tested with it",
+			"version", v.Containerd, "supported", runtime.SupportedContainerdMinors)
+	default:
+		logger.Info("containerd connected", "version", v.Containerd)
 	}
 }
 

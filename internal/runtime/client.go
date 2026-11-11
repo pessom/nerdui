@@ -46,13 +46,17 @@ func (notConnected) Unavailable() {}
 type Versions struct {
 	Containerd         string `json:"containerd"`
 	ContainerdRevision string `json:"containerdRevision"`
-	NerdctlLibrary     string `json:"nerdctlLibrary"`
+	// ContainerdSupported is false for versions outside SupportedContainerdMinors (ADR-0012).
+	ContainerdSupported bool          `json:"containerdSupported"`
+	NerdctlLibrary      string        `json:"nerdctlLibrary"`
+	Nerdctl             NerdctlStatus `json:"nerdctl"`
 }
 
 // Client is a lazily connected containerd client.
 type Client struct {
 	address   string
 	namespace string
+	nerdctl   *nerdctlChecker
 
 	mu     sync.Mutex
 	client *containerd.Client
@@ -60,9 +64,25 @@ type Client struct {
 
 // New creates a client. The connection is established on first use, so nerdui
 // can start even when containerd is temporarily unavailable.
-func New(address, namespace string) *Client {
-	return &Client{address: address, namespace: namespace}
+func New(address, namespace string, opts ...Option) *Client {
+	c := &Client{address: address, namespace: namespace, nerdctl: newNerdctlChecker("nerdctl", false)}
+	for _, o := range opts {
+		o(c)
+	}
+	return c
 }
+
+// Option configures a Client.
+type Option func(*Client)
+
+// WithNerdctl sets the host nerdctl binary and whether its version check is skipped
+// (ADR-0003, ADR-0011).
+func WithNerdctl(path string, skipVersionCheck bool) Option {
+	return func(c *Client) { c.nerdctl = newNerdctlChecker(path, skipVersionCheck) }
+}
+
+// Nerdctl reports the host nerdctl binary and whether mutations are allowed (ADR-0011).
+func (c *Client) Nerdctl(ctx context.Context) NerdctlStatus { return c.nerdctl.status(ctx) }
 
 // Address returns the containerd socket address.
 func (c *Client) Address() string { return c.address }
@@ -87,7 +107,7 @@ func (c *Client) conn() (*containerd.Client, error) {
 
 // Versions returns containerd server and nerdctl library versions.
 func (c *Client) Versions(ctx context.Context) (Versions, error) {
-	v := Versions{NerdctlLibrary: NerdctlLibraryVersion()}
+	v := Versions{NerdctlLibrary: NerdctlLibraryVersion(), Nerdctl: c.Nerdctl(ctx)}
 
 	cl, err := c.conn()
 	if err != nil {
@@ -99,6 +119,7 @@ func (c *Client) Versions(ctx context.Context) (Versions, error) {
 	}
 	v.Containerd = sv.Version
 	v.ContainerdRevision = sv.Revision
+	v.ContainerdSupported = ContainerdSupported(sv.Version)
 	return v, nil
 }
 

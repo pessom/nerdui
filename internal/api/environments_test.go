@@ -23,9 +23,10 @@ import (
 )
 
 type fakeRuntime struct {
-	v   runtime.Versions
-	ns  []string
-	err error
+	v       runtime.Versions
+	ns      []string
+	err     error
+	nerdctl runtime.NerdctlStatus
 }
 
 func (f *fakeRuntime) System() runtime.System { return f }
@@ -33,7 +34,8 @@ func (f *fakeRuntime) Close() error           { return nil }
 func (f *fakeRuntime) Versions(context.Context) (runtime.Versions, error) {
 	return f.v, f.err
 }
-func (f *fakeRuntime) Namespaces(context.Context) ([]string, error) { return f.ns, f.err }
+func (f *fakeRuntime) Namespaces(context.Context) ([]string, error)  { return f.ns, f.err }
+func (f *fakeRuntime) Nerdctl(context.Context) runtime.NerdctlStatus { return f.nerdctl }
 
 func newRouter(rt runtime.Runtime) http.Handler {
 	admin := func(*http.Request) (authz.Subject, bool) { return authz.Subject{Role: authz.RoleAdmin}, true }
@@ -79,9 +81,13 @@ func TestGetEnvironment(t *testing.T) {
 	}
 
 	var got EnvironmentStatus
-	do(t, newRouter(&fakeRuntime{err: runtime.ErrNotConnected}), "/api/v1/environments/local", &got)
-	if got.Status != StatusUnavailable || got.Error == "" || got.Runtime != nil {
+	down := &fakeRuntime{err: runtime.ErrNotConnected, v: runtime.Versions{Nerdctl: runtime.NerdctlStatus{Version: "2.4.2", Compatible: true}}}
+	do(t, newRouter(down), "/api/v1/environments/local", &got)
+	if got.Status != StatusUnavailable || got.Error == "" {
 		t.Errorf("unavailable: %+v", got)
+	}
+	if got.Runtime == nil || got.Runtime.Nerdctl.Version != "2.4.2" {
+		t.Errorf("nerdctl status missing while containerd is down: %+v", got.Runtime)
 	}
 
 	rec := do(t, newRouter(&fakeRuntime{}), "/api/v1/environments/remote", nil)
@@ -155,5 +161,51 @@ func TestErrorMapping(t *testing.T) {
 	httpjson.WriteErr(rec, httptest.NewRequest(http.MethodGet, "/", nil), nil, errors.New("secret detail"))
 	if strings.Contains(rec.Body.String(), "secret detail") {
 		t.Errorf("internal error leaked: %s", rec.Body)
+	}
+}
+
+func TestReadOnlyMode(t *testing.T) {
+	newEnvRouter := func(st runtime.NerdctlStatus) http.Handler {
+		h := &Handler{Envs: environment.NewRegistry(environment.Local(&fakeRuntime{nerdctl: st}, "default"))}
+		r := chi.NewRouter()
+		r.Route("/api/v1/environments/{env}", func(r chi.Router) {
+			r.Use(h.resolveEnv, h.requireWritable)
+			ok := func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) }
+			r.Get("/thing", ok)
+			r.Post("/thing", ok)
+			r.Delete("/thing", ok)
+		})
+		return r
+	}
+	call := func(h http.Handler, method string) *httptest.ResponseRecorder {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, httptest.NewRequest(method, "/api/v1/environments/local/thing", nil))
+		return rec
+	}
+
+	incompatible := newEnvRouter(runtime.NerdctlStatus{Version: "2.3.5", Required: "2.4"})
+	if rec := call(incompatible, http.MethodGet); rec.Code != http.StatusNoContent {
+		t.Errorf("GET in read-only mode: %d", rec.Code)
+	}
+	for _, m := range []string{http.MethodPost, http.MethodDelete} {
+		rec := call(incompatible, m)
+		if rec.Code != http.StatusServiceUnavailable || !strings.Contains(rec.Body.String(), httpjson.CodeNerdctlIncompatible) ||
+			!strings.Contains(rec.Body.String(), "2.3.5") || !strings.Contains(rec.Body.String(), "2.4.x") {
+			t.Errorf("%s in read-only mode: %d %s", m, rec.Code, rec.Body)
+		}
+	}
+
+	missing := newEnvRouter(runtime.NerdctlStatus{Required: "2.4", Error: "nerdctl binary \"nerdctl\" not found"})
+	if rec := call(missing, http.MethodPost); rec.Code != http.StatusServiceUnavailable || !strings.Contains(rec.Body.String(), "not found") {
+		t.Errorf("missing nerdctl: %d %s", rec.Code, rec.Body)
+	}
+
+	for name, st := range map[string]runtime.NerdctlStatus{
+		"compatible": {Version: "2.4.0", Required: "2.4", Compatible: true},
+		"skipped":    {Version: "2.3.5", Required: "2.4", CheckSkipped: true},
+	} {
+		if rec := call(newEnvRouter(st), http.MethodPost); rec.Code != http.StatusNoContent {
+			t.Errorf("%s: POST = %d", name, rec.Code)
+		}
 	}
 }

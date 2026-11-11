@@ -285,11 +285,28 @@ components:
         platform: { type: string, examples: ["linux/amd64"] }
     RuntimeVersions:
       type: object
-      required: [containerd, containerdRevision, nerdctlLibrary]
+      required: [containerd, containerdRevision, containerdSupported, nerdctlLibrary, nerdctl]
       properties:
         containerd: { type: string, examples: ["v2.4.2"] }
         containerdRevision: { type: string }
+        containerdSupported:
+          type: boolean
+          description: False for containerd versions outside the supported set (ADR-0012); nerdui still works.
         nerdctlLibrary: { type: string, examples: ["v2.4.2"] }
+        nerdctl: { $ref: "#/components/schemas/NerdctlStatus" }
+    NerdctlStatus:
+      type: object
+      description: |
+        Host nerdctl compatibility (ADR-0011). When neither `compatible` nor `checkSkipped` is
+        true, the environment is read-only: mutating requests fail with 503 `nerdctl_incompatible`.
+      required: [path, required, compatible]
+      properties:
+        path: { type: string, examples: ["nerdctl"] }
+        version: { type: string, examples: ["2.4.2"] }
+        required: { type: string, description: Required major.minor, examples: ["2.4"] }
+        compatible: { type: boolean }
+        checkSkipped: { type: boolean }
+        error: { type: string }
     VersionResponse:
       type: object
       required: [nerdui]
@@ -342,5 +359,5 @@ components:
             code:
               type: string
               enum: [invalid_argument, unauthenticated, forbidden, csrf_failed, not_found, conflict,
-                     rate_limited, unsupported_media_type, internal, unavailable]
+                     rate_limited, unsupported_media_type, internal, unavailable, nerdctl_incompatible]
             message: { type: string }
