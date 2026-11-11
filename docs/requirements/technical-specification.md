@@ -1,7 +1,7 @@
 # nerdui — Technical Specification
 
 - **Status:** Draft
-- **Version:** 0.2
+- **Version:** 0.3
 - **Last updated:** 2026-11-11
 - **Owner:** @pessom
 
@@ -41,8 +41,11 @@ hosts; Docker Engine, Podman, Swarm, Kubernetes.
 
 - **Host OS:** Linux `amd64`, `arm64`; nerdui runs as root on the containerd host.
 - **containerd:** 2.x (1.7 best effort).
-- **nerdctl:** 2.x binary installed on the host (rootful), CNI plugins — e.g. `nerdctl-full`
-  ([ADR-0003](../adr/0003-nerdctl-binary-runtime-dependency.md)).
+- **nerdctl:** binary installed on the host (rootful) with the **same `major.minor` as the nerdctl
+  packages linked into nerdui** (2.4.x for the current `go.mod`), CNI plugins — e.g.
+  `nerdctl-full` ([ADR-0003](../adr/0003-nerdctl-binary-runtime-dependency.md),
+  [ADR-0011](../adr/0011-nerdctl-version-policy.md)).
+- **Network:** HTTPS on port `9443` by default, configurable with `--listen`.
 - **Browsers:** last two versions of Chrome, Firefox, Safari, Edge.
 - **Deployment:** single static binary or container image ([deployment](../deployment.md)).
 - **Architecture:** [docs/architecture.md](../architecture.md), [ADRs](../adr/README.md).
@@ -80,7 +83,7 @@ Functional requirements are maintained as GitHub issues (one per feature) on the
 | NFR-011 | Security | Process execution | `nerdctl` executed with an argument vector built from typed input; no shell |
 | NFR-012 | Reliability | Restart safety | restarting/upgrading nerdui never stops or changes containers |
 | NFR-013 | Reliability | Data safety | DB migrations transactional with automatic backup before migrating |
-| NFR-014 | Reliability | Degraded mode | nerdui starts without containerd/nerdctl and shows the problem; read-only without nerdctl |
+| NFR-014 | Reliability | Degraded mode | nerdui starts without containerd/nerdctl and shows the problem; read-only when nerdctl is missing or its `major.minor` differs from the linked packages |
 | NFR-015 | Observability | Logs and health | structured JSON logs (`slog`); `/healthz`; runtime connectivity in `/api/v1/version` |
 | NFR-016 | Usability / a11y | Accessibility | keyboard navigation for main flows; light/dark/auto themes; destructive actions require confirmation |
 | NFR-017 | Maintainability | Quality gates | CI: lint, unit, integration, CodeQL, govulncheck, license checks must pass |
@@ -123,8 +126,13 @@ Functional requirements are maintained as GitHub issues (one per feature) on the
 
 ## 12. Open questions
 
-- Supported nerdctl version range and how strictly to enforce it at startup.
-- Default listen port (`:8443` proposed with TLS on by default).
+_None at the moment._ Resolved on 2026-11-11:
+
+| Question | Decision |
+| -------- | -------- |
+| Supported nerdctl versions and enforcement | Same `major.minor` as the linked packages; otherwise read-only mode ([ADR-0011](../adr/0011-nerdctl-version-policy.md)) |
+| Default listen port | `9443` (HTTPS), configurable via `--listen` / `NERDUI_LISTEN` |
+| First-run protection | One-time setup token printed to the log ([ADR-0005](../adr/0005-authentication-sessions-tls.md)) |
 
 ## 13. Glossary
 

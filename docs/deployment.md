@@ -8,7 +8,9 @@
 
 - Linux `amd64` or `arm64`
 - containerd 2.x (1.7 is expected to work but not tested)
-- **nerdctl 2.x installed on the host (required)** with CNI plugins, e.g. `nerdctl-full`.
+- **nerdctl installed on the host (required)** with CNI plugins, e.g. `nerdctl-full`. Its
+  `major.minor` must match the nerdctl version nerdui is built with (see release notes);
+  otherwise nerdui runs read-only ([ADR-0011](adr/0011-nerdctl-version-policy.md)).
   Containers created by nerdui use the host `nerdctl` binary for networking hooks and logging,
   exactly like CLI-created ones ([ADR-0003](adr/0003-nerdctl-binary-runtime-dependency.md))
 - root privileges (rootful containerd/nerdctl; rootless is not supported yet)
