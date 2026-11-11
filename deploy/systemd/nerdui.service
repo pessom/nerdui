@@ -1,0 +1,36 @@
+# nerdui — web UI for nerdctl/containerd.
+# Install: see docs/deployment.md ("Binary with systemd").
+#   sudo install -m 0644 nerdui.service /etc/systemd/system/nerdui.service
+#   sudo install -m 0644 nerdui.env /etc/default/nerdui
+#   sudo systemctl daemon-reload && sudo systemctl enable --now nerdui
+
+[Unit]
+Description=nerdui - web UI for nerdctl/containerd
+Documentation=https://github.com/pessom/nerdui
+After=network-online.target containerd.service
+# Wants (not Requires): nerdui keeps running while containerd restarts and reconnects.
+Wants=network-online.target containerd.service
+
+[Service]
+Type=simple
+EnvironmentFile=-/etc/default/nerdui
+ExecStart=/usr/local/bin/nerdui serve
+Restart=on-failure
+RestartSec=5s
+
+# nerdui needs root: containerd socket, nerdctl state, CNI and registry logins (ADR-0003).
+User=root
+# /var/lib/nerdui (database, TLS certificate, stacks), private to root (ADR-0004).
+StateDirectory=nerdui
+StateDirectoryMode=0700
+UMask=0077
+
+# Hardening that does not interfere with managing containers: no privilege escalation via
+# setuid binaries, private /tmp. Filesystem protections (ProtectSystem, ProtectHome) are not
+# used because nerdctl writes to /var/lib/nerdctl, CNI state and /root/.docker.
+NoNewPrivileges=yes
+PrivateTmp=yes
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
