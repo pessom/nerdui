@@ -148,8 +148,7 @@ paths:
       tags: [auth]
       operationId: logout
       summary: Revoke the current session
-      parameters:
-        - $ref: "#/components/parameters/CSRFToken"
+      description: Unsafe request — send the session's CSRF token in `X-CSRF-Token` (see the `session` security scheme).
       responses:
         "204": { description: Logged out; clears the session cookie }
         "401": { $ref: "#/components/responses/Error" }

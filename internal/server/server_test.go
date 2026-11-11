@@ -125,9 +125,10 @@ func TestSecurityHeaders(t *testing.T) {
 	srv := newTestServer(t, Config{})
 	resp, _ := get(t, srv.URL+"/healthz")
 	for k, want := range map[string]string{
-		"X-Content-Type-Options": "nosniff",
-		"X-Frame-Options":        "DENY",
-		"Referrer-Policy":        "same-origin",
+		"X-Content-Type-Options":  "nosniff",
+		"X-Frame-Options":         "DENY",
+		"Referrer-Policy":         "same-origin",
+		"Content-Security-Policy": ContentSecurityPolicy,
 	} {
 		if got := resp.Header.Get(k); got != want {
 			t.Errorf("%s = %q, want %q", k, got, want)
