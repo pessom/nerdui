@@ -22,6 +22,8 @@ type System interface {
 	Versions(ctx context.Context) (Versions, error)
 	// Namespaces lists containerd namespaces.
 	Namespaces(ctx context.Context) ([]string, error)
+	// Nerdctl reports the nerdctl compatibility check; mutations require Writable().
+	Nerdctl(ctx context.Context) NerdctlStatus
 }
 
 var _ Runtime = (*Client)(nil)

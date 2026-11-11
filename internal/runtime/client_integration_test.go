@@ -62,3 +62,13 @@ func TestIntegrationNamespaces(t *testing.T) {
 		t.Errorf("namespaces = %v", ns)
 	}
 }
+
+// CI installs nerdctl-full with the same minor as the linked packages (ADR-0011).
+func TestIntegrationNerdctlCompatible(t *testing.T) {
+	c := New(DefaultAddress, DefaultNamespace, WithNerdctl("nerdctl", false))
+	st := c.Nerdctl(context.Background())
+	if !st.Compatible || !st.Writable() {
+		t.Fatalf("host nerdctl not compatible: %+v (linked %s)", st, NerdctlLibraryVersion())
+	}
+	t.Logf("host nerdctl %s, required %s.x", st.Version, st.Required)
+}

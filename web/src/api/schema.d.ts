@@ -212,8 +212,29 @@ export interface components {
             /** @example v2.4.2 */
             containerd: string;
             containerdRevision: string;
+            /** @description False for containerd versions outside the supported set (ADR-0012); nerdui still works. */
+            containerdSupported: boolean;
             /** @example v2.4.2 */
             nerdctlLibrary: string;
+            nerdctl: components["schemas"]["NerdctlStatus"];
+        };
+        /**
+         * @description Host nerdctl compatibility (ADR-0011). When neither `compatible` nor `checkSkipped` is
+         *     true, the environment is read-only: mutating requests fail with 503 `nerdctl_incompatible`.
+         */
+        NerdctlStatus: {
+            /** @example nerdctl */
+            path: string;
+            /** @example 2.4.2 */
+            version?: string;
+            /**
+             * @description Required major.minor
+             * @example 2.4
+             */
+            required: string;
+            compatible: boolean;
+            checkSkipped?: boolean;
+            error?: string;
         };
         VersionResponse: {
             nerdui: components["schemas"]["BuildInfo"];
@@ -250,7 +271,7 @@ export interface components {
         Error: {
             error: {
                 /** @enum {string} */
-                code: "invalid_argument" | "unauthenticated" | "forbidden" | "csrf_failed" | "not_found" | "conflict" | "rate_limited" | "unsupported_media_type" | "internal" | "unavailable";
+                code: "invalid_argument" | "unauthenticated" | "forbidden" | "csrf_failed" | "not_found" | "conflict" | "rate_limited" | "unsupported_media_type" | "internal" | "unavailable" | "nerdctl_incompatible";
                 message: string;
             };
         };

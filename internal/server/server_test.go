@@ -35,6 +35,9 @@ func (f fakeRuntime) System() runtime.System                             { retur
 func (f fakeRuntime) Close() error                                       { return nil }
 func (f fakeRuntime) Versions(context.Context) (runtime.Versions, error) { return f.v, f.err }
 func (f fakeRuntime) Namespaces(context.Context) ([]string, error)       { return []string{"default"}, f.err }
+func (f fakeRuntime) Nerdctl(context.Context) runtime.NerdctlStatus {
+	return runtime.NerdctlStatus{Compatible: true}
+}
 
 // withRuntime returns a config whose local environment uses rt.
 func withRuntime(rt runtime.Runtime) Config {

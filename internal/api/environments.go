@@ -35,7 +35,7 @@ type Handler struct {
 func (h *Handler) Routes(r chi.Router, g *authz.Guard) {
 	r.Method(http.MethodGet, "/environments", g.Protect(authz.SystemRead, h.list))
 	r.Route("/environments/{env}", func(r chi.Router) {
-		r.Use(h.resolveEnv)
+		r.Use(h.resolveEnv, h.requireWritable)
 		r.Method(http.MethodGet, "/", g.Protect(authz.SystemRead, h.get))
 		r.Method(http.MethodGet, "/namespaces", g.Protect(authz.SystemRead, h.namespaces))
 	})
@@ -85,9 +85,9 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		resp.Status = StatusUnavailable
 		resp.Error = err.Error()
-	} else {
-		resp.Runtime = &v
 	}
+	// Partial versions (nerdctl status, library) are useful even when containerd is down.
+	resp.Runtime = &v
 	httpjson.Write(w, http.StatusOK, resp)
 }
 
@@ -120,6 +120,32 @@ func (h *Handler) resolveEnv(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), envKey{}, e)))
 	})
+}
+
+// requireWritable rejects mutating requests while the environment is read-only because the
+// host nerdctl is missing or incompatible (ADR-0011).
+func (h *Handler) requireWritable(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet, http.MethodHead, http.MethodOptions:
+			next.ServeHTTP(w, r)
+			return
+		}
+		st := EnvFrom(r.Context()).Runtime.System().Nerdctl(r.Context())
+		if !st.Writable() {
+			httpjson.WriteError(w, http.StatusServiceUnavailable, httpjson.CodeNerdctlIncompatible, ReadOnlyReason(st))
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// ReadOnlyReason explains why an environment is read-only.
+func ReadOnlyReason(st runtime.NerdctlStatus) string {
+	if st.Version == "" {
+		return fmt.Sprintf("read-only mode: host nerdctl %s.x is required (%s)", st.Required, st.Error)
+	}
+	return fmt.Sprintf("read-only mode: host nerdctl %s is incompatible, %s.x is required", st.Version, st.Required)
 }
 
 // Namespace returns the containerd namespace for the request: the "namespace" query
