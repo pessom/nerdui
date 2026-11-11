@@ -18,6 +18,7 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/pessom/nerdui/internal/auth"
+	"github.com/pessom/nerdui/internal/authz"
 	"github.com/pessom/nerdui/internal/httpjson"
 	"github.com/pessom/nerdui/internal/runtime"
 	"github.com/pessom/nerdui/internal/version"
@@ -31,8 +32,10 @@ type Runtime interface {
 // Config configures the HTTP server.
 type Config struct {
 	// Auth provides sessions and the authentication endpoints (required).
-	Auth    *auth.Service
-	Runtime Runtime
+	Auth *auth.Service
+	// Authorizer decides per-action access; defaults to authz.AdminOnly (ADR-0009).
+	Authorizer authz.Authorizer
+	Runtime    Runtime
 	// UI is the compiled frontend. When nil, the UI is not served.
 	UI     fs.FS
 	Logger *slog.Logger
@@ -40,17 +43,24 @@ type Config struct {
 
 // VersionResponse is returned by GET /api/v1/version. Keep in sync with api/openapi.yaml.
 // Build information (including the AGPL source link) is public; runtime details are only
-// returned to authenticated users.
+// returned to callers allowed to perform system:read.
 type VersionResponse struct {
 	Nerdui  version.Info      `json:"nerdui"`
 	Runtime *runtime.Versions `json:"runtime,omitempty"`
 	Error   string            `json:"error,omitempty"`
 }
 
-// New returns the root HTTP handler.
+// APIPrefix is the path prefix of API routes subject to the default-deny check.
+const APIPrefix = "/api/"
+
+// New returns the root HTTP handler. It panics if an API route does not declare its
+// authorization (programming error caught by tests).
 func New(cfg Config) http.Handler {
 	if cfg.Logger == nil {
 		cfg.Logger = slog.Default()
+	}
+	if cfg.Authorizer == nil {
+		cfg.Authorizer = authz.AdminOnly{}
 	}
 
 	r := chi.NewRouter()
@@ -63,10 +73,16 @@ func New(cfg Config) http.Handler {
 		httpjson.Write(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 
+	guard := authz.NewGuard(cfg.Authorizer, auth.SubjectFromRequest, cfg.Logger)
 	r.Route("/api/v1", func(r chi.Router) {
-		cfg.Auth.Routes(r)
-		r.With(cfg.Auth.OptionalSession).Get("/version", versionHandler(cfg.Runtime))
+		cfg.Auth.Routes(r, guard)
+		r.With(cfg.Auth.OptionalSession).Method(http.MethodGet, "/version", authz.Public(versionHandler(cfg.Runtime, guard)))
 	})
+
+	// Default deny (ADR-0009): every API route must declare an action or be explicitly public.
+	if _, err := authz.Inspect(r, APIPrefix); err != nil {
+		panic(err)
+	}
 
 	if cfg.UI != nil {
 		r.NotFound(spaHandler(cfg.UI))
@@ -74,10 +90,10 @@ func New(cfg Config) http.Handler {
 	return r
 }
 
-func versionHandler(rt Runtime) http.HandlerFunc {
+func versionHandler(rt Runtime, guard *authz.Guard) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		resp := VersionResponse{Nerdui: version.Get()}
-		if _, ok := auth.PrincipalFrom(r.Context()); ok && rt != nil {
+		if rt != nil && guard.Allowed(r, authz.SystemRead) {
 			ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 			defer cancel()
 			v, err := rt.Versions(ctx)

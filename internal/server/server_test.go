@@ -16,7 +16,10 @@ import (
 	"testing/fstest"
 	"time"
 
+	"github.com/go-chi/chi/v5"
+
 	"github.com/pessom/nerdui/internal/auth"
+	"github.com/pessom/nerdui/internal/authz"
 	"github.com/pessom/nerdui/internal/runtime"
 	"github.com/pessom/nerdui/internal/store"
 	"github.com/pessom/nerdui/internal/store/db"
@@ -33,7 +36,10 @@ const testPassword = "correct horse battery"
 
 // newTestServer starts the server with a real auth service backed by a temporary store that
 // already contains the user "admin"; sessionCookie logs in and returns the cookie.
-var sessionCookie func(t *testing.T) *http.Cookie
+var (
+	sessionCookie func(t *testing.T) *http.Cookie
+	lastAuth      *auth.Service
+)
 
 func newTestServer(t *testing.T, cfg Config) *httptest.Server {
 	t.Helper()
@@ -64,6 +70,7 @@ func newTestServer(t *testing.T, cfg Config) *httptest.Server {
 		return &http.Cookie{Name: auth.CookieName, Value: is.Token}
 	}
 
+	lastAuth = svc
 	cfg.Auth = svc
 	cfg.Logger = logger
 	srv := httptest.NewServer(New(cfg))
@@ -211,4 +218,56 @@ func TestSPANotBuilt(t *testing.T) {
 	if resp.StatusCode != http.StatusNotFound || !strings.Contains(body, "make web") {
 		t.Errorf("status = %d, body = %q", resp.StatusCode, body)
 	}
+}
+
+// TestRouteAuthorization documents the access level of every API route and fails when a
+// route is added without an authorization declaration (ADR-0009).
+func TestRouteAuthorization(t *testing.T) {
+	newTestServer(t, Config{})
+	h := New(Config{Auth: lastAuth, Logger: slog.New(slog.DiscardHandler)})
+	routes, err := authz.Inspect(h.(chi.Routes), APIPrefix)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]string{}
+	for _, r := range routes {
+		access := string(r.Action)
+		if r.Public {
+			access = "public"
+		}
+		got[r.Method+" "+r.Path] = access
+	}
+	want := map[string]string{
+		"GET /api/v1/version":      "public",
+		"GET /api/v1/setup":        "public",
+		"POST /api/v1/setup":       "public",
+		"POST /api/v1/auth/login":  "public",
+		"GET /api/v1/auth/me":      "session:self",
+		"POST /api/v1/auth/logout": "session:self",
+	}
+	for k, v := range want {
+		if got[k] != v {
+			t.Errorf("%s: access = %q, want %q", k, got[k], v)
+		}
+	}
+	for k, v := range got {
+		if _, ok := want[k]; !ok {
+			t.Errorf("new route %s (%s): add it to this table", k, v)
+		}
+	}
+}
+
+func TestVersionRuntimeRequiresSystemRead(t *testing.T) {
+	deny := denyAll{}
+	srv := newTestServer(t, Config{Authorizer: deny, Runtime: fakeRuntime{v: runtime.Versions{Containerd: "v2.4.2"}}})
+	_, body := get(t, srv.URL+"/api/v1/version", sessionCookie(t))
+	if strings.Contains(body, `"runtime"`) {
+		t.Errorf("runtime exposed without system:read: %s", body)
+	}
+}
+
+type denyAll struct{}
+
+func (denyAll) Authorize(context.Context, authz.Subject, authz.Action, authz.Resource) error {
+	return authz.ErrForbidden
 }

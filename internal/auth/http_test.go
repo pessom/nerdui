@@ -14,6 +14,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/pessom/nerdui/internal/authz"
 	"github.com/pessom/nerdui/internal/httpjson"
 )
 
@@ -28,7 +29,7 @@ func newServer(t *testing.T, e *env) *client {
 	t.Helper()
 	r := chi.NewRouter()
 	r.Route("/api/v1", func(r chi.Router) {
-		e.svc.Routes(r)
+		e.svc.Routes(r, authz.NewGuard(authz.AdminOnly{}, SubjectFromRequest, nil))
 		r.Group(func(r chi.Router) {
 			r.Use(e.svc.RequireSession, CSRF)
 			r.Post("/protected", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
