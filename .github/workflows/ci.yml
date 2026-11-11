@@ -52,7 +52,7 @@ jobs:
         with:
           name: web-dist
           path: web/dist
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - name: go mod tidy check
@@ -73,7 +73,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - uses: actions/setup-node@v4
@@ -102,7 +102,7 @@ jobs:
       NERDCTL_VERSION: "2.4.2"
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - name: Install nerdctl-full (containerd, runc, CNI, BuildKit)
