@@ -61,6 +61,7 @@
     "fsevents": false
   },
   "overrides": {
-    "minimatch@^10": "^11.0.8"
+    "minimatch@^10": "^11.0.8",
+    "glob@^13": "^14.0.5"
   }
 }
