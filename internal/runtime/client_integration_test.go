@@ -7,6 +7,7 @@ package runtime
 
 import (
 	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"slices"
@@ -100,7 +101,14 @@ func TestIntegrationListContainers(t *testing.T) {
 	nerdctl("run", "-d", "--name", running, "-p", "127.0.0.1:18080:80",
 		"--label", "com.docker.compose.project=itdemo", "--label", "com.docker.compose.service=web",
 		"docker.io/library/alpine:3", "sleep", "300")
-	nerdctl("run", "--name", stopped, "docker.io/library/alpine:3", "sh", "-c", "exit 3")
+	// nerdctl run propagates the container exit code; 3 is expected here.
+	if out, err := exec.Command("nerdctl", "run", "--name", stopped,
+		"docker.io/library/alpine:3", "sh", "-c", "exit 3").CombinedOutput(); err != nil {
+		var ee *exec.ExitError
+		if !errors.As(err, &ee) || ee.ExitCode() != 3 {
+			t.Fatalf("nerdctl run %s: %v: %s", stopped, err, out)
+		}
+	}
 	nerdctl("create", "--name", created, "docker.io/library/alpine:3", "true")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
