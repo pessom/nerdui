@@ -72,6 +72,11 @@ Suggested scopes: `api`, `runtime`, `containers`, `images`, `volumes`, `networks
 ### Go
 
 - Code is formatted with `gofmt`/`goimports` and must pass `golangci-lint` (`make lint-go`).
+- Every API route declares its authorization ([ADR-0009](docs/adr/0009-authorization.md)):
+  wrap the handler with `guard.Protect(authz.<Action>, h)` or, for unauthenticated endpoints,
+  `authz.Public(h)`. Unwrapped routes make the server panic at startup, and
+  `TestRouteAuthorization` lists the access level of every route — update it with new routes.
+  New permissions go into the action catalog in `internal/authz`.
 - All containerd/nerdctl access goes through `internal/runtime`. HTTP handlers depend on
   interfaces, so they can be tested with fakes.
 - Prefer nerdctl packages over re-implementing behavior: objects created by nerdui must be

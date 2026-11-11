@@ -14,6 +14,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/pessom/nerdui/internal/authz"
 	"github.com/pessom/nerdui/internal/httpjson"
 )
 
@@ -34,6 +35,15 @@ func WithPrincipal(ctx context.Context, p Principal) context.Context {
 func PrincipalFrom(ctx context.Context) (Principal, bool) {
 	p, ok := ctx.Value(ctxKey{}).(Principal)
 	return p, ok
+}
+
+// SubjectFromRequest adapts the request's principal for the authorizer (authz.SubjectFunc).
+func SubjectFromRequest(r *http.Request) (authz.Subject, bool) {
+	p, ok := PrincipalFrom(r.Context())
+	if !ok {
+		return authz.Subject{}, false
+	}
+	return authz.Subject{UserID: p.User.ID, Username: p.User.Username, Role: p.User.Role}, true
 }
 
 // OptionalSession attaches the principal when a valid session cookie is present and
@@ -114,14 +124,14 @@ func isSafeMethod(m string) bool {
 }
 
 // Routes registers the authentication endpoints under the API root.
-func (s *Service) Routes(r chi.Router) {
-	r.Get("/setup", s.handleSetupStatus)
-	r.Post("/setup", s.handleSetup)
-	r.Post("/auth/login", s.handleLogin)
+func (s *Service) Routes(r chi.Router, g *authz.Guard) {
+	r.Method(http.MethodGet, "/setup", authz.Public(s.handleSetupStatus))
+	r.Method(http.MethodPost, "/setup", authz.Public(s.handleSetup))
+	r.Method(http.MethodPost, "/auth/login", authz.Public(s.handleLogin))
 	r.Group(func(r chi.Router) {
 		r.Use(s.RequireSession, CSRF)
-		r.Get("/auth/me", s.handleMe)
-		r.Post("/auth/logout", s.handleLogout)
+		r.Method(http.MethodGet, "/auth/me", g.Protect(authz.SessionSelf, s.handleMe))
+		r.Method(http.MethodPost, "/auth/logout", g.Protect(authz.SessionSelf, s.handleLogout))
 	})
 }
 

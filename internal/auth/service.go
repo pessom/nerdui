@@ -20,6 +20,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pessom/nerdui/internal/authz"
 	"github.com/pessom/nerdui/internal/store"
 	"github.com/pessom/nerdui/internal/store/db"
 )
@@ -32,7 +33,7 @@ const (
 	touchInterval   = time.Minute
 	cleanupInterval = time.Hour
 	// RoleAdmin is the only role in MVP (ADR-0009).
-	RoleAdmin = "admin"
+	RoleAdmin = authz.RoleAdmin
 )
 
 // Errors returned by the service.
