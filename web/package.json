@@ -36,7 +36,7 @@
     "eslint-plugin-react-refresh": "^0.5.7",
     "globals": "^17.14.0",
     "jsdom": "^29.1.1",
-    "license-checker-rseidelsohn": "^4.4.2",
+    "license-checker-rseidelsohn": "^5.0.1",
     "openapi-typescript": "^7.13.0",
     "prettier": "^3.9.10",
     "typescript": "~5.9",
