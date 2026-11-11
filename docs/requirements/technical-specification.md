@@ -33,8 +33,8 @@ networks (#57, #60, #62), host (#63, #65, #66), local users (#74), REST API (#87
 
 ### 3.2 Out of scope (MVP)
 
-Everything in milestone `v0.2` and in Release `Later` / `Won't` of the
-[project board](https://github.com/users/pessom/projects/2); rootless containerd; Windows/macOS
+Everything in milestone [`v0.2`](https://github.com/pessom/nerdui/milestone/2), open issues without a
+milestone (Later) and issues closed as `wontfix`; rootless containerd; Windows/macOS
 hosts; Docker Engine, Podman, Swarm, Kubernetes.
 
 ## 4. Environment and constraints
@@ -53,8 +53,8 @@ hosts; Docker Engine, Podman, Swarm, Kubernetes.
 
 ## 5. Functional requirements
 
-Functional requirements are maintained as GitHub issues (one per feature) on the
-[project board](https://github.com/users/pessom/projects/2). Each MVP issue contains an
+Functional requirements are maintained as GitHub issues (one per feature), grouped by milestone
+and `area/*` labels (maintainers also use the private project board "nerdui roadmap"). Each MVP issue contains an
 **Architecture** section linking to the relevant ADRs and listing API endpoints.
 
 | Area | MVP issues |
