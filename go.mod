@@ -3,6 +3,7 @@ module github.com/pessom/nerdui
 go 1.27.4
 
 require (
+	github.com/coder/websocket v1.8.15
 	github.com/containerd/containerd/v2 v2.4.2
 	github.com/containerd/errdefs v1.0.0
 	github.com/containerd/errdefs/pkg v0.3.0

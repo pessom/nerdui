@@ -100,9 +100,15 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 	defer cancelChecks()
 	checks.Go(func() { logRuntimeCompatibility(checkCtx, logger, rt) })
 
+	// Hijacked WebSocket connections are neither tracked nor closed by Shutdown; their
+	// request contexts derive from streamsCtx, which is canceled after Shutdown so streams
+	// end with "going away" (ADR-0007).
+	streamsCtx, cancelStreams := context.WithCancel(context.WithoutCancel(ctx))
+	defer cancelStreams()
 	srv := &http.Server{
 		Handler:           server.New(server.Config{Auth: authSvc, Environments: envs, UI: web.Dist(), Logger: logger}),
 		ReadHeaderTimeout: 10 * time.Second,
+		BaseContext:       func(net.Listener) context.Context { return streamsCtx },
 	}
 
 	errCh := make(chan error, 1)
@@ -126,7 +132,9 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 		logger.Info("shutting down")
 		shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), shutdownTimeout)
 		defer cancel()
-		if err := srv.Shutdown(shutdownCtx); err != nil {
+		err := srv.Shutdown(shutdownCtx)
+		cancelStreams()
+		if err != nil {
 			return fmt.Errorf("shutdown: %w", err)
 		}
 		return nil
