@@ -35,6 +35,10 @@ func BindServeFlags(fs *pflag.FlagSet, c *Config) {
 	fs.BoolVar(&c.SkipNerdctlVersionCheck, "skip-nerdctl-version-check", c.SkipNerdctlVersionCheck,
 		"allow a host nerdctl whose major.minor differs from the linked packages (unsupported) (env "+
 			EnvName("skip-nerdctl-version-check")+")")
+	fs.BoolVar(&c.TLS, "tls", c.TLS,
+		"serve HTTPS; set --tls=false only behind a TLS-terminating reverse proxy (env "+EnvName("tls")+")")
+	str(&c.TLSCert, "tls-cert", "PEM certificate file (default: self-signed in <data-dir>/tls)")
+	str(&c.TLSKey, "tls-key", "PEM private key file for --tls-cert")
 	str(&c.LogLevel, "log-level", "log level: debug, info, warn, error")
 }
 
