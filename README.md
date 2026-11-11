@@ -79,5 +79,3 @@ nerdui is licensed under the [GNU Affero General Public License v3.0 only](LICEN
 
 Contributions require signing the [CLA](CLA.md). Third-party licenses are listed in
 [NOTICE](NOTICE) and shipped in release artifacts.
-
-If you find nerdui useful, consider [sponsoring](https://github.com/sponsors/pessom) its development.

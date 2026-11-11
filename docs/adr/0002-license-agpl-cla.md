@@ -35,7 +35,8 @@ Key facts:
 - SPDX headers in all source files; CI rejects dependencies with AGPL-incompatible licenses.
 - AGPL-3.0 §13 compliance: the UI and `/api/v1/version` expose the source URL of the running
   build (`internal/version.Source`, overridable via `-ldflags`).
-- GitHub Sponsors enabled as the first funding channel.
+- GitHub Sponsors as the first funding channel.
+  _Update 2026-11-11: the Sponsor button is deferred until the v0.1 release (#116)._
 
 ## Consequences
 

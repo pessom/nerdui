@@ -1,8 +1,8 @@
-# Code owners are requested for review automatically.
-# Replace the placeholders with real GitHub users or teams, e.g. @org/team.
+# Code owners are requested for review automatically on pull requests.
 # https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+#
+# Single maintainer for now. When co-maintainers join, split ownership by area and keep
+# security-sensitive paths (internal/auth, internal/authz, .github, LICENSE, CLA.md, NOTICE)
+# with the project owner.
 
-# *                  @owner
-# /web/              @frontend-owner
-# /internal/runtime/ @runtime-owner
-# /.github/          @owner
+* @pessom
