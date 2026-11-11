@@ -209,6 +209,33 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/environments/{env}/containers": {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        /**
+         * All containers of a namespace (any state), newest first
+         * @description Requires `containers:read`. Filtering and sorting are done by clients (ADR-0006).
+         *     Live updates: refetch on events from `/events/stream`.
+         */
+        get: operations["listContainers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -284,6 +311,47 @@ export interface components {
             status: "connected" | "unavailable";
             error?: string;
             runtime?: components["schemas"]["RuntimeVersions"];
+        };
+        Container: {
+            /** @description Full container ID (64 hex characters) */
+            id: string;
+            /** @description nerdctl name (may be empty for non-nerdctl containers) */
+            name: string;
+            namespace: string;
+            image: string;
+            command: string;
+            /** @enum {string} */
+            state: "created" | "running" | "paused" | "restarting" | "exited" | "unknown";
+            /** @enum {string} */
+            health?: "healthy" | "unhealthy" | "starting";
+            exitCode?: number;
+            /** Format: date-time */
+            exitedAt?: string;
+            /**
+             * Format: date-time
+             * @description Start time of the container's main process (running/paused containers)
+             */
+            startedAt?: string;
+            /** Format: date-time */
+            createdAt: string;
+            ports: components["schemas"]["Port"][];
+            compose?: components["schemas"]["ComposeRef"];
+            platform?: string;
+            runtime?: string;
+            labels: {
+                [key: string]: string;
+            };
+        };
+        Port: {
+            hostIp?: string;
+            hostPort: number;
+            containerPort: number;
+            /** @enum {string} */
+            protocol: "tcp" | "udp" | "sctp";
+        };
+        ComposeRef: {
+            project: string;
+            service?: string;
         };
         Event: {
             /** Format: date-time */
@@ -668,6 +736,40 @@ export interface operations {
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
+        };
+    };
+    listContainers: {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Containers */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        namespace: string;
+                        containers: components["schemas"]["Container"][];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
         };
     };
 }

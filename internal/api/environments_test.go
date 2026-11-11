@@ -23,11 +23,13 @@ import (
 )
 
 type fakeRuntime struct {
-	v       runtime.Versions
-	ns      []string
-	err     error
-	nerdctl runtime.NerdctlStatus
-	events  runtime.EventSource
+	v          runtime.Versions
+	ns         []string
+	err        error
+	nerdctl    runtime.NerdctlStatus
+	events     runtime.EventSource
+	containers []runtime.Container
+	gotNS      string
 }
 
 func (f *fakeRuntime) System() runtime.System { return f }
@@ -43,6 +45,11 @@ func (f *fakeRuntime) Versions(context.Context) (runtime.Versions, error) {
 }
 func (f *fakeRuntime) Namespaces(context.Context) ([]string, error)  { return f.ns, f.err }
 func (f *fakeRuntime) Nerdctl(context.Context) runtime.NerdctlStatus { return f.nerdctl }
+func (f *fakeRuntime) Containers() runtime.Containers                { return f }
+func (f *fakeRuntime) List(_ context.Context, ns string) ([]runtime.Container, error) {
+	f.gotNS = ns
+	return f.containers, f.err
+}
 
 func newRouter(rt runtime.Runtime) http.Handler {
 	admin := func(*http.Request) (authz.Subject, bool) { return authz.Subject{Role: authz.RoleAdmin}, true }

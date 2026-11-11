@@ -18,6 +18,7 @@ export const keys = {
   env: (env: string) => ["env", env] as const,
   envStatus: (env: string) => ["env", env, "status"] as const,
   namespaces: (env: string) => ["env", env, "namespaces"] as const,
+  containers: (env: string, ns: string) => ["env", env, "containers", ns] as const,
 };
 
 export const meQuery = queryOptions({
@@ -61,4 +62,15 @@ export const namespacesQuery = (env: string) =>
     queryFn: () =>
       unwrap(api.GET("/api/v1/environments/{env}/namespaces", { params: { path: { env } } })),
     retry: false,
+  });
+
+export const containersQuery = (env: string, namespace: string) =>
+  queryOptions({
+    queryKey: keys.containers(env, namespace),
+    queryFn: () =>
+      unwrap(
+        api.GET("/api/v1/environments/{env}/containers", {
+          params: { path: { env }, query: { namespace } },
+        }),
+      ),
   });

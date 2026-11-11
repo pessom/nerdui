@@ -35,6 +35,7 @@ type fakeRuntime struct {
 func (f fakeRuntime) System() runtime.System                             { return f }
 func (f fakeRuntime) Close() error                                       { return nil }
 func (f fakeRuntime) Events() runtime.EventSource                        { return noEvents{} }
+func (f fakeRuntime) Containers() runtime.Containers                     { return nil }
 func (f fakeRuntime) Versions(context.Context) (runtime.Versions, error) { return f.v, f.err }
 func (f fakeRuntime) Namespaces(context.Context) ([]string, error)       { return []string{"default"}, f.err }
 func (f fakeRuntime) Nerdctl(context.Context) runtime.NerdctlStatus {
@@ -269,6 +270,7 @@ func TestRouteAuthorization(t *testing.T) {
 		"GET /api/v1/environments/{env}/":              "system:read",
 		"GET /api/v1/environments/{env}/namespaces":    "system:read",
 		"GET /api/v1/environments/{env}/events/stream": "system:read",
+		"GET /api/v1/environments/{env}/containers":    "containers:read",
 	}
 	for k, v := range want {
 		if got[k] != v {

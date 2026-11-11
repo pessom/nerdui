@@ -88,8 +88,14 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 	defer stopCleanup()
 	go authSvc.CleanupLoop(cleanupCtx)
 
+	ncfg, ncfgPath, err := runtime.LoadNerdctlConfig()
+	if err != nil {
+		logger.Warn("cannot read nerdctl config, using nerdctl defaults", "path", ncfgPath, "error", err)
+	}
+	logger.Info("nerdctl config", "path", ncfgPath, "data_root", ncfg.DataRoot)
 	rt := runtime.New(cfg.ContainerdAddress, cfg.Namespace,
-		runtime.WithNerdctl(cfg.NerdctlPath, cfg.SkipNerdctlVersionCheck))
+		runtime.WithNerdctl(cfg.NerdctlPath, cfg.SkipNerdctlVersionCheck),
+		runtime.WithNerdctlDataRoot(ncfg.DataRoot))
 	envs := environment.NewRegistry(environment.Local(rt, cfg.Namespace))
 	defer func() { _ = envs.Close() }()
 	// Background work (compatibility check, event hubs) does not delay startup; it is
