@@ -6,8 +6,8 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
 // NERDUI_API_URL points the dev server at a running nerdui backend,
-// e.g. NERDUI_API_URL=http://my-server:8080 npm run dev
-const apiTarget = process.env.NERDUI_API_URL ?? "http://localhost:8080";
+// e.g. NERDUI_API_URL=http://my-server:9443 npm run dev
+const apiTarget = process.env.NERDUI_API_URL ?? "http://localhost:9443";
 
 export default defineConfig({
   plugins: [react()],

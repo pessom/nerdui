@@ -1,0 +1,64 @@
+// SPDX-FileCopyrightText: 2026 The nerdui Authors
+// SPDX-License-Identifier: AGPL-3.0-only
+
+package config
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/spf13/pflag"
+)
+
+// EnvPrefix is the prefix of environment variables mirroring flags.
+const EnvPrefix = "NERDUI_"
+
+// EnvName returns the environment variable for a flag, e.g. "data-dir" -> "NERDUI_DATA_DIR".
+func EnvName(flag string) string {
+	return EnvPrefix + strings.ToUpper(strings.ReplaceAll(flag, "-", "_"))
+}
+
+// BindServeFlags registers the server flags on fs, storing values into c.
+// c should be initialized with Default() so flag defaults match.
+func BindServeFlags(fs *pflag.FlagSet, c *Config) {
+	str := func(p *string, name, usage string) {
+		fs.StringVar(p, name, *p, usage+" (env "+EnvName(name)+")")
+	}
+	str(&c.Listen, "listen", "address to listen on")
+	str(&c.ContainerdAddress, "address", "containerd socket address")
+	str(&c.Namespace, "namespace", "default containerd namespace")
+	BindDataDirFlag(fs, c)
+	str(&c.StacksDir, "stacks-dir", "directory with compose stacks managed by nerdui (default <data-dir>/stacks)")
+	fs.StringSliceVar(&c.StacksScanDirs, "stacks-scan-dirs", c.StacksScanDirs,
+		"comma-separated directories scanned for existing compose projects (env "+EnvName("stacks-scan-dirs")+")")
+	str(&c.NerdctlPath, "nerdctl-path", "host nerdctl binary")
+	fs.BoolVar(&c.SkipNerdctlVersionCheck, "skip-nerdctl-version-check", c.SkipNerdctlVersionCheck,
+		"allow a host nerdctl whose major.minor differs from the linked packages (unsupported) (env "+
+			EnvName("skip-nerdctl-version-check")+")")
+	str(&c.LogLevel, "log-level", "log level: debug, info, warn, error")
+}
+
+// BindDataDirFlag registers only --data-dir (shared by serve and admin commands).
+func BindDataDirFlag(fs *pflag.FlagSet, c *Config) {
+	fs.StringVar(&c.DataDir, "data-dir", c.DataDir, "directory for nerdui state (env "+EnvName("data-dir")+")")
+}
+
+// ApplyEnv sets every flag that was not given on the command line from its NERDUI_*
+// environment variable, if present. lookup is usually os.LookupEnv.
+func ApplyEnv(fs *pflag.FlagSet, lookup func(string) (string, bool)) error {
+	var firstErr error
+	fs.VisitAll(func(f *pflag.Flag) {
+		if firstErr != nil || f.Changed || f.Name == "help" {
+			return
+		}
+		name := EnvName(f.Name)
+		v, ok := lookup(name)
+		if !ok {
+			return
+		}
+		if err := fs.Set(f.Name, v); err != nil {
+			firstErr = fmt.Errorf("%s=%q: %w", name, v, err)
+		}
+	})
+	return firstErr
+}
