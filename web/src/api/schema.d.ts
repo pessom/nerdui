@@ -105,7 +105,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Revoke the current session */
+        /**
+         * Revoke the current session
+         * @description Unsafe request — send the session's CSRF token in `X-CSRF-Token` (see the `session` security scheme).
+         */
         post: operations["logout"];
         delete?: never;
         options?: never;
@@ -539,10 +542,7 @@ export interface operations {
     logout: {
         parameters: {
             query?: never;
-            header: {
-                /** @description CSRF token from SessionResponse.csrfToken */
-                "X-CSRF-Token": components["parameters"]["CSRFToken"];
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };

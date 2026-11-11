@@ -4,6 +4,7 @@
 /// <reference types="vitest/config" />
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { tanstackRouter } from "@tanstack/router-plugin/vite";
 
 // NERDUI_API_URL points the dev server at a running nerdui backend,
 // e.g. NERDUI_API_URL=https://my-server:9443 npm run dev
@@ -11,7 +12,9 @@ import react from "@vitejs/plugin-react";
 const apiTarget = process.env.NERDUI_API_URL ?? "https://localhost:9443";
 
 export default defineConfig({
-  plugins: [react()],
+  // The router plugin generates src/routeTree.gen.ts from src/routes and splits each route
+  // into its own chunk (ADR-0010). It must run before the React plugin.
+  plugins: [tanstackRouter({ target: "react", autoCodeSplitting: true }), react()],
   server: {
     proxy: {
       // nerdui rejects requests whose Origin does not match the Host (CSRF protection for

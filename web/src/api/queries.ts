@@ -1,0 +1,64 @@
+// SPDX-FileCopyrightText: 2026 The nerdui Authors
+// SPDX-License-Identifier: AGPL-3.0-only
+
+import { queryOptions } from "@tanstack/react-query";
+import { api, setCsrfToken, unwrap, type components } from "./client";
+
+export type SessionResponse = components["schemas"]["SessionResponse"];
+export type EnvironmentStatus = components["schemas"]["EnvironmentStatus"];
+export type Environment = components["schemas"]["Environment"];
+export type VersionResponse = components["schemas"]["VersionResponse"];
+
+/** Query keys. Everything of an environment lives under ["env", id] (invalidated by events). */
+export const keys = {
+  me: ["me"] as const,
+  setup: ["setup"] as const,
+  version: ["version"] as const,
+  environments: ["environments"] as const,
+  env: (env: string) => ["env", env] as const,
+  envStatus: (env: string) => ["env", env, "status"] as const,
+  namespaces: (env: string) => ["env", env, "namespaces"] as const,
+};
+
+export const meQuery = queryOptions({
+  queryKey: keys.me,
+  queryFn: async (): Promise<SessionResponse> => {
+    const s = await unwrap(api.GET("/api/v1/auth/me"));
+    setCsrfToken(s.csrfToken);
+    return s;
+  },
+  retry: false,
+  staleTime: 60_000,
+});
+
+export const setupQuery = queryOptions({
+  queryKey: keys.setup,
+  queryFn: () => unwrap(api.GET("/api/v1/setup")),
+  retry: false,
+});
+
+export const versionQuery = queryOptions({
+  queryKey: keys.version,
+  queryFn: () => unwrap(api.GET("/api/v1/version")),
+  staleTime: 5 * 60_000,
+});
+
+export const environmentsQuery = queryOptions({
+  queryKey: keys.environments,
+  queryFn: async () => (await unwrap(api.GET("/api/v1/environments"))).environments,
+  staleTime: 5 * 60_000,
+});
+
+export const envStatusQuery = (env: string) =>
+  queryOptions({
+    queryKey: keys.envStatus(env),
+    queryFn: () => unwrap(api.GET("/api/v1/environments/{env}", { params: { path: { env } } })),
+  });
+
+export const namespacesQuery = (env: string) =>
+  queryOptions({
+    queryKey: keys.namespaces(env),
+    queryFn: () =>
+      unwrap(api.GET("/api/v1/environments/{env}/namespaces", { params: { path: { env } } })),
+    retry: false,
+  });

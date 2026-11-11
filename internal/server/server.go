@@ -133,11 +133,17 @@ func spaHandler(ui fs.FS) http.HandlerFunc {
 	}
 }
 
-// securityHeaders sets conservative browser security headers on every response.
-// A Content-Security-Policy is added together with the frontend shell (#128).
+// ContentSecurityPolicy restricts the UI to its own origin. Inline styles are allowed because
+// Mantine sets style attributes; scripts are only loaded from the embedded bundle.
+const ContentSecurityPolicy = "default-src 'self'; script-src 'self'; " +
+	"style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; " +
+	"connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
+
+// securityHeaders sets browser security headers on every response.
 func securityHeaders(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h := w.Header()
+		h.Set("Content-Security-Policy", ContentSecurityPolicy)
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("X-Frame-Options", "DENY")
 		h.Set("Referrer-Policy", "same-origin")

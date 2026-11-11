@@ -17,7 +17,7 @@ GO_BUILD    := CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)"
 # Dependency licenses compatible with AGPL-3.0-only that may be linked into nerdui.
 GO_LICENSES      := go run github.com/google/go-licenses/v2@v2.0.1
 ALLOWED_GO_LIC   := Apache-2.0,BSD-2-Clause,BSD-3-Clause,ISC,MIT,MPL-2.0
-ALLOWED_NPM_LIC  := MIT;ISC;Apache-2.0;BSD-2-Clause;BSD-3-Clause;0BSD
+ALLOWED_NPM_LIC  := MIT;ISC;Apache-2.0;BSD-2-Clause;BSD-3-Clause;0BSD;Unlicense;MIT OR CC0-1.0
 THIRD_PARTY_DIR  := third_party
 
 .DEFAULT_GOAL := help
