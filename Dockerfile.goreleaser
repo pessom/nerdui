@@ -1,5 +1,5 @@
 # Used by GoReleaser (dockers_v2): the binary is prebuilt for each target platform.
-FROM gcr.io/distroless/static-debian12
+FROM gcr.io/distroless/static-debian13
 ARG TARGETPLATFORM
 LABEL org.opencontainers.image.licenses="AGPL-3.0-only"
 COPY LICENSE NOTICE /usr/share/doc/nerdui/

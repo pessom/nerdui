@@ -3,7 +3,7 @@
 ## Prerequisites
 
 - Go (version from `go.mod`)
-- Node.js 24+ (26 recommended) (see `.nvmrc`)
+- Node.js 26+ (see `.nvmrc`)
 - [golangci-lint v2](https://golangci-lint.run/welcome/install/)
 - [lefthook](https://github.com/evilmartians/lefthook) for git hooks: `lefthook install`
 - Optional: [GoReleaser](https://goreleaser.com) for local release snapshots

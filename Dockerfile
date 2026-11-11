@@ -2,7 +2,7 @@
 # Multi-stage build for local/dev images (`make image`).
 # Release images are built by GoReleaser from Dockerfile.goreleaser using prebuilt binaries.
 
-FROM --platform=$BUILDPLATFORM node:26-alpine AS web
+FROM --platform=$BUILDPLATFORM node:26.13-alpine AS web
 WORKDIR /src/web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci
@@ -10,7 +10,7 @@ COPY api/ /src/api/
 COPY web/ ./
 RUN npm run build
 
-FROM --platform=$BUILDPLATFORM golang:1.27-alpine AS build
+FROM --platform=$BUILDPLATFORM golang:1.27.4-alpine AS build
 ARG TARGETOS
 ARG TARGETARCH
 ARG VERSION=dev
@@ -32,7 +32,7 @@ RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath \
 
 # nerdui needs root to access the containerd socket and nerdctl state on the host,
 # so the non-root distroless variant is intentionally not used.
-FROM gcr.io/distroless/static-debian12
+FROM gcr.io/distroless/static-debian13
 LABEL org.opencontainers.image.licenses="AGPL-3.0-only"
 COPY LICENSE NOTICE /usr/share/doc/nerdui/
 COPY --from=build /out/nerdui /usr/local/bin/nerdui
