@@ -1,0 +1,6 @@
+# Used by GoReleaser (dockers_v2): the binary is prebuilt for each target platform.
+FROM gcr.io/distroless/static-debian12
+ARG TARGETPLATFORM
+COPY $TARGETPLATFORM/nerdui /usr/local/bin/nerdui
+EXPOSE 8080
+ENTRYPOINT ["/usr/local/bin/nerdui"]

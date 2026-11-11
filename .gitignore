@@ -1,0 +1,20 @@
+# Build output
+/bin/
+/dist/
+coverage.out
+*.test
+
+# Frontend
+web/node_modules/
+web/dist/*
+!web/dist/.gitkeep
+
+# Editors / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Local env
+.env
+.env.*

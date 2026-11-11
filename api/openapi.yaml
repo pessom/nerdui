@@ -1,0 +1,85 @@
+openapi: 3.1.0
+info:
+  title: nerdui API
+  description: |
+    HTTP API of nerdui — a web UI for nerdctl/containerd.
+
+    This file is the source of truth for the API contract. TypeScript types for
+    the frontend are generated from it (`make api-gen`); Go handlers must be kept
+    in sync manually (see `internal/server`).
+  version: 0.1.0
+  license:
+    name: TBD
+servers:
+  - url: /
+tags:
+  - name: system
+    description: Health and version information
+paths:
+  /healthz:
+    get:
+      tags: [system]
+      operationId: getHealth
+      summary: Liveness probe
+      responses:
+        "200":
+          description: Server is alive
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+  /api/v1/version:
+    get:
+      tags: [system]
+      operationId: getVersion
+      summary: nerdui and runtime versions
+      description: |
+        Always returns 200. When containerd is unreachable, `runtime.containerd`
+        is empty and `error` describes the problem.
+      responses:
+        "200":
+          description: Version information
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VersionResponse"
+components:
+  schemas:
+    Health:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+    BuildInfo:
+      type: object
+      required: [version, commit, date, goVersion, platform]
+      properties:
+        version: { type: string, examples: ["v0.1.0"] }
+        commit: { type: string }
+        date: { type: string }
+        goVersion: { type: string, examples: ["go1.27.4"] }
+        platform: { type: string, examples: ["linux/amd64"] }
+    RuntimeVersions:
+      type: object
+      required: [containerd, containerdRevision, nerdctlLibrary]
+      properties:
+        containerd: { type: string, examples: ["v2.4.2"] }
+        containerdRevision: { type: string }
+        nerdctlLibrary: { type: string, examples: ["v2.4.2"] }
+    VersionResponse:
+      type: object
+      required: [nerdui, runtime]
+      properties:
+        nerdui:
+          $ref: "#/components/schemas/BuildInfo"
+        runtime:
+          $ref: "#/components/schemas/RuntimeVersions"
+        error:
+          type: string
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error: { type: string }

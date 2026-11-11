@@ -1,0 +1,116 @@
+# yaml-language-server: $schema=https://goreleaser.com/static/schema.json
+version: 2
+
+project_name: nerdui
+
+before:
+  hooks:
+    - go mod tidy
+    - make web
+
+builds:
+  - id: nerdui
+    main: ./cmd/nerdui
+    binary: nerdui
+    env:
+      - CGO_ENABLED=0
+    goos: [linux]
+    goarch: [amd64, arm64]
+    flags: [-trimpath]
+    ldflags:
+      - -s -w
+      - -X github.com/pessom/nerdui/internal/version.Version={{ .Version }}
+      - -X github.com/pessom/nerdui/internal/version.Commit={{ .ShortCommit }}
+      - -X github.com/pessom/nerdui/internal/version.Date={{ .Date }}
+
+archives:
+  - formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - README.md
+      - CHANGELOG.md
+      - deploy/**/*
+
+checksum:
+  name_template: checksums.txt
+
+# SBOM (SPDX) for every archive, generated with syft.
+sboms:
+  - artifacts: archive
+
+# Keyless signing (Sigstore/cosign via GitHub OIDC) of the checksums file.
+signs:
+  - cmd: cosign
+    signature: "${artifact}.sig"
+    certificate: "${artifact}.pem"
+    args:
+      - sign-blob
+      - --output-signature=${signature}
+      - --output-certificate=${certificate}
+      - ${artifact}
+      - --yes
+    artifacts: checksum
+
+# Multi-arch image in GHCR, built with buildx from prebuilt binaries.
+dockers_v2:
+  - images:
+      - ghcr.io/pessom/nerdui
+    dockerfile: Dockerfile.goreleaser
+    platforms:
+      - linux/amd64
+      - linux/arm64
+    tags:
+      - "{{ .Version }}"
+      - "{{ if not .Prerelease }}latest{{ end }}"
+    labels:
+      org.opencontainers.image.title: nerdui
+      org.opencontainers.image.description: Web UI for nerdctl/containerd
+      org.opencontainers.image.source: https://github.com/pessom/nerdui
+      org.opencontainers.image.version: "{{ .Version }}"
+      org.opencontainers.image.revision: "{{ .FullCommit }}"
+      org.opencontainers.image.created: "{{ .Date }}"
+    sbom: true
+
+docker_signs:
+  - cmd: cosign
+    artifacts: manifests
+    args:
+      - sign
+      - ${artifact}@${digest}
+      - --yes
+
+# Release notes grouped by Conventional Commit type.
+changelog:
+  use: github
+  sort: asc
+  groups:
+    - title: Breaking changes
+      regexp: '^.*?(\([[:word:]-]+\))??!:.+$'
+      order: 0
+    - title: Features
+      regexp: '^.*?feat(\([[:word:]-]+\))??:.+$'
+      order: 1
+    - title: Bug fixes
+      regexp: '^.*?fix(\([[:word:]-]+\))??:.+$'
+      order: 2
+    - title: Performance
+      regexp: '^.*?perf(\([[:word:]-]+\))??:.+$'
+      order: 3
+    - title: Other
+      order: 999
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^chore:"
+      - "^ci:"
+      - "^style:"
+      - Merge pull request
+      - Merge branch
+
+release:
+  github:
+    owner: pessom
+    name: nerdui
+  prerelease: auto
+  draft: false

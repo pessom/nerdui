@@ -1,0 +1,29 @@
+# Run nerdui as a container that manages the HOST containerd.
+#   sudo nerdctl compose -f deploy/docker/compose.yaml up -d
+#
+# WARNING: this grants the container root-equivalent access to the host.
+# By default the UI is bound to localhost only; use an SSH tunnel or an
+# authenticating TLS reverse proxy for remote access.
+services:
+  nerdui:
+    image: ghcr.io/pessom/nerdui:latest
+    restart: unless-stopped
+    privileged: true # required by nerdctl networking (CNI) and mounts
+    network_mode: host # CNI and port forwarding operate in the host netns
+    pid: host
+    environment:
+      NERDUI_LISTEN: "127.0.0.1:8080"
+      NERDUI_NAMESPACE: "default"
+      NERDUI_LOG_LEVEL: "info"
+    volumes:
+      # containerd API
+      - /run/containerd:/run/containerd
+      # containerd state (snapshots, content)
+      - /var/lib/containerd:/var/lib/containerd
+      # nerdctl state: names, logs, volumes, network configs
+      - /var/lib/nerdctl:/var/lib/nerdctl
+      # CNI plugins, configs and IPAM state
+      - /opt/cni/bin:/opt/cni/bin:ro
+      - /etc/cni:/etc/cni
+      - /var/lib/cni:/var/lib/cni
+      - /run/netns:/run/netns:rshared

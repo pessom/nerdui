@@ -1,0 +1,23 @@
+# Git hooks. Install once: `brew install lefthook && lefthook install`
+pre-commit:
+  parallel: true
+  commands:
+    gofmt:
+      glob: "*.go"
+      run: gofmt -l {staged_files} | (! grep .) || (echo "run: make fmt" && exit 1)
+    go-vet:
+      glob: "*.go"
+      run: go vet ./...
+    prettier:
+      root: web/
+      glob: "*.{ts,tsx,js,json,css,md,html}"
+      run: npx prettier --check {staged_files}
+    eslint:
+      root: web/
+      glob: "*.{ts,tsx}"
+      run: npx eslint {staged_files}
+
+commit-msg:
+  commands:
+    conventional-commit:
+      run: scripts/check-commit-msg.sh {1}

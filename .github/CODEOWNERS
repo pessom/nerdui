@@ -1,0 +1,8 @@
+# Code owners are requested for review automatically.
+# Replace the placeholders with real GitHub users or teams, e.g. @org/team.
+# https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# *                  @owner
+# /web/              @frontend-owner
+# /internal/runtime/ @runtime-owner
+# /.github/          @owner
