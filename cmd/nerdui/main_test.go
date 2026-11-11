@@ -288,3 +288,87 @@ func TestResetPassword(t *testing.T) {
 		t.Error("missing username accepted")
 	}
 }
+
+func TestHealthURL(t *testing.T) {
+	for listen, want := range map[string]string{
+		":9443":           "https://127.0.0.1:9443/healthz",
+		"0.0.0.0:9443":    "https://127.0.0.1:9443/healthz",
+		"[::]:9443":       "https://[::1]:9443/healthz",
+		"10.0.0.5:8443":   "https://10.0.0.5:8443/healthz",
+		"nas.local:9443":  "https://nas.local:9443/healthz",
+		"127.0.0.1:19443": "https://127.0.0.1:19443/healthz",
+	} {
+		c := config.Default()
+		c.Listen = listen
+		if got, err := healthURL(c); err != nil || got != want {
+			t.Errorf("healthURL(%q) = %q, %v; want %q", listen, got, err, want)
+		}
+	}
+	c := config.Default()
+	c.TLS = false
+	if got, _ := healthURL(c); got != "http://127.0.0.1:9443/healthz" {
+		t.Errorf("without TLS: %q", got)
+	}
+	c.Listen = "nonsense"
+	if _, err := healthURL(c); err == nil {
+		t.Error("invalid listen accepted")
+	}
+}
+
+func TestHealthcheck(t *testing.T) {
+	ctx := context.Background()
+	dataDir := filepath.Join(t.TempDir(), "data")
+
+	addr, stop := startServer(t, dataDir, insecureClient(), "https")
+	out, _, err := execute(ctx, t, noEnv, "healthcheck", "--listen", addr, "--data-dir", dataDir)
+	if err != nil || strings.TrimSpace(out) != "ok" {
+		t.Errorf("TLS server: %q, %v", out, err)
+	}
+	// Configuration from the environment only, as in a container.
+	env := func(k string) (string, bool) {
+		switch k {
+		case "NERDUI_LISTEN":
+			return addr, true
+		case "NERDUI_DATA_DIR":
+			return dataDir, true
+		}
+		return "", false
+	}
+	if _, _, err := execute(ctx, t, env, "healthcheck"); err != nil {
+		t.Errorf("env-only configuration: %v", err)
+	}
+	// The certificate is pinned: another certificate (other data dir) is rejected.
+	other := filepath.Join(t.TempDir(), "other")
+	_, stopOther := startServer(t, other, insecureClient(), "https")
+	stopOther()
+	if _, _, err := execute(ctx, t, noEnv, "healthcheck", "--listen", addr, "--data-dir", other); err == nil {
+		t.Error("server with a different certificate reported healthy")
+	}
+	// Missing certificate gives an actionable error.
+	if _, _, err := execute(ctx, t, noEnv, "healthcheck", "--listen", addr, "--data-dir", t.TempDir()); err == nil || !strings.Contains(err.Error(), "--data-dir") {
+		t.Errorf("missing certificate: %v", err)
+	}
+	// Wrong scheme is reported as unhealthy.
+	if _, _, err := execute(ctx, t, noEnv, "healthcheck", "--listen", addr, "--tls=false"); err == nil {
+		t.Error("plain HTTP probe of a TLS server reported healthy")
+	}
+	stop()
+
+	if _, _, err := execute(ctx, t, noEnv, "healthcheck", "--listen", addr, "--data-dir", dataDir, "--timeout", "1s"); err == nil || !strings.Contains(err.Error(), "unhealthy") {
+		t.Errorf("stopped server: %v", err)
+	}
+
+	// User-provided certificate.
+	cert, key := filepath.Join(dataDir, "tls/cert.pem"), filepath.Join(dataDir, "tls/key.pem")
+	addr, stop = startServer(t, filepath.Join(t.TempDir(), "data"), insecureClient(), "https", "--tls-cert", cert, "--tls-key", key)
+	if _, _, err := execute(ctx, t, noEnv, "healthcheck", "--listen", addr, "--tls-cert", cert); err != nil {
+		t.Errorf("user certificate: %v", err)
+	}
+	stop()
+
+	addr, stop = startServer(t, filepath.Join(t.TempDir(), "data"), http.DefaultClient, "http", "--tls=false")
+	defer stop()
+	if _, _, err := execute(ctx, t, noEnv, "healthcheck", "--listen", addr, "--tls=false"); err != nil {
+		t.Errorf("plain HTTP server: %v", err)
+	}
+}

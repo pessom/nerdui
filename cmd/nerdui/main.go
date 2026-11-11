@@ -60,7 +60,7 @@ func newRootCmd(stdout, stderr io.Writer, env lookupEnv) *cobra.Command {
 	root.SetVersionTemplate("{{.Version}}\n")
 	config.BindServeFlags(root.Flags(), &cfg)
 
-	root.AddCommand(newServeCmd(stderr), newVersionCmd(), newAdminCmd())
+	root.AddCommand(newServeCmd(stderr), newVersionCmd(), newAdminCmd(), newHealthcheckCmd())
 	return root
 }
 

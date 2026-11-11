@@ -24,7 +24,7 @@ func BindServeFlags(fs *pflag.FlagSet, c *Config) {
 	str := func(p *string, name, usage string) {
 		fs.StringVar(p, name, *p, usage+" (env "+EnvName(name)+")")
 	}
-	str(&c.Listen, "listen", "address to listen on")
+	BindListenFlags(fs, c)
 	str(&c.ContainerdAddress, "address", "containerd socket address")
 	str(&c.Namespace, "namespace", "default containerd namespace")
 	BindDataDirFlag(fs, c)
@@ -35,11 +35,22 @@ func BindServeFlags(fs *pflag.FlagSet, c *Config) {
 	fs.BoolVar(&c.SkipNerdctlVersionCheck, "skip-nerdctl-version-check", c.SkipNerdctlVersionCheck,
 		"allow a host nerdctl whose major.minor differs from the linked packages (unsupported) (env "+
 			EnvName("skip-nerdctl-version-check")+")")
-	fs.BoolVar(&c.TLS, "tls", c.TLS,
-		"serve HTTPS; set --tls=false only behind a TLS-terminating reverse proxy (env "+EnvName("tls")+")")
-	str(&c.TLSCert, "tls-cert", "PEM certificate file (default: self-signed in <data-dir>/tls)")
+	BindTLSCertFlag(fs, c)
 	str(&c.TLSKey, "tls-key", "PEM private key file for --tls-cert")
 	str(&c.LogLevel, "log-level", "log level: debug, info, warn, error")
+}
+
+// BindListenFlags registers --listen and --tls (shared by serve and healthcheck).
+func BindListenFlags(fs *pflag.FlagSet, c *Config) {
+	fs.StringVar(&c.Listen, "listen", c.Listen, "address to listen on (env "+EnvName("listen")+")")
+	fs.BoolVar(&c.TLS, "tls", c.TLS,
+		"serve HTTPS; set --tls=false only behind a TLS-terminating reverse proxy (env "+EnvName("tls")+")")
+}
+
+// BindTLSCertFlag registers --tls-cert (shared by serve and healthcheck).
+func BindTLSCertFlag(fs *pflag.FlagSet, c *Config) {
+	fs.StringVar(&c.TLSCert, "tls-cert", c.TLSCert,
+		"PEM certificate file (default: self-signed in <data-dir>/tls) (env "+EnvName("tls-cert")+")")
 }
 
 // BindDataDirFlag registers only --data-dir (shared by serve and admin commands).

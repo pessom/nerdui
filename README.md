@@ -62,7 +62,7 @@ Every flag has an environment variable `NERDUI_<FLAG>`; command-line flags take 
 | `--tls-cert` / `--tls-key` | `NERDUI_TLS_CERT` / `NERDUI_TLS_KEY` | self-signed in `<data-dir>/tls` | Your own PEM certificate and key (reloaded when the files change) |
 | `--log-level` | `NERDUI_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
 
-Subcommands: `nerdui serve` (default), `nerdui version`, `nerdui admin reset-password <user>`.
+Subcommands: `nerdui serve` (default), `nerdui version`, `nerdui healthcheck`, `nerdui admin reset-password <user>`.
 
 ## Development
 

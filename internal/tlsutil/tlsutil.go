@@ -80,6 +80,9 @@ func WithLogf(logf func(format string, args ...any)) Option {
 	return func(m *Manager) { m.logf = logf }
 }
 
+// SelfSignedCertFile returns the path of the self-signed certificate kept in dir.
+func SelfSignedCertFile(dir string) string { return filepath.Join(dir, certFileName) }
+
 // SelfSigned returns a manager for a self-signed certificate stored in dir (created 0700).
 // The certificate is generated on first use and regenerated when it is invalid or expires
 // within RenewBefore. hosts become the SANs (DNS names or IP addresses).

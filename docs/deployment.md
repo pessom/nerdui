@@ -109,4 +109,16 @@ nerdui serves **HTTPS on port 9443** by default ([ADR-0005](adr/0005-authenticat
 
 ## Health check
 
-`GET /healthz` returns `200 {"status":"ok"}`. `GET /api/v1/version` reports containerd connectivity.
+- `GET /healthz` returns `200 {"status":"ok"}` without authentication. With the default TLS it is
+  served over **HTTPS** only (plain HTTP to the TLS port gets `400`):
+
+  ```bash
+  curl -k https://127.0.0.1:9443/healthz   # -k: self-signed certificate
+  ```
+
+- `nerdui healthcheck` performs the same probe and exits `0`/`1`; it reads the same `--listen`,
+  `--tls`, `--data-dir`, `--tls-cert` and `NERDUI_*` settings as the server, so it works inside the
+  (distroless) container without arguments — the compose example uses it as the container
+  healthcheck. With TLS it trusts only the certificate nerdui serves from disk (pinned).
+- containerd connectivity is reported by `GET /api/v1/version` (`runtime`, `error`) only for a
+  signed-in user with the `system:read` permission; it is not meant for anonymous monitoring.
