@@ -9,6 +9,29 @@
 - Optional: [GoReleaser](https://goreleaser.com) for local release snapshots
 - A Linux host with containerd + nerdctl for integration testing (see [docs/development.md](docs/development.md))
 
+## License and CLA
+
+nerdui is licensed under [AGPL-3.0-only](LICENSE). Before your first pull request can be
+merged, you must sign the [Contributor License Agreement](CLA.md): the CLA bot will comment on
+your PR — reply with
+
+```
+I have read the CLA Document and I hereby sign the CLA
+```
+
+You keep the copyright of your contribution; the CLA allows the maintainer to also distribute
+the project under other licenses (e.g. commercial), which funds development.
+
+Every source file must start with an SPDX header (checked by `make spdx-check` and CI):
+
+```go
+// SPDX-FileCopyrightText: 2026 The nerdui Authors
+// SPDX-License-Identifier: AGPL-3.0-only
+```
+
+New dependencies must use a license compatible with AGPL-3.0-only (Apache-2.0, MIT, BSD,
+ISC, MPL-2.0). `make licenses-check` and CI enforce this.
+
 ## Workflow
 
 1. Open or pick an issue. For larger changes, discuss the approach first; architectural

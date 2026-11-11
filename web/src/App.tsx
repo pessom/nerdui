@@ -1,5 +1,9 @@
+// SPDX-FileCopyrightText: 2026 The nerdui Authors
+// SPDX-License-Identifier: AGPL-3.0-only
+
 import { useEffect, useState } from "react";
 import { api, type components } from "./api/client";
+import { Footer } from "./Footer";
 
 type VersionResponse = components["schemas"]["VersionResponse"];
 
@@ -18,21 +22,24 @@ export default function App() {
   }, []);
 
   return (
-    <main>
-      <h1>nerdui</h1>
-      <p>Web UI for nerdctl / containerd</p>
-      {error && <p role="alert">Error: {error}</p>}
-      {info && (
-        <dl>
-          <dt>nerdui</dt>
-          <dd>{info.nerdui.version}</dd>
-          <dt>containerd</dt>
-          <dd>{info.runtime.containerd || "not connected"}</dd>
-          <dt>nerdctl library</dt>
-          <dd>{info.runtime.nerdctlLibrary}</dd>
-        </dl>
-      )}
-      {info?.error && <p role="alert">Runtime: {info.error}</p>}
-    </main>
+    <>
+      <main>
+        <h1>nerdui</h1>
+        <p>Web UI for nerdctl / containerd</p>
+        {error && <p role="alert">Error: {error}</p>}
+        {info && (
+          <dl>
+            <dt>nerdui</dt>
+            <dd>{info.nerdui.version}</dd>
+            <dt>containerd</dt>
+            <dd>{info.runtime.containerd || "not connected"}</dd>
+            <dt>nerdctl library</dt>
+            <dd>{info.runtime.nerdctlLibrary}</dd>
+          </dl>
+        )}
+        {info?.error && <p role="alert">Runtime: {info.error}</p>}
+      </main>
+      <Footer build={info?.nerdui} />
+    </>
   );
 }

@@ -36,11 +36,13 @@
     "eslint-plugin-react-refresh": "^0.5.7",
     "globals": "^17.14.0",
     "jsdom": "^29.1.1",
+    "license-checker-rseidelsohn": "^4.4.2",
     "openapi-typescript": "^7.13.0",
     "prettier": "^3.9.10",
     "typescript": "~5.9",
     "typescript-eslint": "^8.72.2",
     "vite": "^8.3.8",
     "vitest": "^4.1.12"
-  }
+  },
+  "license": "AGPL-3.0-only"
 }

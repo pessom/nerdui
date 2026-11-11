@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 The nerdui Authors
+// SPDX-License-Identifier: AGPL-3.0-only
+
 // Package runtime wraps the containerd client and nerdctl libraries.
 //
 // All container operations performed by nerdui go through this package so that

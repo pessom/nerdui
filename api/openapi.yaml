@@ -9,7 +9,8 @@ info:
     in sync manually (see `internal/server`).
   version: 0.1.0
   license:
-    name: TBD
+    name: AGPL-3.0-only
+    identifier: AGPL-3.0-only
 servers:
   - url: /
 tags:
@@ -54,8 +55,17 @@ components:
           enum: [ok]
     BuildInfo:
       type: object
-      required: [version, commit, date, goVersion, platform]
+      required: [version, commit, date, goVersion, platform, source, license]
       properties:
+        source:
+          type: string
+          format: uri
+          description: Source code of the running build (AGPL-3.0 section 13).
+          examples: ["https://github.com/pessom/nerdui"]
+        license:
+          type: string
+          description: SPDX license identifier.
+          examples: ["AGPL-3.0-only"]
         version: { type: string, examples: ["v0.1.0"] }
         commit: { type: string }
         date: { type: string }

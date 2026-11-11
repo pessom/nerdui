@@ -14,6 +14,12 @@ LDFLAGS     := -s -w \
 	-X $(PKG)/internal/version.Date=$(DATE)
 GO_BUILD    := CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)"
 
+# Dependency licenses compatible with AGPL-3.0-only that may be linked into nerdui.
+GO_LICENSES      := go run github.com/google/go-licenses/v2@v2.0.1
+ALLOWED_GO_LIC   := Apache-2.0,BSD-2-Clause,BSD-3-Clause,ISC,MIT,MPL-2.0
+ALLOWED_NPM_LIC  := MIT;ISC;Apache-2.0;BSD-2-Clause;BSD-3-Clause;0BSD
+THIRD_PARTY_DIR  := third_party
+
 .DEFAULT_GOAL := help
 
 ##@ Development
@@ -76,7 +82,24 @@ test-integration: ## Run integration tests against real containerd (Linux, root)
 	go test -race -tags integration -count=1 ./...
 
 .PHONY: lint
-lint: lint-go lint-web ## Run all linters
+lint: lint-go lint-web spdx-check ## Run all linters
+
+.PHONY: spdx-check
+spdx-check: ## Verify SPDX license headers in source files
+	scripts/check-spdx.sh
+
+.PHONY: licenses-check
+licenses-check: ## Fail if a dependency has a license incompatible with AGPL-3.0-only
+	$(GO_LICENSES) check ./... --ignore $(PKG) --allowed_licenses=$(ALLOWED_GO_LIC)
+	cd web && npx license-checker-rseidelsohn --production --excludePrivatePackages \
+		--onlyAllow '$(ALLOWED_NPM_LIC)' --summary
+
+.PHONY: licenses
+licenses: ## Collect third-party licenses and notices into third_party/
+	rm -rf $(THIRD_PARTY_DIR)
+	$(GO_LICENSES) save ./... --ignore $(PKG) --save_path=$(THIRD_PARTY_DIR)/go
+	cd web && npx license-checker-rseidelsohn --production --excludePrivatePackages \
+		--plainVertical --out ../$(THIRD_PARTY_DIR)/web-licenses.txt
 
 .PHONY: lint-go
 lint-go: ## Run golangci-lint
@@ -111,7 +134,7 @@ release-check: ## Validate .goreleaser.yaml
 
 .PHONY: clean
 clean: ## Remove build artifacts
-	rm -rf $(BIN_DIR) dist coverage.out
+	rm -rf $(BIN_DIR) dist coverage.out $(THIRD_PARTY_DIR)
 	find web/dist -mindepth 1 ! -name .gitkeep -delete 2>/dev/null || true
 
 ##@ Help

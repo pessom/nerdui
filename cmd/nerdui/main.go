@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 The nerdui Authors
+// SPDX-License-Identifier: AGPL-3.0-only
+
 // Command nerdui is a web UI for nerdctl/containerd.
 package main
 

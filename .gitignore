@@ -2,6 +2,7 @@
 /bin/
 /dist/
 coverage.out
+/third_party/
 *.test
 
 # Frontend

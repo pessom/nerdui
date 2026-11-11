@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2026 The nerdui Authors
+# SPDX-License-Identifier: AGPL-3.0-only
 # Validates a commit message against Conventional Commits 1.0.0.
 # Usage: scripts/check-commit-msg.sh <commit-msg-file>
 set -euo pipefail

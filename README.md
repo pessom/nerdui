@@ -69,4 +69,15 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-TBD.
+nerdui is licensed under the [GNU Affero General Public License v3.0 only](LICENSE)
+(`AGPL-3.0-only`).
+
+- Using nerdui at home or in your organization, unmodified or modified, is free.
+- If you run a **modified** version and let others use it over a network, you must offer them
+  its source code (AGPL-3.0 section 13). The "Source code" link in the UI serves this purpose.
+- A commercial license without AGPL obligations is available — contact the maintainer.
+
+Contributions require signing the [CLA](CLA.md). Third-party licenses are listed in
+[NOTICE](NOTICE) and shipped in release artifacts.
+
+If you find nerdui useful, consider [sponsoring](https://github.com/sponsors/pessom) its development.

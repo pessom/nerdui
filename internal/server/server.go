@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 The nerdui Authors
+// SPDX-License-Identifier: AGPL-3.0-only
+
 // Package server implements the nerdui HTTP API and serves the web UI.
 package server
 

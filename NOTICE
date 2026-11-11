@@ -1,0 +1,33 @@
+nerdui — Web UI for nerdctl / containerd
+Copyright (C) 2026 Dmitriy Polyakov and the nerdui contributors
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU Affero General Public License, version 3, as published by
+the Free Software Foundation (AGPL-3.0-only). See the LICENSE file.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+
+If you run a modified version of nerdui and let users interact with it over a
+network, you must offer them the corresponding source code (AGPL-3.0 section 13).
+nerdui shows a "Source code" link in the UI and in /api/v1/version for this
+purpose; point it to your source by building with:
+  -ldflags "-X github.com/pessom/nerdui/internal/version.Source=<your-repo-url>"
+
+Commercial licensing (use without AGPL obligations) is available from the
+copyright holder on request.
+
+-------------------------------------------------------------------------------
+Third-party software
+
+nerdui includes software developed by third parties, most notably:
+
+  - containerd (https://github.com/containerd/containerd), Apache-2.0
+  - nerdctl (https://github.com/containerd/nerdctl), Apache-2.0
+  - chi (https://github.com/go-chi/chi), MIT
+  - React (https://react.dev), MIT
+
+Full license texts and NOTICE files of all bundled dependencies are shipped in
+the third_party/ directory of release archives and in
+/usr/share/doc/nerdui/third_party inside container images.

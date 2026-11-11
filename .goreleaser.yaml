@@ -7,6 +7,7 @@ before:
   hooks:
     - go mod tidy
     - make web
+    - make licenses
 
 builds:
   - id: nerdui
@@ -27,9 +28,12 @@ archives:
   - formats: [tar.gz]
     name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     files:
+      - LICENSE
+      - NOTICE
       - README.md
       - CHANGELOG.md
       - deploy/**/*
+      - third_party/**/*
 
 checksum:
   name_template: checksums.txt
@@ -56,6 +60,10 @@ dockers_v2:
   - images:
       - ghcr.io/pessom/nerdui
     dockerfile: Dockerfile.goreleaser
+    extra_files:
+      - LICENSE
+      - NOTICE
+      - third_party
     platforms:
       - linux/amd64
       - linux/arm64
@@ -66,6 +74,7 @@ dockers_v2:
       org.opencontainers.image.title: nerdui
       org.opencontainers.image.description: Web UI for nerdctl/containerd
       org.opencontainers.image.source: https://github.com/pessom/nerdui
+      org.opencontainers.image.licenses: AGPL-3.0-only
       org.opencontainers.image.version: "{{ .Version }}"
       org.opencontainers.image.revision: "{{ .FullCommit }}"
       org.opencontainers.image.created: "{{ .Date }}"

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 The nerdui Authors
+// SPDX-License-Identifier: AGPL-3.0-only
+
 // Package web embeds the compiled frontend (web/dist) into the nerdui binary.
 //
 // Build the frontend with `make web` before `go build`; otherwise only the

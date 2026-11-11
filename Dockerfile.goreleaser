@@ -1,6 +1,9 @@
 # Used by GoReleaser (dockers_v2): the binary is prebuilt for each target platform.
 FROM gcr.io/distroless/static-debian12
 ARG TARGETPLATFORM
+LABEL org.opencontainers.image.licenses="AGPL-3.0-only"
+COPY LICENSE NOTICE /usr/share/doc/nerdui/
+COPY third_party /usr/share/doc/nerdui/third_party
 COPY $TARGETPLATFORM/nerdui /usr/local/bin/nerdui
 EXPOSE 8080
 ENTRYPOINT ["/usr/local/bin/nerdui"]

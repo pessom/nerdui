@@ -12,3 +12,5 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 - Project skeleton: Go backend with containerd client, embedded React UI, `/healthz` and
   `/api/v1/version` endpoints.
 - Build, release (GoReleaser, multi-arch image, SBOM, cosign), CI and documentation.
+- Licensed under AGPL-3.0-only; "Source code" link in the UI and `source`/`license` fields in
+  `/api/v1/version`; third-party licenses shipped with releases.

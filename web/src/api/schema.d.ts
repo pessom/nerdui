@@ -51,6 +51,17 @@ export interface components {
             status: "ok";
         };
         BuildInfo: {
+            /**
+             * Format: uri
+             * @description Source code of the running build (AGPL-3.0 section 13).
+             * @example https://github.com/pessom/nerdui
+             */
+            source: string;
+            /**
+             * @description SPDX license identifier.
+             * @example AGPL-3.0-only
+             */
+            license: string;
             /** @example v0.1.0 */
             version: string;
             commit: string;

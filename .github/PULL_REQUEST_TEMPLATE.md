@@ -25,7 +25,9 @@ Closes #
 
 ## Checklist
 
-- [ ] `make lint` passes
+- [ ] I have signed the [CLA](../CLA.md) (the bot will ask on the first PR)
+- [ ] `make lint` passes (includes SPDX header check)
+- [ ] New dependencies have AGPL-compatible licenses (`make licenses-check`)
 - [ ] API changes are reflected in `api/openapi.yaml` and types regenerated (`make api-gen`)
 - [ ] Containers/images created by this change are visible and manageable via `nerdctl` CLI
 - [ ] Documentation updated (`README.md`, `docs/`)

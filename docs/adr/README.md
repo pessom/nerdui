@@ -9,3 +9,4 @@ We record significant architectural decisions as ADRs
 | #    | Title                                              | Status   |
 | ---- | -------------------------------------------------- | -------- |
 | 0001 | [Go backend over the containerd socket](0001-go-containerd-socket.md) | Accepted |
+| 0002 | [License: AGPL-3.0-only with CLA](0002-license-agpl-cla.md)            | Accepted |

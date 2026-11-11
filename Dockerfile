@@ -33,6 +33,8 @@ RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath \
 # nerdui needs root to access the containerd socket and nerdctl state on the host,
 # so the non-root distroless variant is intentionally not used.
 FROM gcr.io/distroless/static-debian12
+LABEL org.opencontainers.image.licenses="AGPL-3.0-only"
+COPY LICENSE NOTICE /usr/share/doc/nerdui/
 COPY --from=build /out/nerdui /usr/local/bin/nerdui
 EXPOSE 8080
 ENTRYPOINT ["/usr/local/bin/nerdui"]
