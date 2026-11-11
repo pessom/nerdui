@@ -18,6 +18,7 @@ make test             # unit tests
 make lint             # all linters
 make vuln             # govulncheck
 make api-gen          # regenerate web/src/api/schema.d.ts from api/openapi.yaml
+make sqlc             # regenerate internal/store/db from internal/store/queries/*.sql
 make release-snapshot # local GoReleaser build into dist/
 ```
 

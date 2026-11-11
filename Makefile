@@ -39,6 +39,16 @@ deps: ## Install Go and npm dependencies
 	go mod download
 	cd web && npm ci
 
+SQLC        := go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1
+
+.PHONY: sqlc
+sqlc: ## Regenerate typed Go code from internal/store/queries/*.sql (sqlc)
+	cd internal/store && $(SQLC) generate
+
+.PHONY: sqlc-check
+sqlc-check: ## Fail if generated sqlc code is out of date
+	cd internal/store && $(SQLC) diff
+
 .PHONY: api-gen
 api-gen: ## Regenerate TypeScript types from api/openapi.yaml
 	cd web && npm run api:gen

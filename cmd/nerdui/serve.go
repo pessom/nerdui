@@ -17,6 +17,7 @@ import (
 	"github.com/pessom/nerdui/internal/config"
 	"github.com/pessom/nerdui/internal/runtime"
 	"github.com/pessom/nerdui/internal/server"
+	"github.com/pessom/nerdui/internal/store"
 	"github.com/pessom/nerdui/internal/version"
 	"github.com/pessom/nerdui/web"
 )
@@ -42,6 +43,18 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 			"data_dir", cfg.DataDir)
 	}
 
+	st, err := store.Open(ctx, cfg.DataDir, store.WithLogf(func(format string, args ...any) {
+		logger.Info(fmt.Sprintf(format, args...))
+	}))
+	if err != nil {
+		return fmt.Errorf("open database: %w", err)
+	}
+	defer func() { _ = st.Close() }()
+	schema, err := st.SchemaVersion(ctx)
+	if err != nil {
+		return fmt.Errorf("read schema version: %w", err)
+	}
+
 	ln, err := listen(ctx, cfg.Listen)
 	if err != nil {
 		return err
@@ -63,6 +76,7 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 		"containerd", cfg.ContainerdAddress,
 		"namespace", cfg.Namespace,
 		"data_dir", cfg.DataDir,
+		"schema_version", schema,
 		"version", version.Version)
 
 	select {

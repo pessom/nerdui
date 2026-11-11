@@ -9,12 +9,14 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/pessom/nerdui/internal/config"
+	"github.com/pessom/nerdui/internal/store"
 )
 
 func noEnv(string) (string, bool) { return "", false }
@@ -135,6 +137,9 @@ func TestServeStartsAndStops(t *testing.T) {
 	c.DataDir = dataDir
 	if insecure, err := c.EnsureDataDir(); err != nil || insecure {
 		t.Errorf("data dir not created securely: insecure=%v err=%v", insecure, err)
+	}
+	if _, err := os.Stat(filepath.Join(dataDir, store.FileName)); err != nil {
+		t.Errorf("database not created: %v", err)
 	}
 }
 

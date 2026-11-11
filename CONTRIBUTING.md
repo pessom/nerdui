@@ -79,6 +79,15 @@ Suggested scopes: `api`, `runtime`, `containers`, `images`, `volumes`, `networks
 - Wrap errors with context: `fmt.Errorf("pull image %s: %w", ref, err)`.
 - Use `log/slog` for logging.
 
+### Database
+
+- Schema changes are forward-only [goose](https://github.com/pressly/goose) migrations in
+  `internal/store/migrations/NNNNN_name.sql` (`-- +goose Up` only, no Down). Never edit a
+  migration that has been released; add a new one.
+- Queries live in `internal/store/queries/*.sql`; run `make sqlc` to regenerate the typed code in
+  `internal/store/db` (do not edit it by hand). CI fails if generated code is stale.
+- Timestamps are Unix seconds (UTC); tables are `STRICT`.
+
 ### API
 
 - `api/openapi.yaml` is the source of truth. Update it together with handlers and run

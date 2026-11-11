@@ -15,11 +15,16 @@ while IFS= read -r file; do
   case "$file" in
     web/src/api/schema.d.ts) continue ;; # generated from api/openapi.yaml
   esac
+  # Skip generated code (Go convention: "Code generated ... DO NOT EDIT." at the top),
+  # e.g. sqlc output in internal/store/db.
+  if head -n 1 "$file" | grep -q '^// Code generated .* DO NOT EDIT\.$'; then
+    continue
+  fi
   if ! head -n 5 "$file" | grep -qF "$expected"; then
     echo "missing SPDX header: $file" >&2
     missing=1
   fi
-done < <(git ls-files --cached --others --exclude-standard -- '*.go' '*.ts' '*.tsx' '*.js' '*.sh')
+done < <(git ls-files --cached --others --exclude-standard -- '*.go' '*.ts' '*.tsx' '*.js' '*.sh' '*.sql')
 
 if [ "$missing" -ne 0 ]; then
   echo "" >&2
