@@ -5,9 +5,15 @@ package runtime
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/containerd/errdefs"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestContainerName(t *testing.T) {
@@ -46,6 +52,14 @@ func TestVersionsWithoutSocket(t *testing.T) {
 	if v.NerdctlLibrary == "" {
 		t.Error("NerdctlLibrary must always be set")
 	}
+	if !errdefs.IsUnavailable(err) {
+		t.Errorf("missing socket error %v is not classified as unavailable", err)
+	}
+	ctx2, cancel2 := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel2()
+	if _, err := c.Namespaces(ctx2); !errdefs.IsUnavailable(err) {
+		t.Errorf("Namespaces without socket: %v", err)
+	}
 }
 
 func TestAccessors(t *testing.T) {
@@ -55,5 +69,29 @@ func TestAccessors(t *testing.T) {
 	}
 	if err := c.Close(); err != nil {
 		t.Errorf("Close on unconnected client: %v", err)
+	}
+}
+
+func TestClassify(t *testing.T) {
+	for _, tt := range []struct {
+		name        string
+		err         error
+		unavailable bool
+		notFound    bool
+	}{
+		{"grpc unavailable", status.Error(codes.Unavailable, "connection refused"), true, false},
+		{"grpc deadline", status.Error(codes.DeadlineExceeded, "waiting for connections"), true, false},
+		{"native deadline", fmt.Errorf("list: %w", context.DeadlineExceeded), true, false},
+		{"native unavailable", errdefs.ErrUnavailable, true, false},
+		{"grpc not found", status.Error(codes.NotFound, "no such container"), false, true},
+		{"plain", errors.New("boom"), false, false},
+	} {
+		got := classify(tt.err)
+		if errdefs.IsUnavailable(got) != tt.unavailable || errdefs.IsNotFound(got) != tt.notFound {
+			t.Errorf("%s: classify(%v) = %v", tt.name, tt.err, got)
+		}
+	}
+	if classify(nil) != nil {
+		t.Error("classify(nil) != nil")
 	}
 }

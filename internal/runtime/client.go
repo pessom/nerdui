@@ -9,13 +9,17 @@ package runtime
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"runtime/debug"
+	"slices"
 	"sync"
 
 	containerd "github.com/containerd/containerd/v2/client"
+	"github.com/containerd/errdefs"
+	"github.com/containerd/errdefs/pkg/errgrpc"
 	"github.com/containerd/nerdctl/v2/pkg/labels"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 const (
@@ -27,8 +31,16 @@ const (
 	nerdctlModule = "github.com/containerd/nerdctl/v2"
 )
 
-// ErrNotConnected is returned when a containerd client cannot be created.
-var ErrNotConnected = errors.New("containerd is not connected")
+// ErrNotConnected is returned when containerd cannot be reached.
+// It satisfies errdefs.IsUnavailable, so the API maps it to 503 (ADR-0006).
+var ErrNotConnected error = notConnected{}
+
+type notConnected struct{}
+
+func (notConnected) Error() string { return "containerd is unavailable" }
+
+// Unavailable marks the error class for errdefs.IsUnavailable.
+func (notConnected) Unavailable() {}
 
 // Versions describes the versions of the underlying runtime components.
 type Versions struct {
@@ -83,11 +95,51 @@ func (c *Client) Versions(ctx context.Context) (Versions, error) {
 	}
 	sv, err := cl.Version(ctx)
 	if err != nil {
-		return v, fmt.Errorf("get containerd version: %w", err)
+		return v, fmt.Errorf("get containerd version: %w", classify(err))
 	}
 	v.Containerd = sv.Version
 	v.ContainerdRevision = sv.Revision
 	return v, nil
+}
+
+// System returns system-level operations (versions, namespaces).
+func (c *Client) System() System { return c }
+
+// Namespaces lists containerd namespaces in sorted order.
+func (c *Client) Namespaces(ctx context.Context) ([]string, error) {
+	cl, err := c.conn()
+	if err != nil {
+		return nil, err
+	}
+	ns, err := cl.NamespaceService().List(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list namespaces: %w", classify(err))
+	}
+	slices.Sort(ns)
+	return ns, nil
+}
+
+// classify converts gRPC errors to containerd errdefs and marks connectivity problems
+// (daemon down, socket missing, no answer in time) as ErrNotConnected. Some containerd
+// services already return native errdefs, so both forms are recognized.
+func classify(err error) error {
+	if err == nil {
+		return nil
+	}
+	native := err
+	if s, ok := status.FromError(err); ok {
+		switch s.Code() {
+		case codes.Unavailable, codes.DeadlineExceeded:
+			return fmt.Errorf("%w: %s", ErrNotConnected, s.Message())
+		}
+		// Only real gRPC statuses are converted: ToNative turns any other error into
+		// ErrUnknown and would hide its class.
+		native = errgrpc.ToNative(err)
+	}
+	if errdefs.IsUnavailable(native) || errdefs.IsDeadlineExceeded(native) {
+		return fmt.Errorf("%w: %v", ErrNotConnected, native) //nolint:errorlint // classified as unavailable
+	}
+	return native
 }
 
 // Close closes the underlying connection, if any.

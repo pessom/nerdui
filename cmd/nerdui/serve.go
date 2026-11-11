@@ -17,6 +17,7 @@ import (
 
 	"github.com/pessom/nerdui/internal/auth"
 	"github.com/pessom/nerdui/internal/config"
+	"github.com/pessom/nerdui/internal/environment"
 	"github.com/pessom/nerdui/internal/runtime"
 	"github.com/pessom/nerdui/internal/server"
 	"github.com/pessom/nerdui/internal/store"
@@ -85,11 +86,11 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 	defer stopCleanup()
 	go authSvc.CleanupLoop(cleanupCtx)
 
-	rt := runtime.New(cfg.ContainerdAddress, cfg.Namespace)
-	defer func() { _ = rt.Close() }()
+	envs := environment.NewRegistry(environment.Local(runtime.New(cfg.ContainerdAddress, cfg.Namespace), cfg.Namespace))
+	defer func() { _ = envs.Close() }()
 
 	srv := &http.Server{
-		Handler:           server.New(server.Config{Auth: authSvc, Runtime: rt, UI: web.Dist(), Logger: logger}),
+		Handler:           server.New(server.Config{Auth: authSvc, Environments: envs, UI: web.Dist(), Logger: logger}),
 		ReadHeaderTimeout: 10 * time.Second,
 	}
 
