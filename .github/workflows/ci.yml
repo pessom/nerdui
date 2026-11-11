@@ -143,5 +143,6 @@ jobs:
         env:
           NERDUI_TEST_EXPECT_CONTAINERD: v${{ matrix.containerd.minor }}.
           NERDUI_TEST_RESTART_CONTAINERD: "1"
+        # Only TestIntegration* (unit tests run in the Go job), verbose to show measurements.
         # -p 1: the events test restarts containerd, packages must not run concurrently.
-        run: sudo -E env "PATH=$PATH" go test -p 1 -race -tags integration -count=1 ./...
+        run: sudo -E env "PATH=$PATH" go test -p 1 -race -tags integration -count=1 -run Integration -v ./...
