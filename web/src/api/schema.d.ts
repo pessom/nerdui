@@ -30,12 +30,83 @@ export interface paths {
         };
         /**
          * nerdui and runtime versions
-         * @description Always returns 200. When containerd is unreachable, `runtime.containerd`
+         * @description Public. Build information, including the source URL required by AGPL-3.0
+         *     section 13, is always returned. `runtime` and `error` are only included for
+         *     authenticated requests. When containerd is unreachable, `runtime.containerd`
          *     is empty and `error` describes the problem.
          */
         get: operations["getVersion"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Whether the first admin account still has to be created */
+        get: operations["getSetupStatus"];
+        put?: never;
+        /** Create the first admin account using the setup token from the server log */
+        post: operations["setup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Log in with username and password */
+        post: operations["login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Current user and CSRF token */
+        get: operations["getMe"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Revoke the current session */
+        post: operations["logout"];
         delete?: never;
         options?: never;
         head?: never;
@@ -80,15 +151,56 @@ export interface components {
         };
         VersionResponse: {
             nerdui: components["schemas"]["BuildInfo"];
-            runtime: components["schemas"]["RuntimeVersions"];
+            runtime?: components["schemas"]["RuntimeVersions"];
             error?: string;
         };
+        User: {
+            /** Format: int64 */
+            id: number;
+            username: string;
+            /** @enum {string} */
+            role: "admin";
+        };
+        SessionResponse: {
+            user: components["schemas"]["User"];
+            csrfToken: string;
+            /** Format: date-time */
+            expiresAt: string;
+        };
         Error: {
-            error: string;
+            error: {
+                /** @enum {string} */
+                code: "invalid_argument" | "unauthenticated" | "forbidden" | "csrf_failed" | "not_found" | "conflict" | "rate_limited" | "unsupported_media_type" | "internal" | "unavailable";
+                message: string;
+            };
         };
     };
-    responses: never;
-    parameters: never;
+    responses: {
+        /** @description Error (ADR-0006) */
+        Error: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description Too many attempts */
+        RateLimited: {
+            headers: {
+                /** @description Seconds to wait */
+                "Retry-After"?: number;
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+    };
+    parameters: {
+        /** @description CSRF token from SessionResponse.csrfToken */
+        CSRFToken: string;
+    };
     requestBodies: never;
     headers: never;
     pathItems: never;
@@ -133,6 +245,143 @@ export interface operations {
                     "application/json": components["schemas"]["VersionResponse"];
                 };
             };
+        };
+    };
+    getSetupStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Setup status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        required: boolean;
+                    };
+                };
+            };
+        };
+    };
+    setup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description One-time token printed to the server log */
+                    token: string;
+                    username: string;
+                    password: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Admin created and logged in; sets the session cookie */
+            201: {
+                headers: {
+                    /** @description nerdui_session (HttpOnly, SameSite=Strict) */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionResponse"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            415: components["responses"]["Error"];
+            429: components["responses"]["RateLimited"];
+        };
+    };
+    login: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    username: string;
+                    password: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Logged in; sets the session cookie */
+            200: {
+                headers: {
+                    /** @description nerdui_session (HttpOnly, SameSite=Strict) */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionResponse"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            415: components["responses"]["Error"];
+            429: components["responses"]["RateLimited"];
+        };
+    };
+    getMe: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current session */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionResponse"];
+                };
+            };
+            401: components["responses"]["Error"];
+        };
+    };
+    logout: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description CSRF token from SessionResponse.csrfToken */
+                "X-CSRF-Token": components["parameters"]["CSRFToken"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Logged out; clears the session cookie */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
         };
     };
 }

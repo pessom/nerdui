@@ -31,12 +31,17 @@ export default function App() {
           <dl>
             <dt>nerdui</dt>
             <dd>{info.nerdui.version}</dd>
-            <dt>containerd</dt>
-            <dd>{info.runtime.containerd || "not connected"}</dd>
-            <dt>nerdctl library</dt>
-            <dd>{info.runtime.nerdctlLibrary}</dd>
+            {info.runtime && (
+              <>
+                <dt>containerd</dt>
+                <dd>{info.runtime.containerd || "not connected"}</dd>
+                <dt>nerdctl library</dt>
+                <dd>{info.runtime.nerdctlLibrary}</dd>
+              </>
+            )}
           </dl>
         )}
+        {info && !info.runtime && <p>Sign in to see runtime details.</p>}
         {info?.error && <p role="alert">Runtime: {info.error}</p>}
       </main>
       <Footer build={info?.nerdui} />

@@ -18,8 +18,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pessom/nerdui/internal/auth"
 	"github.com/pessom/nerdui/internal/config"
 	"github.com/pessom/nerdui/internal/store"
+	"github.com/pessom/nerdui/internal/store/db"
 	"github.com/pessom/nerdui/internal/tlsutil"
 )
 
@@ -234,14 +236,55 @@ func TestTLSFlagValidation(t *testing.T) {
 	}
 }
 
-func TestResetPasswordNotImplemented(t *testing.T) {
-	_, _, err := execute(context.Background(), t, noEnv, "admin", "reset-password", "admin",
-		"--data-dir", t.TempDir())
-	if !errors.Is(err, errNotImplemented) {
-		t.Fatalf("err = %v", err)
+func TestResetPassword(t *testing.T) {
+	ctx := context.Background()
+	dataDir := t.TempDir()
+	st, err := store.Open(ctx, dataDir)
+	if err != nil {
+		t.Fatal(err)
 	}
-	_, _, err = execute(context.Background(), t, noEnv, "admin", "reset-password")
-	if err == nil {
-		t.Fatal("missing username accepted")
+	hash, _ := auth.HashPassword("the old password", auth.DefaultArgon2)
+	if _, err := st.Write().CreateUser(ctx, db.CreateUserParams{
+		Username: "admin", PasswordHash: hash, Role: auth.RoleAdmin, Now: time.Now().Unix(),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	_ = st.Close()
+
+	run := func(stdin string, args ...string) (string, error) {
+		var out, errOut bytes.Buffer
+		cmd := newRootCmd(&out, &errOut, noEnv)
+		cmd.SetIn(strings.NewReader(stdin))
+		cmd.SetArgs(append([]string{"admin", "reset-password", "--data-dir", dataDir}, args...))
+		err := cmd.ExecuteContext(ctx)
+		return out.String(), err
+	}
+
+	if _, err := run("x", "admin"); err == nil || !strings.Contains(err.Error(), "--password-stdin") {
+		t.Errorf("non-terminal stdin without flag: %v", err)
+	}
+	if _, err := run("short\n", "admin", "--password-stdin"); !errors.Is(err, auth.ErrWeakPassword) {
+		t.Errorf("weak password: %v", err)
+	}
+	if _, err := run("a new long password\n", "nobody", "--password-stdin"); !errors.Is(err, auth.ErrUserNotFound) {
+		t.Errorf("unknown user: %v", err)
+	}
+	out, err := run("a new long password\n", "admin", "--password-stdin")
+	if err != nil || !strings.Contains(out, "Password for \"admin\" changed") {
+		t.Fatalf("reset: %q, %v", out, err)
+	}
+
+	st, err = store.Open(ctx, dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	u, _ := st.Read().GetUserByUsername(ctx, "admin")
+	if ok, _, _ := auth.VerifyPassword("a new long password", u.PasswordHash, auth.DefaultArgon2); !ok {
+		t.Error("new password not stored")
+	}
+
+	if _, _, err := execute(ctx, t, noEnv, "admin", "reset-password"); err == nil {
+		t.Error("missing username accepted")
 	}
 }

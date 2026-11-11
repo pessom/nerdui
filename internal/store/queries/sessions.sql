@@ -19,3 +19,9 @@ DELETE FROM sessions WHERE user_id = ?;
 
 -- name: DeleteExpiredSessions :execrows
 DELETE FROM sessions WHERE expires_at <= @now OR last_seen_at <= @idle_before;
+
+-- name: GetSessionWithUser :one
+SELECT sqlc.embed(sessions), sqlc.embed(users)
+FROM sessions
+JOIN users ON users.id = sessions.user_id
+WHERE sessions.token_hash = ?;
