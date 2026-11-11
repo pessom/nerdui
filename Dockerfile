@@ -2,7 +2,7 @@
 # Multi-stage build for local/dev images (`make image`).
 # Release images are built by GoReleaser from Dockerfile.goreleaser using prebuilt binaries.
 
-FROM --platform=$BUILDPLATFORM node:20-alpine AS web
+FROM --platform=$BUILDPLATFORM node:26-alpine AS web
 WORKDIR /src/web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci

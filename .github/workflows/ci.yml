@@ -20,8 +20,8 @@ jobs:
       run:
         working-directory: web
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -36,7 +36,7 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: web-dist
           path: web/dist
@@ -47,21 +47,21 @@ jobs:
     runs-on: ubuntu-latest
     needs: web
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with:
           name: web-dist
           path: web/dist
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - name: go mod tidy check
         run: |
           go mod tidy
           git diff --exit-code -- go.mod go.sum
-      - uses: golangci/golangci-lint-action@v8
+      - uses: golangci/golangci-lint-action@v9
         with:
-          version: v2.6
+          version: v2.15.0
       - run: go test -race -coverprofile=coverage.out ./...
       - name: Build linux/amd64 and linux/arm64
         run: |
@@ -72,11 +72,11 @@ jobs:
     name: Licenses (SPDX headers, dependency licenses)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -101,8 +101,8 @@ jobs:
     env:
       NERDCTL_VERSION: "2.4.2"
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - name: Install nerdctl-full (containerd, runc, CNI, BuildKit)

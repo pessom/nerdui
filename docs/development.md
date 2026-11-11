@@ -3,7 +3,7 @@
 ## Setup
 
 ```bash
-brew install go node@20 golangci-lint lefthook goreleaser   # macOS
+brew install go node@26 golangci-lint lefthook goreleaser   # macOS
 make deps
 lefthook install
 ```
