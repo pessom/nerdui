@@ -17,17 +17,14 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
+	"github.com/pessom/nerdui/internal/api"
 	"github.com/pessom/nerdui/internal/auth"
 	"github.com/pessom/nerdui/internal/authz"
+	"github.com/pessom/nerdui/internal/environment"
 	"github.com/pessom/nerdui/internal/httpjson"
 	"github.com/pessom/nerdui/internal/runtime"
 	"github.com/pessom/nerdui/internal/version"
 )
-
-// Runtime is the subset of the container runtime used by the HTTP layer.
-type Runtime interface {
-	Versions(ctx context.Context) (runtime.Versions, error)
-}
 
 // Config configures the HTTP server.
 type Config struct {
@@ -35,7 +32,8 @@ type Config struct {
 	Auth *auth.Service
 	// Authorizer decides per-action access; defaults to authz.AdminOnly (ADR-0009).
 	Authorizer authz.Authorizer
-	Runtime    Runtime
+	// Environments are the managed containerd hosts (required).
+	Environments *environment.Registry
 	// UI is the compiled frontend. When nil, the UI is not served.
 	UI     fs.FS
 	Logger *slog.Logger
@@ -76,7 +74,11 @@ func New(cfg Config) http.Handler {
 	guard := authz.NewGuard(cfg.Authorizer, auth.SubjectFromRequest, cfg.Logger)
 	r.Route("/api/v1", func(r chi.Router) {
 		cfg.Auth.Routes(r, guard)
-		r.With(cfg.Auth.OptionalSession).Method(http.MethodGet, "/version", authz.Public(versionHandler(cfg.Runtime, guard)))
+		r.With(cfg.Auth.OptionalSession).Method(http.MethodGet, "/version", authz.Public(versionHandler(cfg.Environments, guard)))
+		r.Group(func(r chi.Router) {
+			r.Use(cfg.Auth.RequireSession, auth.CSRF)
+			(&api.Handler{Envs: cfg.Environments, Logger: cfg.Logger}).Routes(r, guard)
+		})
 	})
 
 	// Default deny (ADR-0009): every API route must declare an action or be explicitly public.
@@ -90,13 +92,14 @@ func New(cfg Config) http.Handler {
 	return r
 }
 
-func versionHandler(rt Runtime, guard *authz.Guard) http.HandlerFunc {
+func versionHandler(envs *environment.Registry, guard *authz.Guard) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		resp := VersionResponse{Nerdui: version.Get()}
-		if rt != nil && guard.Allowed(r, authz.SystemRead) {
+		local, ok := envs.Get(environment.LocalID)
+		if ok && guard.Allowed(r, authz.SystemRead) {
 			ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 			defer cancel()
-			v, err := rt.Versions(ctx)
+			v, err := local.Runtime.System().Versions(ctx)
 			resp.Runtime = &v
 			if err != nil {
 				resp.Error = err.Error()

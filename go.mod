@@ -4,6 +4,8 @@ go 1.27.4
 
 require (
 	github.com/containerd/containerd/v2 v2.4.2
+	github.com/containerd/errdefs v1.0.0
+	github.com/containerd/errdefs/pkg v0.3.0
 	github.com/containerd/nerdctl/v2 v2.4.2
 	github.com/go-chi/chi/v5 v5.5.0
 	github.com/pressly/goose/v3 v3.30.0
@@ -11,6 +13,7 @@ require (
 	github.com/spf13/pflag v1.0.10
 	golang.org/x/crypto v0.58.0
 	golang.org/x/term v0.47.0
+	google.golang.org/grpc v1.85.0
 	modernc.org/sqlite v1.62.0
 )
 
@@ -21,8 +24,6 @@ require (
 	github.com/containerd/cgroups/v3 v3.1.3 // indirect
 	github.com/containerd/containerd/api v1.12.0 // indirect
 	github.com/containerd/continuity v0.5.0 // indirect
-	github.com/containerd/errdefs v1.0.0 // indirect
-	github.com/containerd/errdefs/pkg v0.3.0 // indirect
 	github.com/containerd/fifo v1.1.0 // indirect
 	github.com/containerd/log v0.2.0 // indirect
 	github.com/containerd/log/otel v0.1.0 // indirect
@@ -66,7 +67,6 @@ require (
 	golang.org/x/sys v0.50.0 // indirect
 	golang.org/x/text v0.44.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20261110000943-09e21b237f2c // indirect
-	google.golang.org/grpc v1.85.0 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 	modernc.org/libc v1.80.2 // indirect
 	modernc.org/mathutil v1.7.1 // indirect

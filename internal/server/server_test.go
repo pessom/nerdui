@@ -20,6 +20,7 @@ import (
 
 	"github.com/pessom/nerdui/internal/auth"
 	"github.com/pessom/nerdui/internal/authz"
+	"github.com/pessom/nerdui/internal/environment"
 	"github.com/pessom/nerdui/internal/runtime"
 	"github.com/pessom/nerdui/internal/store"
 	"github.com/pessom/nerdui/internal/store/db"
@@ -30,7 +31,15 @@ type fakeRuntime struct {
 	err error
 }
 
+func (f fakeRuntime) System() runtime.System                             { return f }
+func (f fakeRuntime) Close() error                                       { return nil }
 func (f fakeRuntime) Versions(context.Context) (runtime.Versions, error) { return f.v, f.err }
+func (f fakeRuntime) Namespaces(context.Context) ([]string, error)       { return []string{"default"}, f.err }
+
+// withRuntime returns a config whose local environment uses rt.
+func withRuntime(rt runtime.Runtime) Config {
+	return Config{Environments: environment.NewRegistry(environment.Local(rt, "default"))}
+}
 
 const testPassword = "correct horse battery"
 
@@ -71,6 +80,9 @@ func newTestServer(t *testing.T, cfg Config) *httptest.Server {
 	}
 
 	lastAuth = svc
+	if cfg.Environments == nil {
+		cfg.Environments = withRuntime(fakeRuntime{}).Environments
+	}
 	cfg.Auth = svc
 	cfg.Logger = logger
 	srv := httptest.NewServer(New(cfg))
@@ -119,7 +131,7 @@ func TestSecurityHeaders(t *testing.T) {
 }
 
 func TestVersionPublicWithoutRuntime(t *testing.T) {
-	srv := newTestServer(t, Config{Runtime: fakeRuntime{v: runtime.Versions{Containerd: "v2.4.2"}}})
+	srv := newTestServer(t, withRuntime(fakeRuntime{v: runtime.Versions{Containerd: "v2.4.2"}}))
 	resp, body := get(t, srv.URL+"/api/v1/version")
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status = %d", resp.StatusCode)
@@ -148,7 +160,7 @@ func TestAuthRoutesMounted(t *testing.T) {
 func TestVersion(t *testing.T) {
 	tests := []struct {
 		name      string
-		rt        Runtime
+		rt        runtime.Runtime
 		wantCtrd  string
 		wantError bool
 	}{
@@ -157,7 +169,7 @@ func TestVersion(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			srv := newTestServer(t, Config{Runtime: tt.rt})
+			srv := newTestServer(t, withRuntime(tt.rt))
 			resp, body := get(t, srv.URL+"/api/v1/version", sessionCookie(t))
 			if resp.StatusCode != http.StatusOK {
 				t.Fatalf("status = %d", resp.StatusCode)
@@ -224,7 +236,9 @@ func TestSPANotBuilt(t *testing.T) {
 // route is added without an authorization declaration (ADR-0009).
 func TestRouteAuthorization(t *testing.T) {
 	newTestServer(t, Config{})
-	h := New(Config{Auth: lastAuth, Logger: slog.New(slog.DiscardHandler)})
+	cfg := withRuntime(fakeRuntime{})
+	cfg.Auth, cfg.Logger = lastAuth, slog.New(slog.DiscardHandler)
+	h := New(cfg)
 	routes, err := authz.Inspect(h.(chi.Routes), APIPrefix)
 	if err != nil {
 		t.Fatal(err)
@@ -244,6 +258,10 @@ func TestRouteAuthorization(t *testing.T) {
 		"POST /api/v1/auth/login":  "public",
 		"GET /api/v1/auth/me":      "session:self",
 		"POST /api/v1/auth/logout": "session:self",
+
+		"GET /api/v1/environments":                  "system:read",
+		"GET /api/v1/environments/{env}/":           "system:read",
+		"GET /api/v1/environments/{env}/namespaces": "system:read",
 	}
 	for k, v := range want {
 		if got[k] != v {
@@ -258,8 +276,9 @@ func TestRouteAuthorization(t *testing.T) {
 }
 
 func TestVersionRuntimeRequiresSystemRead(t *testing.T) {
-	deny := denyAll{}
-	srv := newTestServer(t, Config{Authorizer: deny, Runtime: fakeRuntime{v: runtime.Versions{Containerd: "v2.4.2"}}})
+	cfg := withRuntime(fakeRuntime{v: runtime.Versions{Containerd: "v2.4.2"}})
+	cfg.Authorizer = denyAll{}
+	srv := newTestServer(t, cfg)
 	_, body := get(t, srv.URL+"/api/v1/version", sessionCookie(t))
 	if strings.Contains(body, `"runtime"`) {
 		t.Errorf("runtime exposed without system:read: %s", body)

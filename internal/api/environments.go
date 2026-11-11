@@ -1,0 +1,139 @@
+// SPDX-FileCopyrightText: 2026 The nerdui Authors
+// SPDX-License-Identifier: AGPL-3.0-only
+
+// Package api implements the REST handlers for environment-scoped resources (ADR-0006):
+// /api/v1/environments and /api/v1/environments/{env}/...
+package api
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"net/http"
+	"time"
+
+	"github.com/containerd/containerd/v2/pkg/identifiers"
+	"github.com/containerd/errdefs"
+	"github.com/go-chi/chi/v5"
+
+	"github.com/pessom/nerdui/internal/authz"
+	"github.com/pessom/nerdui/internal/environment"
+	"github.com/pessom/nerdui/internal/httpjson"
+	"github.com/pessom/nerdui/internal/runtime"
+)
+
+// statusTimeout bounds runtime calls made to report an environment's status.
+const statusTimeout = 3 * time.Second
+
+// Handler serves environment endpoints.
+type Handler struct {
+	Envs   *environment.Registry
+	Logger *slog.Logger
+}
+
+// Routes registers the environment endpoints under the API root.
+func (h *Handler) Routes(r chi.Router, g *authz.Guard) {
+	r.Method(http.MethodGet, "/environments", g.Protect(authz.SystemRead, h.list))
+	r.Route("/environments/{env}", func(r chi.Router) {
+		r.Use(h.resolveEnv)
+		r.Method(http.MethodGet, "/", g.Protect(authz.SystemRead, h.get))
+		r.Method(http.MethodGet, "/namespaces", g.Protect(authz.SystemRead, h.namespaces))
+	})
+}
+
+// Environment is the API representation. Keep in sync with api/openapi.yaml.
+type Environment struct {
+	ID               string `json:"id"`
+	Name             string `json:"name"`
+	Kind             string `json:"kind"`
+	DefaultNamespace string `json:"defaultNamespace"`
+}
+
+// EnvironmentStatus adds live connectivity information.
+type EnvironmentStatus struct {
+	Environment
+	Status  string            `json:"status"` // connected | unavailable
+	Error   string            `json:"error,omitempty"`
+	Runtime *runtime.Versions `json:"runtime,omitempty"`
+}
+
+// Environment statuses.
+const (
+	StatusConnected   = "connected"
+	StatusUnavailable = "unavailable"
+)
+
+func toAPI(e *environment.Environment) Environment {
+	return Environment{ID: e.ID, Name: e.Name, Kind: e.Kind, DefaultNamespace: e.DefaultNamespace}
+}
+
+func (h *Handler) list(w http.ResponseWriter, _ *http.Request) {
+	envs := h.Envs.List()
+	out := make([]Environment, 0, len(envs))
+	for _, e := range envs {
+		out = append(out, toAPI(e))
+	}
+	httpjson.Write(w, http.StatusOK, map[string]any{"environments": out})
+}
+
+func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
+	e := EnvFrom(r.Context())
+	ctx, cancel := context.WithTimeout(r.Context(), statusTimeout)
+	defer cancel()
+	resp := EnvironmentStatus{Environment: toAPI(e), Status: StatusConnected}
+	v, err := e.Runtime.System().Versions(ctx)
+	if err != nil {
+		resp.Status = StatusUnavailable
+		resp.Error = err.Error()
+	} else {
+		resp.Runtime = &v
+	}
+	httpjson.Write(w, http.StatusOK, resp)
+}
+
+func (h *Handler) namespaces(w http.ResponseWriter, r *http.Request) {
+	e := EnvFrom(r.Context())
+	ns, err := e.Runtime.System().Namespaces(r.Context())
+	if err != nil {
+		httpjson.WriteErr(w, r, h.Logger, err)
+		return
+	}
+	httpjson.Write(w, http.StatusOK, map[string]any{"namespaces": ns, "default": e.DefaultNamespace})
+}
+
+type envKey struct{}
+
+// EnvFrom returns the environment resolved from the {env} path parameter.
+func EnvFrom(ctx context.Context) *environment.Environment {
+	e, _ := ctx.Value(envKey{}).(*environment.Environment)
+	return e
+}
+
+// resolveEnv looks up {env} and answers 404 for unknown environments.
+func (h *Handler) resolveEnv(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		id := chi.URLParam(r, "env")
+		e, ok := h.Envs.Get(id)
+		if !ok {
+			httpjson.WriteError(w, http.StatusNotFound, httpjson.CodeNotFound, fmt.Sprintf("environment %q not found", id))
+			return
+		}
+		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), envKey{}, e)))
+	})
+}
+
+// Namespace returns the containerd namespace for the request: the "namespace" query
+// parameter, or the environment's default. Invalid names are rejected (ADR-0006).
+func Namespace(r *http.Request) (string, error) {
+	ns := r.URL.Query().Get("namespace")
+	if ns == "" {
+		if e := EnvFrom(r.Context()); e != nil {
+			return e.DefaultNamespace, nil
+		}
+		return "", fmt.Errorf("%w: namespace is required", errdefs.ErrInvalidArgument)
+	}
+	if err := identifiers.Validate(ns); err != nil {
+		return "", fmt.Errorf("namespace %q: %w", ns, err) // identifiers errors wrap errdefs.ErrInvalidArgument
+	}
+	return ns, nil
+}

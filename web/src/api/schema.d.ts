@@ -113,6 +113,72 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/environments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List managed environments
+         * @description Requires `system:read`.
+         */
+        get: operations["listEnvironments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/environments/{env}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Environment with live connectivity status and runtime versions
+         * @description Requires `system:read`. Always 200 for a known environment; `status` tells whether containerd is reachable.
+         */
+        get: operations["getEnvironment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/environments/{env}/namespaces": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        /**
+         * containerd namespaces of the environment
+         * @description Requires `system:read`.
+         */
+        get: operations["listNamespaces"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -153,6 +219,20 @@ export interface components {
             nerdui: components["schemas"]["BuildInfo"];
             runtime?: components["schemas"]["RuntimeVersions"];
             error?: string;
+        };
+        Environment: {
+            /** @example local */
+            id: string;
+            name: string;
+            /** @enum {string} */
+            kind: "local";
+            defaultNamespace: string;
+        };
+        EnvironmentStatus: components["schemas"]["Environment"] & {
+            /** @enum {string} */
+            status: "connected" | "unavailable";
+            error?: string;
+            runtime?: components["schemas"]["RuntimeVersions"];
         };
         User: {
             /** Format: int64 */
@@ -198,6 +278,10 @@ export interface components {
         };
     };
     parameters: {
+        /** @description Environment ID */
+        Env: string;
+        /** @description containerd namespace; defaults to the environment's default namespace */
+        Namespace: string;
         /** @description CSRF token from SessionResponse.csrfToken */
         CSRFToken: string;
     };
@@ -382,6 +466,87 @@ export interface operations {
             };
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
+        };
+    };
+    listEnvironments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Environments */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        environments: components["schemas"]["Environment"][];
+                    };
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
+    getEnvironment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Environment status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvironmentStatus"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    listNamespaces: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Namespaces, sorted */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        namespaces: string[];
+                        /** @description Default namespace of the environment */
+                        default: string;
+                    };
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
         };
     };
 }

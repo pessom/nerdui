@@ -18,6 +18,8 @@ tags:
     description: Health and version information
   - name: auth
     description: First-run setup, login and sessions (ADR-0005)
+  - name: environments
+    description: Managed containerd hosts (ADR-0006); MVP has only "local"
 security:
   - session: []
 paths:
@@ -152,6 +154,68 @@ paths:
         "204": { description: Logged out; clears the session cookie }
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
+  /api/v1/environments:
+    get:
+      tags: [environments]
+      operationId: listEnvironments
+      summary: List managed environments
+      description: "Requires `system:read`."
+      responses:
+        "200":
+          description: Environments
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [environments]
+                properties:
+                  environments:
+                    type: array
+                    items: { $ref: "#/components/schemas/Environment" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+    get:
+      tags: [environments]
+      operationId: getEnvironment
+      summary: Environment with live connectivity status and runtime versions
+      description: "Requires `system:read`. Always 200 for a known environment; `status` tells whether containerd is reachable."
+      responses:
+        "200":
+          description: Environment status
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EnvironmentStatus" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/namespaces:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+    get:
+      tags: [environments]
+      operationId: listNamespaces
+      summary: containerd namespaces of the environment
+      description: "Requires `system:read`."
+      responses:
+        "200":
+          description: Namespaces, sorted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [namespaces, default]
+                properties:
+                  namespaces:
+                    type: array
+                    items: { type: string }
+                  default: { type: string, description: Default namespace of the environment }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
 components:
   securitySchemes:
     session:
@@ -162,6 +226,18 @@ components:
         Server-side session (ADR-0005). Unsafe requests (POST, PUT, PATCH, DELETE) must also
         send the session's CSRF token in the X-CSRF-Token header.
   parameters:
+    Env:
+      name: env
+      in: path
+      required: true
+      schema: { type: string, examples: ["local"] }
+      description: Environment ID
+    Namespace:
+      name: namespace
+      in: query
+      required: false
+      schema: { type: string, examples: ["default", "k8s.io"] }
+      description: containerd namespace; defaults to the environment's default namespace
     CSRFToken:
       name: X-CSRF-Token
       in: header
@@ -224,6 +300,23 @@ components:
           $ref: "#/components/schemas/RuntimeVersions"
         error:
           type: string
+    Environment:
+      type: object
+      required: [id, name, kind, defaultNamespace]
+      properties:
+        id: { type: string, examples: ["local"] }
+        name: { type: string }
+        kind: { type: string, enum: [local] }
+        defaultNamespace: { type: string }
+    EnvironmentStatus:
+      allOf:
+        - $ref: "#/components/schemas/Environment"
+        - type: object
+          required: [status]
+          properties:
+            status: { type: string, enum: [connected, unavailable] }
+            error: { type: string }
+            runtime: { $ref: "#/components/schemas/RuntimeVersions" }
     User:
       type: object
       required: [id, username, role]

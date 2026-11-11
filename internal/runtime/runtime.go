@@ -1,0 +1,27 @@
+// SPDX-FileCopyrightText: 2026 The nerdui Authors
+// SPDX-License-Identifier: AGPL-3.0-only
+
+package runtime
+
+import "context"
+
+// Runtime is everything nerdui can do with one environment (ADR-0006). It is split into
+// small interfaces so handlers depend only on what they use and can be tested with fakes.
+// The local implementation is *Client; a remote agent implements the same interface in v2.
+//
+// New capabilities (Containers, Images, Volumes, Networks, Stacks, Events) are added here
+// together with the features that need them.
+type Runtime interface {
+	System() System
+	Close() error
+}
+
+// System covers host-level information of an environment.
+type System interface {
+	// Versions reports containerd and nerdctl versions.
+	Versions(ctx context.Context) (Versions, error)
+	// Namespaces lists containerd namespaces.
+	Namespaces(ctx context.Context) ([]string, error)
+}
+
+var _ Runtime = (*Client)(nil)

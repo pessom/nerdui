@@ -8,6 +8,7 @@ package runtime
 import (
 	"context"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -38,5 +39,26 @@ func TestIntegrationVersions(t *testing.T) {
 	// daemon is actually the one under test.
 	if want := os.Getenv("NERDUI_TEST_EXPECT_CONTAINERD"); want != "" && !strings.HasPrefix(v.Containerd, want) {
 		t.Fatalf("containerd version = %q, want prefix %q", v.Containerd, want)
+	}
+}
+
+func TestIntegrationNamespaces(t *testing.T) {
+	addr := os.Getenv("NERDUI_TEST_ADDRESS")
+	if addr == "" {
+		addr = DefaultAddress
+	}
+	c := New(addr, DefaultNamespace)
+	t.Cleanup(func() { _ = c.Close() })
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// CI runs `nerdctl run` in the default namespace before the tests, so it exists.
+	ns, err := c.System().Namespaces(ctx)
+	if err != nil {
+		t.Fatalf("Namespaces: %v", err)
+	}
+	if !slices.Contains(ns, DefaultNamespace) || !slices.IsSorted(ns) {
+		t.Errorf("namespaces = %v", ns)
 	}
 }
