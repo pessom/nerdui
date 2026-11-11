@@ -1,0 +1,18 @@
+# sqlc configuration: generates typed Go code from SQL (run `make sqlc`).
+# Schema is read from the goose migrations; queries live in queries/*.sql.
+version: "2"
+sql:
+  - engine: sqlite
+    schema: migrations
+    queries: queries
+    gen:
+      go:
+        package: db
+        out: db
+        emit_json_tags: false
+        emit_empty_slices: true
+        emit_methods_with_db_argument: false
+        overrides:
+          - column: "sessions.token_hash"
+            go_type:
+              type: "[]byte"
