@@ -367,6 +367,82 @@ paths:
         "404": { $ref: "#/components/responses/Error" }
         "500": { $ref: "#/components/responses/Error" }
         "503": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/containers/{id}/logs:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - $ref: "#/components/parameters/ContainerID"
+      - $ref: "#/components/parameters/Namespace"
+    get:
+      tags: [containers]
+      operationId: downloadContainerLogs
+      summary: Container logs as plain text (download)
+      description: |
+        Requires `containers:read`. Like `nerdctl logs` without `--follow`: stdout and stderr
+        interleaved, ANSI sequences preserved. Sent as an attachment `<id12>-logs.txt`.
+      parameters:
+        - name: tail
+          in: query
+          schema: { type: string, examples: ["500", "all"] }
+          description: Only the last N lines; empty or `all` = all lines
+        - name: since
+          in: query
+          schema: { type: string, examples: ["2027-03-01T10:00:00Z", "10m"] }
+          description: Lines at or after this time (RFC 3339 or relative), second precision
+        - name: until
+          in: query
+          schema: { type: string }
+          description: Lines at or before this time (RFC 3339 or relative)
+        - name: timestamps
+          in: query
+          schema: { type: boolean, default: false }
+          description: Prefix lines with their RFC 3339 time
+      responses:
+        "200":
+          description: Log text
+          content:
+            text/plain:
+              schema: { type: string }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "500": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/containers/{id}/logs/stream:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - $ref: "#/components/parameters/ContainerID"
+      - $ref: "#/components/parameters/Namespace"
+    get:
+      tags: [containers]
+      operationId: streamContainerLogs
+      summary: Container logs (WebSocket)
+      description: |
+        WebSocket stream (ADR-0007, ADR-0014); requires `containers:read` and a same-origin
+        upgrade. `StreamMessage.data` is an array of `LogLine`. The stream sends `end` when the
+        logs are exhausted or, with `follow`, when the container stops. Errors (unknown
+        container, log driver `none` → `conflict`) arrive as `error` followed by `end`.
+        To resume after a disconnect, reconnect with `since` = last `ts` and skip lines up to it.
+      parameters:
+        - name: follow
+          in: query
+          schema: { type: boolean, default: false }
+          description: Keep streaming new lines while the container runs
+        - name: tail
+          in: query
+          schema: { type: string, examples: ["500", "all"] }
+          description: Only the last N lines; empty or `all` = all lines
+        - name: since
+          in: query
+          schema: { type: string, examples: ["2027-03-01T10:00:00Z", "10m"] }
+          description: Lines at or after this time (RFC 3339 or relative), second precision
+      responses:
+        "101": { description: Switching protocols (WebSocket) }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
   /api/v1/environments/{env}/containers/actions:
     parameters:
       - $ref: "#/components/parameters/Env"
@@ -705,6 +781,16 @@ components:
                   IPPrefixLen: { type: integer }
                   GlobalIPv6Address: { type: string }
                   MacAddress: { type: string }
+    LogLine:
+      type: object
+      required: [stream, line]
+      properties:
+        stream: { type: string, enum: [stdout, stderr] }
+        ts:
+          type: string
+          format: date-time
+          description: Absent when the log driver does not record times (journald)
+        line: { type: string, description: Line without the newline; ANSI sequences preserved }
     ContainerActionName:
       type: string
       enum: [start, stop, restart, kill, pause, unpause, remove]
