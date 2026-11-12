@@ -42,6 +42,7 @@ type fakeRuntime struct {
 	gotLogs   runtime.LogOptions
 	gotSize   bool
 	info      runtime.Info
+	images    []runtime.Image
 }
 
 type actionCall struct {
@@ -65,6 +66,14 @@ func (f *fakeRuntime) Namespaces(context.Context) ([]string, error)  { return f.
 func (f *fakeRuntime) Nerdctl(context.Context) runtime.NerdctlStatus { return f.nerdctl }
 func (f *fakeRuntime) Containers() runtime.Containers                { return f }
 func (f *fakeRuntime) Info(context.Context) (runtime.Info, error)    { return f.info, f.err }
+func (f *fakeRuntime) Images() runtime.Images                        { return fakeImages{f} }
+
+type fakeImages struct{ f *fakeRuntime }
+
+func (fi fakeImages) List(_ context.Context, ns string) ([]runtime.Image, error) {
+	fi.f.gotNS = ns
+	return fi.f.images, fi.f.err
+}
 func (f *fakeRuntime) List(_ context.Context, ns string) ([]runtime.Container, error) {
 	f.gotNS = ns
 	return f.containers, f.err

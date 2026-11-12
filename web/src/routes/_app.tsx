@@ -3,7 +3,7 @@
 
 import { AppShell, Burger, Group, ScrollArea, Text } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { IconBox, IconLayoutDashboard, IconUsers } from "@tabler/icons-react";
+import { IconBox, IconLayoutDashboard, IconStack3, IconUsers } from "@tabler/icons-react";
 import { Link, Outlet, createFileRoute, redirect, useParams } from "@tanstack/react-router";
 import { ApiError } from "../api/client";
 import { meQuery, setupQuery } from "../api/queries";
@@ -94,6 +94,14 @@ function AppLayout() {
             search={(prev: { ns?: string }) => ({ ns: prev.ns })}
             label="Containers"
             leftSection={<IconBox size={18} stroke={1.5} />}
+            onClick={close}
+          />
+          <RouterNavLink
+            to="/env/$env/images"
+            params={{ env }}
+            search={(prev: { ns?: string }) => ({ ns: prev.ns })}
+            label="Images"
+            leftSection={<IconStack3 size={18} stroke={1.5} />}
             onClick={close}
           />
           <RouterNavLink

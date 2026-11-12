@@ -7,6 +7,12 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 
 ## [Unreleased]
 
+### Added
+
+- **Images:** list of the namespace's images with the number of containers using each, unpacked
+  and downloaded size, platforms and creation time; search, used/unused filter and sorting
+  (#42).
+
 ## [0.1.0-alpha.1.1] - 2026-11-12
 
 ### Fixed

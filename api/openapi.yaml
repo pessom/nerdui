@@ -22,6 +22,8 @@ tags:
     description: Managed containerd hosts (ADR-0006); MVP has only "local"
   - name: containers
     description: Containers of an environment
+  - name: images
+    description: Images of an environment
   - name: users
     description: Local users (#74, ADR-0016); every user is an administrator until roles (#78)
 security:
@@ -458,6 +460,36 @@ paths:
                   containers:
                     type: array
                     items: { $ref: "#/components/schemas/Container" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/images:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - $ref: "#/components/parameters/Namespace"
+    get:
+      tags: [images]
+      operationId: listImages
+      summary: All images of a namespace, sorted by name
+      description: |
+        Requires `images:read` (#42). One entry per stored reference; sizes cover every platform
+        in the store. Filtering and sorting are done by clients (ADR-0006). Live updates: refetch
+        on events from `/events/stream`.
+      responses:
+        "200":
+          description: Images
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [namespace, images]
+                properties:
+                  namespace: { type: string }
+                  images:
+                    type: array
+                    items: { $ref: "#/components/schemas/Image" }
         "400": { $ref: "#/components/responses/Error" }
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
@@ -1080,6 +1112,25 @@ components:
               capabilities: { type: array, items: { type: string } }
               status: { type: string, enum: [ok, skip, error] }
               error: { type: string, description: Init error (also for skipped plugins) }
+    Image:
+      type: object
+      required: [name, repository, tag, digest, createdAt, platforms, size, contentSize, containers, labels]
+      properties:
+        name: { type: string, examples: ["docker.io/library/nginx:1.27"] }
+        repository:
+          type: string
+          description: Short repository name (`nginx`); empty for digest-only (dangling) images
+        tag: { type: string, description: Empty for digest references and dangling images }
+        digest: { type: string, description: Target (index or manifest) digest }
+        createdAt: { type: string, format: date-time, description: When the image was stored }
+        platforms:
+          type: array
+          items: { type: string }
+          description: Platforms whose content is in the store, e.g. linux/amd64
+        size: { type: integer, format: int64, description: Unpacked size on disk (snapshots), bytes }
+        contentSize: { type: integer, format: int64, description: Stored compressed content, bytes }
+        containers: { type: integer, description: Containers of the namespace created from this image }
+        labels: { type: object, additionalProperties: { type: string } }
     LogLine:
       type: object
       required: [stream, line]
