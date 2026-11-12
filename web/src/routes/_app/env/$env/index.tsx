@@ -1,13 +1,14 @@
 // SPDX-FileCopyrightText: 2026 The nerdui Authors
 // SPDX-License-Identifier: AGPL-3.0-only
 
-import { Badge, Card, Group, Loader, SimpleGrid, Stack, Table, Text, Title } from "@mantine/core";
+import { Badge, Group, Loader, SimpleGrid, Stack, Text, Title } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import type { ReactNode } from "react";
 import { envStatusQuery, versionQuery } from "../../../../api/queries";
+import { InfoCard, Row } from "../../../../components/InfoCard";
+import { SystemInfoSection } from "../../../../features/system/SystemInfoSection";
 
-/** Environment overview: connectivity and runtime versions (host details come with #66). */
+/** Environment overview: connectivity, versions, host and runtime information (#66). */
 export const Route = createFileRoute("/_app/env/$env/")({
   component: Overview,
 });
@@ -77,30 +78,7 @@ function Overview() {
           <Row label="Platform" value={version.data?.nerdui.platform ?? "—"} />
         </InfoCard>
       </SimpleGrid>
+      {s.status === "connected" && <SystemInfoSection env={env} />}
     </Stack>
-  );
-}
-
-function InfoCard({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <Card withBorder>
-      <Title order={4} mb="xs">
-        {title}
-      </Title>
-      <Table>
-        <Table.Tbody>{children}</Table.Tbody>
-      </Table>
-    </Card>
-  );
-}
-
-function Row({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <Table.Tr>
-      <Table.Th w="45%" fw={500} c="dimmed">
-        {label}
-      </Table.Th>
-      <Table.Td>{value}</Table.Td>
-    </Table.Tr>
   );
 }

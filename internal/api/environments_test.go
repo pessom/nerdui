@@ -41,6 +41,7 @@ type fakeRuntime struct {
 	logFollow bool  // with Follow, block until ctx ends after the lines
 	gotLogs   runtime.LogOptions
 	gotSize   bool
+	info      runtime.Info
 }
 
 type actionCall struct {
@@ -63,6 +64,7 @@ func (f *fakeRuntime) Versions(context.Context) (runtime.Versions, error) {
 func (f *fakeRuntime) Namespaces(context.Context) ([]string, error)  { return f.ns, f.err }
 func (f *fakeRuntime) Nerdctl(context.Context) runtime.NerdctlStatus { return f.nerdctl }
 func (f *fakeRuntime) Containers() runtime.Containers                { return f }
+func (f *fakeRuntime) Info(context.Context) (runtime.Info, error)    { return f.info, f.err }
 func (f *fakeRuntime) List(_ context.Context, ns string) ([]runtime.Container, error) {
 	f.gotNS = ns
 	return f.containers, f.err
@@ -175,6 +177,30 @@ func TestNamespaces(t *testing.T) {
 
 	rec = do(t, newRouter(&fakeRuntime{err: runtime.ErrNotConnected}), "/api/v1/environments/local/namespaces", nil)
 	if rec.Code != http.StatusServiceUnavailable || !strings.Contains(rec.Body.String(), `"unavailable"`) {
+		t.Errorf("containerd down: %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestInfo(t *testing.T) {
+	want := runtime.Info{
+		ID: "uuid", KernelVersion: "6.8.0", CPUs: 4, MemoryBytes: 8 << 30,
+		Components: []runtime.Component{{Name: "runc", Version: "1.3.0"}},
+		Plugins:    []runtime.Plugin{{Type: "io.containerd.snapshotter.v1", ID: "overlayfs", Status: runtime.PluginOK}},
+	}
+	var got runtime.Info
+	rec := do(t, newRouter(&fakeRuntime{info: want}), "/api/v1/environments/local/info", &got)
+	if rec.Code != http.StatusOK || got.ID != "uuid" || got.CPUs != 4 || got.MemoryBytes != 8<<30 ||
+		len(got.Components) != 1 || got.Plugins[0].ID != "overlayfs" {
+		t.Fatalf("%d %s", rec.Code, rec.Body)
+	}
+	for _, field := range []string{`"kernelVersion":"6.8.0"`, `"memoryBytes":`, `"status":"ok"`} {
+		if !strings.Contains(rec.Body.String(), field) {
+			t.Errorf("body lacks %s: %s", field, rec.Body)
+		}
+	}
+
+	rec = do(t, newRouter(&fakeRuntime{err: runtime.ErrNotConnected}), "/api/v1/environments/local/info", nil)
+	if rec.Code != http.StatusServiceUnavailable {
 		t.Errorf("containerd down: %d %s", rec.Code, rec.Body)
 	}
 }

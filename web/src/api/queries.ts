@@ -17,6 +17,7 @@ export const keys = {
   environments: ["environments"] as const,
   env: (env: string) => ["env", env] as const,
   envStatus: (env: string) => ["env", env, "status"] as const,
+  envInfo: (env: string) => ["env", env, "info"] as const,
   namespaces: (env: string) => ["env", env, "namespaces"] as const,
   containers: (env: string, ns: string) => ["env", env, "containers", ns] as const,
   /** Under containers(env, ns), so container actions refresh it too. */
@@ -57,6 +58,18 @@ export const envStatusQuery = (env: string) =>
   queryOptions({
     queryKey: keys.envStatus(env),
     queryFn: () => unwrap(api.GET("/api/v1/environments/{env}", { params: { path: { env } } })),
+  });
+
+export type SystemInfo = components["schemas"]["SystemInfo"];
+
+/** Host and runtime information (#66); changes rarely, so it is not refetched on focus. */
+export const envInfoQuery = (env: string) =>
+  queryOptions({
+    queryKey: keys.envInfo(env),
+    queryFn: () =>
+      unwrap(api.GET("/api/v1/environments/{env}/info", { params: { path: { env } } })),
+    staleTime: 60_000,
+    retry: false,
   });
 
 export const namespacesQuery = (env: string) =>
