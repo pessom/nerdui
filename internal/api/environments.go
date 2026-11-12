@@ -53,6 +53,9 @@ func (h *Handler) Routes(r chi.Router, g *authz.Guard) {
 		r.Method(http.MethodPost, "/images/push", g.Protect(authz.ImagesWrite, h.pushImage))
 		r.Method(http.MethodPost, "/images/tag", g.Protect(authz.ImagesWrite, h.tagImage))
 		r.Method(http.MethodPost, "/images/remove", g.Protect(authz.ImagesWrite, h.removeImages))
+		r.Method(http.MethodGet, "/registries", g.Protect(authz.RegistriesRead, h.listRegistries))
+		r.Method(http.MethodPost, "/registries", g.Protect(authz.RegistriesWrite, h.loginRegistry))
+		r.Method(http.MethodDelete, "/registries", g.Protect(authz.RegistriesWrite, h.logoutRegistry))
 	})
 }
 

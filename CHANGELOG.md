@@ -17,6 +17,9 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 - **Image actions:** tag, push (as a background job, with the host's registry credentials) and
   remove, one by one or selected images at once, with a force option for images used by
   containers (#44).
+- **Registries:** log in to and out of registries from the UI; logins are verified by the
+  registry and stored in the host's docker config, shared with `nerdctl login`, and used for
+  pulls and pushes (#51, ADR-0019).
 - **Background jobs:** long operations run in the background; the header shows running jobs and
   the Jobs panel lists recent ones with their output and a Cancel button (#126, ADR-0018).
 

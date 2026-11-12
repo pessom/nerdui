@@ -24,6 +24,8 @@ tags:
     description: Containers of an environment
   - name: images
     description: Images of an environment
+  - name: registries
+    description: Registry logins of a host (#51, ADR-0019), shared with `nerdctl login`
   - name: jobs
     description: Background jobs for long operations (#126, ADR-0006, ADR-0018)
   - name: users
@@ -720,6 +722,81 @@ paths:
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
         "503": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/registries:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+    get:
+      tags: [registries]
+      operationId: listRegistries
+      summary: Registries the host is logged in to
+      description: |
+        Requires `registries:read`. Read from the docker config of the user running nerdui (the
+        same file `nerdctl login` writes); passwords are never returned.
+      responses:
+        "200":
+          description: Registries sorted by server
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [registries]
+                properties:
+                  registries: { type: array, items: { $ref: "#/components/schemas/Registry" } }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+    post:
+      tags: [registries]
+      operationId: loginRegistry
+      summary: Log in to a registry
+      description: |
+        Requires `registries:write`. Like `nerdctl login`: the credentials are verified with the
+        registry (400 when rejected, 503 when unreachable) and stored in the docker config, where
+        pull, push and compose use them.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [server, username, password]
+              additionalProperties: false
+              properties:
+                server: { type: string, examples: ["registry.local:5000", "ghcr.io"] }
+                username: { type: string }
+                password: { type: string, description: Password or access token }
+      responses:
+        "201":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Registry"
+                  - type: object
+                    properties:
+                      warning: { type: string, description: Set when the password is stored unencrypted }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [registries]
+      operationId: logoutRegistry
+      summary: Log out of a registry
+      description: Requires `registries:write`. Like `nerdctl logout`.
+      parameters:
+        - name: server
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "204": { description: Logged out }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
   /api/v1/environments/{env}/containers/{id}/{action}:
     parameters:
       - $ref: "#/components/parameters/Env"
@@ -1362,6 +1439,12 @@ components:
         contentSize: { type: integer, format: int64, description: Stored compressed content, bytes }
         containers: { type: integer, description: Containers of the namespace created from this image }
         labels: { type: object, additionalProperties: { type: string } }
+    Registry:
+      type: object
+      required: [server]
+      properties:
+        server: { type: string, description: "Key in the docker config, e.g. https://index.docker.io/v1/" }
+        username: { type: string }
     Job:
       type: object
       required: [id, kind, title, environment, status, startedAt]

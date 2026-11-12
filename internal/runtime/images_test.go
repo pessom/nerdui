@@ -40,3 +40,15 @@ func TestClassifyImageErr(t *testing.T) {
 		}
 	}
 }
+
+func TestClassifyLoginErr(t *testing.T) {
+	if err := classifyLoginErr(errors.New("unexpected status from GET request: 401 Unauthorized")); !errdefs.IsInvalidArgument(err) {
+		t.Errorf("401: %v", err)
+	}
+	if err := classifyLoginErr(errors.New("dial tcp 10.0.0.1:443: connect: connection refused")); !errdefs.IsUnavailable(err) {
+		t.Errorf("refused: %v", err)
+	}
+	if err := classifyLoginErr(errors.New("something else")); errdefs.IsInvalidArgument(err) || errdefs.IsUnavailable(err) {
+		t.Errorf("other: %v", err)
+	}
+}

@@ -29,8 +29,10 @@ function EnvLayout() {
   const { ns } = Route.useSearch();
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  // The overview is host-wide: no namespace selector there.
-  const overview = pathname.replace(/\/$/, "") === `/env/${encodeURIComponent(env)}`;
+  // Host-wide pages (overview, registries) have no namespace selector.
+  const envPath = `/env/${encodeURIComponent(env)}`;
+  const page = pathname.replace(/\/$/, "");
+  const overview = page === envPath || page === `${envPath}/registries`;
 
   const envs = useQuery(environmentsQuery);
   const status = useQuery(envStatusQuery(env));

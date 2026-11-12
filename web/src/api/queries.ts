@@ -24,6 +24,7 @@ export const keys = {
   containers: (env: string, ns: string) => ["env", env, "containers", ns] as const,
   /** Under containers(env, ns), so container actions refresh it too. */
   images: (env: string, ns: string) => ["env", env, "images", ns] as const,
+  registries: (env: string) => ["env", env, "registries"] as const,
   containerInspect: (env: string, ns: string, id: string, size: boolean) =>
     ["env", env, "containers", ns, "inspect", id, size] as const,
 };
@@ -92,6 +93,18 @@ export const namespacesQuery = (env: string) =>
 
 export type Image = components["schemas"]["Image"];
 export type Job = components["schemas"]["Job"];
+export type Registry = components["schemas"]["Registry"];
+
+export const registriesQuery = (env: string) =>
+  queryOptions({
+    queryKey: keys.registries(env),
+    queryFn: async () =>
+      (
+        await unwrap(
+          api.GET("/api/v1/environments/{env}/registries", { params: { path: { env } } }),
+        )
+      ).registries,
+  });
 export type JobFrame = components["schemas"]["JobFrame"];
 
 /** Background jobs (#126); polled while any job runs. */
