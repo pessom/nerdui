@@ -24,6 +24,7 @@ import { RowActions } from "../../../../features/containers/ContainerActions";
 import { ContainerOverview } from "../../../../features/containers/ContainerOverview";
 import { displayName, stateColor, statusText } from "../../../../features/containers/format";
 import { inspectJSON } from "../../../../features/containers/inspect";
+import { ExecPanel } from "../../../../features/containers/ExecPanel";
 import { LogsPanel } from "../../../../features/containers/LogsPanel";
 import { StatsPanel } from "../../../../features/containers/StatsPanel";
 import { useActionRequests } from "../../../../features/containers/useActionRequests";
@@ -32,8 +33,8 @@ const JsonViewer = lazy(() => import("../../../../features/containers/JsonViewer
 
 const envRoute = getRouteApi("/_app/env/$env");
 
-type Tab = "overview" | "logs" | "stats" | "inspect";
-const tabs: readonly Tab[] = ["overview", "logs", "stats", "inspect"];
+type Tab = "overview" | "logs" | "stats" | "terminal" | "inspect";
+const tabs: readonly Tab[] = ["overview", "logs", "stats", "terminal", "inspect"];
 const isTab = (v: unknown): v is Tab => tabs.includes(v as Tab);
 
 /** Container page: overview and inspect JSON (#13), logs (#14), stats (#16). */
@@ -118,6 +119,7 @@ function ContainerPage() {
             <Tabs.Tab value="overview">Overview</Tabs.Tab>
             <Tabs.Tab value="logs">Logs</Tabs.Tab>
             <Tabs.Tab value="stats">Stats</Tabs.Tab>
+            <Tabs.Tab value="terminal">Terminal</Tabs.Tab>
             <Tabs.Tab value="inspect">Inspect</Tabs.Tab>
           </Tabs.List>
           <Tabs.Panel value="overview">
@@ -142,6 +144,17 @@ function ContainerPage() {
               running={
                 summary ? summary.state === "running" : inspect.data.State?.Status === "running"
               }
+            />
+          </Tabs.Panel>
+          <Tabs.Panel value="terminal">
+            <ExecPanel
+              env={env}
+              id={inspect.data.Id}
+              namespace={namespace}
+              running={
+                summary ? summary.state === "running" : inspect.data.State?.Status === "running"
+              }
+              enabled={status.data?.features.exec ?? true}
             />
           </Tabs.Panel>
           <Tabs.Panel value="inspect">

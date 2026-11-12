@@ -839,6 +839,39 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/environments/{env}/containers/{id}/exec": {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                /** @description Full container ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * Terminal in a running container (WebSocket)
+         * @description Requires `containers:exec` (#15, ADR-0022); 403 when the server runs with
+         *     `--disable-exec`. Like `nerdctl exec -it`. Binary frames carry input (client) and
+         *     terminal output (server); the client sends `{"type":"resize","cols":n,"rows":n}` as
+         *     text. The session ends with a data message `{"exitCode": n}` and `end`; closing the
+         *     WebSocket kills the process. A container that is not running gets an error
+         *     (`conflict`).
+         */
+        get: operations["execContainer"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/environments/{env}/containers/{id}/logs/stream": {
         parameters: {
             query?: {
@@ -982,6 +1015,10 @@ export interface components {
             status: "connected" | "unavailable";
             error?: string;
             runtime?: components["schemas"]["RuntimeVersions"];
+            features: {
+                /** @description False when the web terminal is disabled (--disable-exec) */
+                exec: boolean;
+            };
         };
         Container: {
             /** @description Full container ID (64 hex characters) */
@@ -2697,6 +2734,43 @@ export interface operations {
                 /** @description containerd namespace; defaults to the environment's default namespace */
                 namespace?: components["parameters"]["Namespace"];
                 interval?: string;
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                /** @description Full container ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Switching protocols */
+            101: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    execContainer: {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+                /** @description argv, repeated; default bash if present, else sh */
+                cmd?: string[];
+                /** @description Name or UID[:GID], resolved in the container */
+                user?: string;
+                workdir?: string;
+                cols?: number;
+                rows?: number;
             };
             header?: never;
             path: {

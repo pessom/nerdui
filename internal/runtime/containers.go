@@ -6,6 +6,7 @@ package runtime
 import (
 	"context"
 	"fmt"
+	"io"
 	"sort"
 	"sync"
 	"time"
@@ -81,6 +82,8 @@ type Containers interface {
 	Logs(ctx context.Context, namespace, id string, opts LogOptions, emit LogEmitter) error
 	// Stats samples the running container with the exact id every interval (#16).
 	Stats(ctx context.Context, namespace, id string, interval time.Duration, emit StatsEmitter) error
+	// Exec runs an interactive process with a terminal until it exits or ctx ends (#15).
+	Exec(ctx context.Context, namespace, id string, opts ExecOptions, stdin io.Reader, out io.Writer, resize <-chan TermSize) (int, error)
 }
 
 // Containers returns container operations of the local containerd.
