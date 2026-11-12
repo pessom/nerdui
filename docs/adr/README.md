@@ -28,4 +28,5 @@ We record significant architectural decisions as ADRs
 | 0017 | [One build per supported nerdctl minor version](0017-builds-per-nerdctl-version.md) | Accepted |
 | 0018 | [Background jobs: terminal output, retention, cancellation](0018-jobs-terminal-output.md) | Accepted |
 | 0019 | [Registry credentials in the shared docker config](0019-registry-credentials.md) | Accepted |
+| 0020 | [Prune: nerdctl's prunes with an estimated preview, no volumes](0020-prune.md) | Accepted |
 | 0021 | [Event history in SQLite](0021-event-history.md) | Accepted |

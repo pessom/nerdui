@@ -53,6 +53,7 @@ type fakeRuntime struct {
 	pushes      []pushCall
 	imageErr    map[string]error // by reference (and registry server for logins)
 	registries  []runtime.Registry
+	prunes      []runtime.PruneOptions
 }
 
 type actionCall struct {
@@ -77,7 +78,23 @@ func (f *fakeRuntime) Nerdctl(context.Context) runtime.NerdctlStatus { return f.
 func (f *fakeRuntime) Containers() runtime.Containers                { return f }
 func (f *fakeRuntime) Info(context.Context) (runtime.Info, error)    { return f.info, f.err }
 func (f *fakeRuntime) Images() runtime.Images                        { return fakeImages{f} }
-func (f *fakeRuntime) Registries() runtime.Registries                { return fakeRegistries{f} }
+func (f *fakeRuntime) PrunePreview(_ context.Context, ns string, all bool) (runtime.PrunePreview, error) {
+	f.gotNS = ns
+	p := runtime.PrunePreview{Containers: []runtime.PrunedItem{{ID: "c1", Name: "old"}}, Images: []runtime.PrunedItem{}}
+	if all {
+		p.Images = append(p.Images, runtime.PrunedItem{Name: "nginx:1.27", Size: 100})
+		p.ImagesSize = 100
+	}
+	return p, f.err
+}
+func (f *fakeRuntime) Prune(_ context.Context, _ string, opts runtime.PruneOptions, out io.Writer) error {
+	f.mu.Lock()
+	f.prunes = append(f.prunes, opts)
+	f.mu.Unlock()
+	_, _ = io.WriteString(out, "Deleted Containers:\nc1\n")
+	return f.err
+}
+func (f *fakeRuntime) Registries() runtime.Registries { return fakeRegistries{f} }
 
 type fakeRegistries struct{ f *fakeRuntime }
 

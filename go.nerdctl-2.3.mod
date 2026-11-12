@@ -15,6 +15,7 @@ require (
 	github.com/containerd/plugin v1.1.0
 	github.com/containerd/typeurl/v2 v2.3.0
 	github.com/distribution/reference v0.6.0
+	github.com/docker/go-units v0.5.0
 	github.com/go-chi/chi/v5 v5.5.0
 	github.com/moby/sys/signal v0.7.1
 	github.com/opencontainers/go-digest v1.0.0
@@ -62,7 +63,6 @@ require (
 	github.com/docker/cli v29.9.2+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.9.3 // indirect
 	github.com/docker/go-connections v0.8.2 // indirect
-	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dustin/go-humanize v1.1.0 // indirect
 	github.com/fahedouch/go-logrotate v0.3.0 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect

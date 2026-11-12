@@ -767,6 +767,70 @@ paths:
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
         "503": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/system/prune:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - $ref: "#/components/parameters/Namespace"
+    get:
+      tags: [environments]
+      operationId: prunePreview
+      summary: Estimate what a prune removes
+      description: |
+        Requires `system:read` (#52, ADR-0020). Images are selected exactly as the prune does
+        (dangling, or all unused with `allImages`); containers are those stopped now; networks
+        and build cache are not previewed. Image sizes overlap where layers are shared.
+      parameters:
+        - name: allImages
+          in: query
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: Preview
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PrunePreview" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+    post:
+      tags: [environments]
+      operationId: prune
+      summary: Remove unused resources (background job)
+      description: |
+        Requires `system:prune` and a compatible host nerdctl. Runs nerdctl's container, network,
+        image and build cache prunes in the order of `nerdctl system prune`; volumes are never
+        pruned. One prune per namespace at a time (409).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                containers: { type: boolean, description: Stopped containers }
+                images: { type: boolean, description: Dangling images }
+                allImages: { type: boolean, description: "With images: all images no container uses; also all build cache" }
+                networks: { type: boolean, description: Networks no container uses (not bridge, host, none) }
+                buildCache: { type: boolean, description: BuildKit cache (skipped without a BuildKit daemon) }
+      responses:
+        "202":
+          description: Job started
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [job]
+                properties:
+                  job: { $ref: "#/components/schemas/Job" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
   /api/v1/environments/{env}/registries:
     parameters:
       - $ref: "#/components/parameters/Env"
@@ -1484,6 +1548,21 @@ components:
         contentSize: { type: integer, format: int64, description: Stored compressed content, bytes }
         containers: { type: integer, description: Containers of the namespace created from this image }
         labels: { type: object, additionalProperties: { type: string } }
+    PrunedItem:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        size: { type: integer, format: int64 }
+    PrunePreview:
+      type: object
+      required: [containers, images, imagesSize, buildKit]
+      properties:
+        containers: { type: array, items: { $ref: "#/components/schemas/PrunedItem" } }
+        images: { type: array, items: { $ref: "#/components/schemas/PrunedItem" } }
+        imagesSize: { type: integer, format: int64, description: Sum of unpacked sizes (upper bound) }
+        buildKit: { type: boolean, description: A BuildKit daemon is available for build cache pruning }
     Registry:
       type: object
       required: [server]
