@@ -22,6 +22,7 @@ export const keys = {
   namespaces: (env: string) => ["env", env, "namespaces"] as const,
   containers: (env: string, ns: string) => ["env", env, "containers", ns] as const,
   /** Under containers(env, ns), so container actions refresh it too. */
+  images: (env: string, ns: string) => ["env", env, "images", ns] as const,
   containerInspect: (env: string, ns: string, id: string, size: boolean) =>
     ["env", env, "containers", ns, "inspect", id, size] as const,
 };
@@ -86,6 +87,20 @@ export const namespacesQuery = (env: string) =>
     queryFn: () =>
       unwrap(api.GET("/api/v1/environments/{env}/namespaces", { params: { path: { env } } })),
     retry: false,
+  });
+
+export type Image = components["schemas"]["Image"];
+
+/** Images of a namespace (#42); refetched on environment events like containers. */
+export const imagesQuery = (env: string, namespace: string) =>
+  queryOptions({
+    queryKey: keys.images(env, namespace),
+    queryFn: () =>
+      unwrap(
+        api.GET("/api/v1/environments/{env}/images", {
+          params: { path: { env }, query: { namespace } },
+        }),
+      ),
   });
 
 export const containersQuery = (env: string, namespace: string) =>

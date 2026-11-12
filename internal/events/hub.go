@@ -182,16 +182,19 @@ func (h *Hub) pump(ctx context.Context, evs <-chan runtime.Event, errs <-chan er
 	}
 }
 
+// setConnected changes the state and announces it under one lock, so a subscriber that
+// registers concurrently sees the new state exactly once: either as its initial event or as
+// the announcement, never both.
 func (h *Hub) setConnected(v bool) {
 	h.mu.Lock()
 	changed := h.connected != v
 	h.connected = v
-	h.mu.Unlock()
 	if changed {
-		if v {
-			h.logger.Info("containerd event subscription established")
-		}
-		h.publish(h.stateEvent(v))
+		h.publishLocked(h.stateEvent(v))
+	}
+	h.mu.Unlock()
+	if changed && v {
+		h.logger.Info("containerd event subscription established")
 	}
 }
 
@@ -208,6 +211,10 @@ func (h *Hub) stateEvent(connected bool) runtime.Event {
 func (h *Hub) publish(ev runtime.Event) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
+	h.publishLocked(ev)
+}
+
+func (h *Hub) publishLocked(ev runtime.Event) {
 	for s := range h.subs {
 		if !s.filter.Match(ev) {
 			continue

@@ -18,6 +18,7 @@ import { Route as AppUsersRouteImport } from './routes/_app/users'
 import { Route as AppEnvEnvRouteImport } from './routes/_app/env/$env'
 import { Route as AppEnvEnvIndexRouteImport } from './routes/_app/env/$env/index'
 import { Route as AppEnvEnvContainersRouteImport } from './routes/_app/env/$env/containers'
+import { Route as AppEnvEnvImagesRouteImport } from './routes/_app/env/$env/images'
 import { Route as AppEnvEnvContainersIdRouteImport } from './routes/_app/env/$env/containers_.$id'
 
 const IndexRoute = IndexRouteImport.update({
@@ -64,6 +65,11 @@ const AppEnvEnvContainersRoute = AppEnvEnvContainersRouteImport.update({
   path: '/containers',
   getParentRoute: () => AppEnvEnvRoute,
 } as any)
+const AppEnvEnvImagesRoute = AppEnvEnvImagesRouteImport.update({
+  id: '/images',
+  path: '/images',
+  getParentRoute: () => AppEnvEnvRoute,
+} as any)
 const AppEnvEnvContainersIdRoute = AppEnvEnvContainersIdRouteImport.update({
   id: '/containers_/$id',
   path: '/containers/$id',
@@ -78,6 +84,7 @@ export interface FileRoutesByFullPath {
   '/users': typeof AppUsersRoute
   '/env/$env': typeof AppEnvEnvRouteWithChildren
   '/env/$env/containers': typeof AppEnvEnvContainersRoute
+  '/env/$env/images': typeof AppEnvEnvImagesRoute
   '/env/$env/': typeof AppEnvEnvIndexRoute
   '/env/$env/containers/$id': typeof AppEnvEnvContainersIdRoute
 }
@@ -88,6 +95,7 @@ export interface FileRoutesByTo {
   '/setup': typeof SetupRoute
   '/users': typeof AppUsersRoute
   '/env/$env/containers': typeof AppEnvEnvContainersRoute
+  '/env/$env/images': typeof AppEnvEnvImagesRoute
   '/env/$env': typeof AppEnvEnvIndexRoute
   '/env/$env/containers/$id': typeof AppEnvEnvContainersIdRoute
 }
@@ -101,6 +109,7 @@ export interface FileRoutesById {
   '/_app/users': typeof AppUsersRoute
   '/_app/env/$env': typeof AppEnvEnvRouteWithChildren
   '/_app/env/$env/containers': typeof AppEnvEnvContainersRoute
+  '/_app/env/$env/images': typeof AppEnvEnvImagesRoute
   '/_app/env/$env/': typeof AppEnvEnvIndexRoute
   '/_app/env/$env/containers_/$id': typeof AppEnvEnvContainersIdRoute
 }
@@ -114,6 +123,7 @@ export interface FileRouteTypes {
     | '/users'
     | '/env/$env'
     | '/env/$env/containers'
+    | '/env/$env/images'
     | '/env/$env/'
     | '/env/$env/containers/$id'
   fileRoutesByTo: FileRoutesByTo
@@ -124,6 +134,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/users'
     | '/env/$env/containers'
+    | '/env/$env/images'
     | '/env/$env'
     | '/env/$env/containers/$id'
   id:
@@ -136,6 +147,7 @@ export interface FileRouteTypes {
     | '/_app/users'
     | '/_app/env/$env'
     | '/_app/env/$env/containers'
+    | '/_app/env/$env/images'
     | '/_app/env/$env/'
     | '/_app/env/$env/containers_/$id'
   fileRoutesById: FileRoutesById
@@ -213,6 +225,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppEnvEnvContainersRouteImport
       parentRoute: typeof AppEnvEnvRoute
     }
+    '/_app/env/$env/images': {
+      id: '/_app/env/$env/images'
+      path: '/images'
+      fullPath: '/env/$env/images'
+      preLoaderRoute: typeof AppEnvEnvImagesRouteImport
+      parentRoute: typeof AppEnvEnvRoute
+    }
     '/_app/env/$env/containers_/$id': {
       id: '/_app/env/$env/containers_/$id'
       path: '/containers/$id'
@@ -225,12 +244,14 @@ declare module '@tanstack/react-router' {
 
 interface AppEnvEnvRouteChildren {
   AppEnvEnvContainersRoute: typeof AppEnvEnvContainersRoute
+  AppEnvEnvImagesRoute: typeof AppEnvEnvImagesRoute
   AppEnvEnvIndexRoute: typeof AppEnvEnvIndexRoute
   AppEnvEnvContainersIdRoute: typeof AppEnvEnvContainersIdRoute
 }
 
 const AppEnvEnvRouteChildren: AppEnvEnvRouteChildren = {
   AppEnvEnvContainersRoute: AppEnvEnvContainersRoute,
+  AppEnvEnvImagesRoute: AppEnvEnvImagesRoute,
   AppEnvEnvIndexRoute: AppEnvEnvIndexRoute,
   AppEnvEnvContainersIdRoute: AppEnvEnvContainersIdRoute,
 }

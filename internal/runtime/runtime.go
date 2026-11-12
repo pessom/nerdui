@@ -14,6 +14,7 @@ import "context"
 type Runtime interface {
 	System() System
 	Containers() Containers
+	Images() Images
 	Events() EventSource
 	Close() error
 }

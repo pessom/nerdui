@@ -365,6 +365,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/environments/{env}/images": {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        /**
+         * All images of a namespace, sorted by name
+         * @description Requires `images:read` (#42). One entry per stored reference; sizes cover every platform
+         *     in the store. Filtering and sorting are done by clients (ADR-0006). Live updates: refetch
+         *     on events from `/events/stream`.
+         */
+        get: operations["listImages"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/environments/{env}/containers/{id}/{action}": {
         parameters: {
             query?: {
@@ -902,6 +930,38 @@ export interface components {
                 /** @description Init error (also for skipped plugins) */
                 error?: string;
             }[];
+        };
+        Image: {
+            /** @example docker.io/library/nginx:1.27 */
+            name: string;
+            /** @description Short repository name (`nginx`); empty for digest-only (dangling) images */
+            repository: string;
+            /** @description Empty for digest references and dangling images */
+            tag: string;
+            /** @description Target (index or manifest) digest */
+            digest: string;
+            /**
+             * Format: date-time
+             * @description When the image was stored
+             */
+            createdAt: string;
+            /** @description Platforms whose content is in the store, e.g. linux/amd64 */
+            platforms: string[];
+            /**
+             * Format: int64
+             * @description Unpacked size on disk (snapshots)
+             */
+            size: number;
+            /**
+             * Format: int64
+             * @description Stored compressed content
+             */
+            contentSize: number;
+            /** @description Containers of the namespace created from this image */
+            containers: number;
+            labels: {
+                [key: string]: string;
+            };
         };
         LogLine: {
             /** @enum {string} */
@@ -1513,6 +1573,40 @@ export interface operations {
                     "application/json": {
                         namespace: string;
                         containers: components["schemas"]["Container"][];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    listImages: {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Images */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        namespace: string;
+                        images: components["schemas"]["Image"][];
                     };
                 };
             };

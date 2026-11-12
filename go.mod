@@ -11,10 +11,13 @@ require (
 	github.com/containerd/go-cni v1.1.14
 	github.com/containerd/log v0.2.0
 	github.com/containerd/nerdctl/v2 v2.4.2
+	github.com/containerd/platforms v1.0.0-rc.5
 	github.com/containerd/plugin v1.1.0
 	github.com/containerd/typeurl/v2 v2.3.0
+	github.com/distribution/reference v0.6.0
 	github.com/go-chi/chi/v5 v5.5.0
 	github.com/moby/sys/signal v0.7.1
+	github.com/opencontainers/go-digest v1.0.0
 	github.com/pelletier/go-toml/v2 v2.4.3
 	github.com/pressly/goose/v3 v3.30.0
 	github.com/spf13/cobra v1.10.2
@@ -44,7 +47,6 @@ require (
 	github.com/containerd/imgcrypt/v2 v2.0.3 // indirect
 	github.com/containerd/log/otel v0.1.0 // indirect
 	github.com/containerd/nydus-snapshotter v0.16.1 // indirect
-	github.com/containerd/platforms v1.0.0-rc.5 // indirect
 	github.com/containerd/stargz-snapshotter v0.19.1 // indirect
 	github.com/containerd/stargz-snapshotter/estargz v0.19.1 // indirect
 	github.com/containerd/stargz-snapshotter/ipfs v0.19.1 // indirect
@@ -55,7 +57,6 @@ require (
 	github.com/coreos/go-iptables v0.8.0 // indirect
 	github.com/coreos/go-systemd/v22 v22.7.0 // indirect
 	github.com/cyphar/filepath-securejoin v0.7.0 // indirect
-	github.com/distribution/reference v0.6.0 // indirect
 	github.com/djherbis/times v1.6.0 // indirect
 	github.com/docker/cli v29.9.2+incompatible // indirect
 	github.com/docker/docker-credential-helpers v0.9.3 // indirect
@@ -101,7 +102,6 @@ require (
 	github.com/multiformats/go-multihash v0.2.3 // indirect
 	github.com/multiformats/go-varint v0.1.0 // indirect
 	github.com/ncruces/go-strftime v1.1.0 // indirect
-	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/opencontainers/runtime-spec v1.3.0 // indirect
 	github.com/opencontainers/selinux v1.15.1 // indirect
