@@ -56,6 +56,8 @@ Option A, for the **latest two nerdctl minors** (today 2.4 and 2.3).
   build to use.
 - Two builds per release and three integration jobs instead of two.
 - Dependabot only updates `go.mod`: its PRs need `make modfiles` before CI passes.
+- Tools built on `go/packages` (govulncheck, go-licenses, golangci-lint) reject `-modfile`; CI
+  copies the variant over `go.mod`/`go.sum` in its workspace to run them for older builds.
 - `third_party` licenses shipped with releases are collected from `go.mod`; the variants differ
   only in the nerdctl version (Apache-2.0). CI runs `make licenses-check` for every build.
 - If the APIs diverge, older builds need build-tagged code; when that cost grows, dropping to one

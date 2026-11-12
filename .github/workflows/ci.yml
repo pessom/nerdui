@@ -103,8 +103,11 @@ jobs:
         working-directory: web
       - run: make spdx-check
       - run: make licenses-check
+      # go/packages-based tools reject -modfile: use the variant as go.mod in this workspace.
       - name: licenses-check (nerdctl 2.3 build)
-        run: make licenses-check NERDCTL=2.3
+        run: |
+          cp go.nerdctl-2.3.mod go.mod && cp go.nerdctl-2.3.sum go.sum
+          make licenses-check
 
   govulncheck:
     name: govulncheck
@@ -113,10 +116,11 @@ jobs:
       - uses: golang/govulncheck-action@v1
         with:
           go-version-file: go.mod
+      # go/packages-based tools reject -modfile: use the variant as go.mod in this workspace.
+      - name: Use the nerdctl 2.3 modfile
+        run: cp go.nerdctl-2.3.mod go.mod && cp go.nerdctl-2.3.sum go.sum
       - name: govulncheck (nerdctl 2.3 build)
         uses: golang/govulncheck-action@v1
-        env:
-          GOFLAGS: -modfile=go.nerdctl-2.3.mod
         with:
           go-version-file: go.mod
           repo-checkout: false
