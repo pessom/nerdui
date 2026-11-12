@@ -131,20 +131,42 @@ func (h *Handler) streamJob(g *authz.Guard) http.HandlerFunc {
 	}
 }
 
+// imageJobRequest is the body of pull and push.
+type imageJobRequest struct {
+	Reference    string `json:"reference"`
+	Platform     string `json:"platform"`
+	AllPlatforms bool   `json:"allPlatforms"`
+}
+
 // pullImage starts a pull job (#43):
 //
 //	POST /api/v1/environments/{env}/images/pull?namespace=  {"reference": "nginx:1.27"}
 func (h *Handler) pullImage(w http.ResponseWriter, r *http.Request) {
+	h.startImageJob(w, r, "image.pull", "Pull ", func(ctx context.Context, img runtime.Images, ns string, req imageJobRequest, out *jobs.Output) error {
+		return img.Pull(ctx, ns, req.Reference, runtime.PullOptions{Platform: req.Platform, AllPlatforms: req.AllPlatforms}, out)
+	})
+}
+
+// pushImage starts a push job (#44):
+//
+//	POST /api/v1/environments/{env}/images/push?namespace=  {"reference": "registry.local/app:1"}
+func (h *Handler) pushImage(w http.ResponseWriter, r *http.Request) {
+	h.startImageJob(w, r, "image.push", "Push ", func(ctx context.Context, img runtime.Images, ns string, req imageJobRequest, out *jobs.Output) error {
+		return img.Push(ctx, ns, req.Reference, runtime.PushOptions{Platform: req.Platform, AllPlatforms: req.AllPlatforms}, out)
+	})
+}
+
+type imageJobFunc func(ctx context.Context, img runtime.Images, ns string, req imageJobRequest, out *jobs.Output) error
+
+// startImageJob runs an operation on one image reference as a job. Pull and push of the same
+// reference share the lock.
+func (h *Handler) startImageJob(w http.ResponseWriter, r *http.Request, kind, verb string, run imageJobFunc) {
 	ns, err := Namespace(r)
 	if err != nil {
 		httpjson.WriteErr(w, r, h.Logger, err)
 		return
 	}
-	var req struct {
-		Reference    string `json:"reference"`
-		Platform     string `json:"platform"`
-		AllPlatforms bool   `json:"allPlatforms"`
-	}
+	var req imageJobRequest
 	if !httpjson.Decode(w, r, &req) {
 		return
 	}
@@ -153,22 +175,21 @@ func (h *Handler) pullImage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	env := EnvFrom(r.Context())
-	opts := runtime.PullOptions{Platform: req.Platform, AllPlatforms: req.AllPlatforms}
 	user := ""
 	if p, ok := auth.PrincipalFrom(r.Context()); ok {
 		user = p.User.Username
 	}
 	images := env.Runtime.Images()
 	job, err := h.Jobs.Start(jobs.Spec{
-		Kind:        "image.pull",
-		Title:       "Pull " + req.Reference,
+		Kind:        kind,
+		Title:       verb + req.Reference,
 		Environment: env.ID,
 		Namespace:   ns,
 		Resource:    fmt.Sprintf("env/%s/ns/%s/image/%s", env.ID, ns, req.Reference),
 		Action:      string(authz.ImagesWrite),
 		User:        user,
 	}, func(ctx context.Context, out *jobs.Output) error {
-		return images.Pull(ctx, ns, req.Reference, opts, out)
+		return run(ctx, images, ns, req, out)
 	})
 	if err != nil {
 		httpjson.WriteErr(w, r, h.Logger, err)

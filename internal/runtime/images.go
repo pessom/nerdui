@@ -47,6 +47,12 @@ type Images interface {
 	List(ctx context.Context, namespace string) ([]Image, error)
 	// Pull pulls an image, writing terminal progress to out (#43).
 	Pull(ctx context.Context, namespace, ref string, opts PullOptions, out io.Writer) error
+	// Tag adds target as a reference to source (#44).
+	Tag(ctx context.Context, namespace, source, target string) error
+	// Remove removes an image reference; force as in `nerdctl rmi -f` (#44).
+	Remove(ctx context.Context, namespace, ref string, force bool) error
+	// Push pushes an image, writing terminal progress to out (#44).
+	Push(ctx context.Context, namespace, ref string, opts PushOptions, out io.Writer) error
 }
 
 // Images returns image operations of the local containerd.

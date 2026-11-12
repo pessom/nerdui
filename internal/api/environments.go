@@ -50,6 +50,9 @@ func (h *Handler) Routes(r chi.Router, g *authz.Guard) {
 		h.containerActionRoutes(r, g)
 		r.Method(http.MethodGet, "/images", g.Protect(authz.ImagesRead, h.listImages))
 		r.Method(http.MethodPost, "/images/pull", g.Protect(authz.ImagesWrite, h.pullImage))
+		r.Method(http.MethodPost, "/images/push", g.Protect(authz.ImagesWrite, h.pushImage))
+		r.Method(http.MethodPost, "/images/tag", g.Protect(authz.ImagesWrite, h.tagImage))
+		r.Method(http.MethodPost, "/images/remove", g.Protect(authz.ImagesWrite, h.removeImages))
 	})
 }
 

@@ -607,6 +607,119 @@ paths:
         "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
         "503": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/images/push:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - $ref: "#/components/parameters/Namespace"
+    post:
+      tags: [images]
+      operationId: pushImage
+      summary: Push an image (background job)
+      description: |
+        Requires `images:write` (#44). Starts a job like `nerdctl push` with the registry
+        configuration and credentials of the host (docker config); answers 202. Pull and push
+        of the same reference share one lock (409).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reference]
+              additionalProperties: false
+              properties:
+                reference: { type: string, examples: ["registry.local:5000/app:1"] }
+                platform: { type: string, description: "e.g. linux/arm64; default: host platform" }
+                allPlatforms: { type: boolean }
+      responses:
+        "202":
+          description: Job started
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [job]
+                properties:
+                  job: { $ref: "#/components/schemas/Job" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/images/tag:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - $ref: "#/components/parameters/Namespace"
+    post:
+      tags: [images]
+      operationId: tagImage
+      summary: Add a reference to an image
+      description: Requires `images:write`. Like `nerdctl tag`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [source, target]
+              additionalProperties: false
+              properties:
+                source: { type: string, examples: ["nginx:1.27"] }
+                target: { type: string, examples: ["registry.local:5000/nginx:1.27"] }
+      responses:
+        "204": { description: Tagged }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/images/remove:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - $ref: "#/components/parameters/Namespace"
+    post:
+      tags: [images]
+      operationId: removeImages
+      summary: Remove image references
+      description: |
+        Requires `images:write`. Like `nerdctl rmi`, one reference after another; each result
+        reports success or the error. Without `force`, images used by containers are refused
+        (`conflict`); with `force`, images of running containers are only untagged.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [references]
+              additionalProperties: false
+              properties:
+                references: { type: array, items: { type: string }, minItems: 1, maxItems: 200 }
+                force: { type: boolean }
+      responses:
+        "200":
+          description: Results in request order
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [results]
+                properties:
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      required: [reference, ok]
+                      properties:
+                        reference: { type: string }
+                        ok: { type: boolean }
+                        error: { $ref: "#/components/schemas/ErrorDetail" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
   /api/v1/environments/{env}/containers/{id}/{action}:
     parameters:
       - $ref: "#/components/parameters/Env"
