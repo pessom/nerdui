@@ -27,6 +27,10 @@ type Action string
 const (
 	SessionSelf Action = "session:self" // own session: me, logout
 
+	// JobsRead lists background jobs (#126); each job is shown only to callers allowed the
+	// action that started it, which is also required to cancel it.
+	JobsRead Action = "jobs:read"
+
 	ContainersRead    Action = "containers:read"    // list, inspect, logs, stats
 	ContainersOperate Action = "containers:operate" // start, stop, restart, kill, pause
 	ContainersWrite   Action = "containers:write"   // create, recreate, remove
@@ -56,7 +60,7 @@ const (
 )
 
 var catalog = []Action{
-	SessionSelf,
+	SessionSelf, JobsRead,
 	ContainersRead, ContainersOperate, ContainersWrite, ContainersExec,
 	ImagesRead, ImagesWrite,
 	VolumesRead, VolumesWrite, NetworksRead, NetworksWrite,

@@ -11,6 +11,8 @@ import { Footer } from "../components/Footer";
 import { RouterNavLink } from "../components/RouterNavLink";
 import { ThemeToggle } from "../components/ThemeToggle";
 import { UserMenu } from "../components/UserMenu";
+import { useJobsPanel } from "../features/jobs/JobsContext";
+import { JobsIndicator, JobsProvider } from "../features/jobs/JobsPanel";
 
 /**
  * Pathless layout for everything behind authentication: resolves the session (ADR-0005)
@@ -43,85 +45,93 @@ function AppLayout() {
   const env = params.env ?? "local";
 
   return (
-    <AppShell
-      header={{ height: 56 }}
-      navbar={{ width: 220, breakpoint: "sm", collapsed: { mobile: !opened } }}
-      footer={{ height: 32 }}
-      padding="md"
-    >
-      <AppShell.Header>
-        <Group h="100%" px="md" justify="space-between" wrap="nowrap">
-          <Group gap="sm" wrap="nowrap">
-            <Burger
-              opened={opened}
-              onClick={toggle}
-              hiddenFrom="sm"
-              size="sm"
-              aria-label="Toggle navigation"
+    <JobsProvider>
+      <AppShell
+        header={{ height: 56 }}
+        navbar={{ width: 220, breakpoint: "sm", collapsed: { mobile: !opened } }}
+        footer={{ height: 32 }}
+        padding="md"
+      >
+        <AppShell.Header>
+          <Group h="100%" px="md" justify="space-between" wrap="nowrap">
+            <Group gap="sm" wrap="nowrap">
+              <Burger
+                opened={opened}
+                onClick={toggle}
+                hiddenFrom="sm"
+                size="sm"
+                aria-label="Toggle navigation"
+              />
+              <Text
+                fw={700}
+                size="lg"
+                component={Link}
+                to="/"
+                style={{ textDecoration: "none" }}
+                c="inherit"
+              >
+                nerdui
+              </Text>
+            </Group>
+            <Group gap="xs" wrap="nowrap">
+              <HeaderJobs />
+              <ThemeToggle />
+              <UserMenu username={session.user.username} />
+            </Group>
+          </Group>
+        </AppShell.Header>
+
+        <AppShell.Navbar p="xs" component="nav" aria-label="Main navigation">
+          <ScrollArea>
+            {/* Only implemented sections are listed; new features add their items here. */}
+            <RouterNavLink
+              to="/env/$env"
+              params={{ env }}
+              activeOptions={{ exact: true }}
+              label="Overview"
+              leftSection={<IconLayoutDashboard size={18} stroke={1.5} />}
+              onClick={close}
             />
-            <Text
-              fw={700}
-              size="lg"
-              component={Link}
-              to="/"
-              style={{ textDecoration: "none" }}
-              c="inherit"
-            >
-              nerdui
-            </Text>
+            <RouterNavLink
+              to="/env/$env/containers"
+              params={{ env }}
+              search={(prev: { ns?: string }) => ({ ns: prev.ns })}
+              label="Containers"
+              leftSection={<IconBox size={18} stroke={1.5} />}
+              onClick={close}
+            />
+            <RouterNavLink
+              to="/env/$env/images"
+              params={{ env }}
+              search={(prev: { ns?: string }) => ({ ns: prev.ns })}
+              label="Images"
+              leftSection={<IconStack3 size={18} stroke={1.5} />}
+              onClick={close}
+            />
+            <RouterNavLink
+              to="/users"
+              label="Users"
+              leftSection={<IconUsers size={18} stroke={1.5} />}
+              onClick={close}
+            />
+          </ScrollArea>
+        </AppShell.Navbar>
+
+        <AppShell.Main>
+          <Outlet />
+        </AppShell.Main>
+
+        <AppShell.Footer>
+          <Group h="100%" justify="center">
+            <Footer />
           </Group>
-          <Group gap="xs" wrap="nowrap">
-            <ThemeToggle />
-            <UserMenu username={session.user.username} />
-          </Group>
-        </Group>
-      </AppShell.Header>
-
-      <AppShell.Navbar p="xs" component="nav" aria-label="Main navigation">
-        <ScrollArea>
-          {/* Only implemented sections are listed; new features add their items here. */}
-          <RouterNavLink
-            to="/env/$env"
-            params={{ env }}
-            activeOptions={{ exact: true }}
-            label="Overview"
-            leftSection={<IconLayoutDashboard size={18} stroke={1.5} />}
-            onClick={close}
-          />
-          <RouterNavLink
-            to="/env/$env/containers"
-            params={{ env }}
-            search={(prev: { ns?: string }) => ({ ns: prev.ns })}
-            label="Containers"
-            leftSection={<IconBox size={18} stroke={1.5} />}
-            onClick={close}
-          />
-          <RouterNavLink
-            to="/env/$env/images"
-            params={{ env }}
-            search={(prev: { ns?: string }) => ({ ns: prev.ns })}
-            label="Images"
-            leftSection={<IconStack3 size={18} stroke={1.5} />}
-            onClick={close}
-          />
-          <RouterNavLink
-            to="/users"
-            label="Users"
-            leftSection={<IconUsers size={18} stroke={1.5} />}
-            onClick={close}
-          />
-        </ScrollArea>
-      </AppShell.Navbar>
-
-      <AppShell.Main>
-        <Outlet />
-      </AppShell.Main>
-
-      <AppShell.Footer>
-        <Group h="100%" justify="center">
-          <Footer />
-        </Group>
-      </AppShell.Footer>
-    </AppShell>
+        </AppShell.Footer>
+      </AppShell>
+    </JobsProvider>
   );
+}
+
+function HeaderJobs() {
+  const panel = useJobsPanel();
+  return <JobsIndicator onOpen={() => panel.open()} />;
 }

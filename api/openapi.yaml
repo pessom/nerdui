@@ -24,6 +24,8 @@ tags:
     description: Containers of an environment
   - name: images
     description: Images of an environment
+  - name: jobs
+    description: Background jobs for long operations (#126, ADR-0006, ADR-0018)
   - name: users
     description: Local users (#74, ADR-0016); every user is an administrator until roles (#78)
 security:
@@ -325,6 +327,76 @@ paths:
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
+  /api/v1/jobs:
+    get:
+      tags: [jobs]
+      operationId: listJobs
+      summary: Recent background jobs, newest first
+      description: |
+        Requires `jobs:read`; only jobs whose action the caller is allowed are listed. Jobs are
+        kept in memory: the last 100, finished ones for an hour (ADR-0018).
+      responses:
+        "200":
+          description: Jobs
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [jobs]
+                properties:
+                  jobs: { type: array, items: { $ref: "#/components/schemas/Job" } }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+  /api/v1/jobs/{id}:
+    parameters:
+      - $ref: "#/components/parameters/JobId"
+    get:
+      tags: [jobs]
+      operationId: getJob
+      summary: A background job
+      responses:
+        "200":
+          description: Job
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Job" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/v1/jobs/{id}/stream:
+    parameters:
+      - $ref: "#/components/parameters/JobId"
+    get:
+      tags: [jobs]
+      operationId: streamJob
+      summary: Job state and terminal output (WebSocket)
+      description: |
+        WebSocket stream (ADR-0007). Data messages are `JobFrame`s: the first has `reset` with
+        the job and its stored output (the terminal screen with progress redraws applied);
+        later ones carry raw output as written and state changes. The stream ends with `end`
+        after the final state. A client that falls behind gets an error and reconnects.
+      responses:
+        "101": { description: Switching protocols }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/v1/jobs/{id}/cancel:
+    parameters:
+      - $ref: "#/components/parameters/JobId"
+    post:
+      tags: [jobs]
+      operationId: cancelJob
+      summary: Cancel a running job
+      description: Ends the job with status `canceled`; a no-op for finished jobs.
+      responses:
+        "202":
+          description: Cancellation requested
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Job" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
   /api/v1/environments:
     get:
       tags: [environments]
@@ -494,6 +566,46 @@ paths:
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/images/pull:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - $ref: "#/components/parameters/Namespace"
+    post:
+      tags: [images]
+      operationId: pullImage
+      summary: Pull an image (background job)
+      description: |
+        Requires `images:write` and a compatible host nerdctl (ADR-0011). Starts a job like
+        `nerdctl pull` (always contacts the registry) and answers 202; follow it at
+        `/jobs/{id}/stream`. One pull per reference and namespace runs at a time (409).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reference]
+              additionalProperties: false
+              properties:
+                reference: { type: string, examples: ["nginx:1.27"] }
+                platform: { type: string, description: "e.g. linux/arm64; default: host platform" }
+                allPlatforms: { type: boolean, description: Pull every platform (no unpack) }
+      responses:
+        "202":
+          description: Job started
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [job]
+                properties:
+                  job: { $ref: "#/components/schemas/Job" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
         "503": { $ref: "#/components/responses/Error" }
   /api/v1/environments/{env}/containers/{id}/{action}:
     parameters:
@@ -710,6 +822,12 @@ components:
         Server-side session (ADR-0005). Unsafe requests (POST, PUT, PATCH, DELETE) must also
         send the session's CSRF token in the X-CSRF-Token header.
   parameters:
+    JobId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+      description: Job ID
     UserId:
       name: id
       in: path
@@ -1131,6 +1249,27 @@ components:
         contentSize: { type: integer, format: int64, description: Stored compressed content, bytes }
         containers: { type: integer, description: Containers of the namespace created from this image }
         labels: { type: object, additionalProperties: { type: string } }
+    Job:
+      type: object
+      required: [id, kind, title, environment, status, startedAt]
+      properties:
+        id: { type: string }
+        kind: { type: string, examples: ["image.pull"] }
+        title: { type: string, examples: ["Pull nginx:1.27"] }
+        environment: { type: string }
+        namespace: { type: string }
+        resource: { type: string, description: Lock key; one running job per resource }
+        user: { type: string, description: Who started the job }
+        status: { type: string, enum: [running, succeeded, failed, canceled] }
+        error: { type: string }
+        startedAt: { type: string, format: date-time }
+        finishedAt: { type: string, format: date-time }
+    JobFrame:
+      type: object
+      properties:
+        job: { $ref: "#/components/schemas/Job" }
+        output: { type: string, description: Terminal output (ANSI) }
+        reset: { type: boolean, description: "output is the whole stored screen: clear first" }
     LogLine:
       type: object
       required: [stream, line]

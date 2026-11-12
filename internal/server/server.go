@@ -22,6 +22,7 @@ import (
 	"github.com/pessom/nerdui/internal/authz"
 	"github.com/pessom/nerdui/internal/environment"
 	"github.com/pessom/nerdui/internal/httpjson"
+	"github.com/pessom/nerdui/internal/jobs"
 	"github.com/pessom/nerdui/internal/runtime"
 	"github.com/pessom/nerdui/internal/version"
 )
@@ -35,7 +36,9 @@ type Config struct {
 	// Environments are the managed containerd hosts (required).
 	Environments *environment.Registry
 	// UI is the compiled frontend. When nil, the UI is not served.
-	UI     fs.FS
+	UI fs.FS
+	// Jobs runs long operations (#126); when nil, a manager is created (tests).
+	Jobs   *jobs.Manager
 	Logger *slog.Logger
 }
 
@@ -60,6 +63,9 @@ func New(cfg Config) http.Handler {
 	if cfg.Authorizer == nil {
 		cfg.Authorizer = authz.AdminOnly{}
 	}
+	if cfg.Jobs == nil {
+		cfg.Jobs = jobs.NewManager()
+	}
 
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
@@ -77,7 +83,7 @@ func New(cfg Config) http.Handler {
 		r.With(cfg.Auth.OptionalSession).Method(http.MethodGet, "/version", authz.Public(versionHandler(cfg.Environments, guard)))
 		r.Group(func(r chi.Router) {
 			r.Use(cfg.Auth.RequireSession, auth.CSRF, auth.PasswordChanged)
-			(&api.Handler{Envs: cfg.Environments, Logger: cfg.Logger}).Routes(r, guard)
+			(&api.Handler{Envs: cfg.Environments, Jobs: cfg.Jobs, Logger: cfg.Logger}).Routes(r, guard)
 		})
 	})
 

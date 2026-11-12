@@ -6,6 +6,7 @@ package runtime
 import (
 	"context"
 	"fmt"
+	"io"
 	"sort"
 	"strings"
 	"sync"
@@ -44,6 +45,8 @@ type Image struct {
 type Images interface {
 	// List returns the images of a namespace sorted by name.
 	List(ctx context.Context, namespace string) ([]Image, error)
+	// Pull pulls an image, writing terminal progress to out (#43).
+	Pull(ctx context.Context, namespace, ref string, opts PullOptions, out io.Writer) error
 }
 
 // Images returns image operations of the local containerd.

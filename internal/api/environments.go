@@ -19,6 +19,7 @@ import (
 	"github.com/pessom/nerdui/internal/authz"
 	"github.com/pessom/nerdui/internal/environment"
 	"github.com/pessom/nerdui/internal/httpjson"
+	"github.com/pessom/nerdui/internal/jobs"
 	"github.com/pessom/nerdui/internal/runtime"
 )
 
@@ -28,12 +29,14 @@ const statusTimeout = 3 * time.Second
 // Handler serves environment endpoints.
 type Handler struct {
 	Envs   *environment.Registry
+	Jobs   *jobs.Manager
 	Logger *slog.Logger
 }
 
 // Routes registers the environment endpoints under the API root.
 func (h *Handler) Routes(r chi.Router, g *authz.Guard) {
 	r.Method(http.MethodGet, "/environments", g.Protect(authz.SystemRead, h.list))
+	h.jobRoutes(r, g)
 	r.Route("/environments/{env}", func(r chi.Router) {
 		r.Use(h.resolveEnv, h.requireWritable)
 		r.Method(http.MethodGet, "/", g.Protect(authz.SystemRead, h.get))
@@ -46,6 +49,7 @@ func (h *Handler) Routes(r chi.Router, g *authz.Guard) {
 		r.Method(http.MethodGet, "/containers/{id}/logs/stream", g.Protect(authz.ContainersRead, h.containerLogsStream))
 		h.containerActionRoutes(r, g)
 		r.Method(http.MethodGet, "/images", g.Protect(authz.ImagesRead, h.listImages))
+		r.Method(http.MethodPost, "/images/pull", g.Protect(authz.ImagesWrite, h.pullImage))
 	})
 }
 
