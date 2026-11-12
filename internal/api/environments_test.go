@@ -48,6 +48,10 @@ type fakeRuntime struct {
 	pulls       []pullCall
 	pullRelease chan struct{}
 	pullErr     error
+	tags        [][3]string
+	removed     []string
+	pushes      []pushCall
+	imageErr    map[string]error // by reference
 }
 
 type actionCall struct {
@@ -95,6 +99,33 @@ func (fi fakeImages) Pull(ctx context.Context, ns, ref string, opts runtime.Pull
 		}
 	}
 	return fi.f.pullErr
+}
+
+func (fi fakeImages) Tag(_ context.Context, ns, source, target string) error {
+	fi.f.mu.Lock()
+	defer fi.f.mu.Unlock()
+	fi.f.tags = append(fi.f.tags, [3]string{ns, source, target})
+	return fi.f.imageErr[source]
+}
+
+func (fi fakeImages) Remove(_ context.Context, ns, ref string, force bool) error {
+	fi.f.mu.Lock()
+	defer fi.f.mu.Unlock()
+	fi.f.removed = append(fi.f.removed, fmt.Sprintf("%s/%s/%v", ns, ref, force))
+	return fi.f.imageErr[ref]
+}
+
+func (fi fakeImages) Push(_ context.Context, ns, ref string, opts runtime.PushOptions, out io.Writer) error {
+	fi.f.mu.Lock()
+	fi.f.pushes = append(fi.f.pushes, pushCall{ns, ref, opts})
+	fi.f.mu.Unlock()
+	_, _ = io.WriteString(out, "pushing "+ref+"\n")
+	return fi.f.imageErr[ref]
+}
+
+type pushCall struct {
+	ns, ref string
+	opts    runtime.PushOptions
 }
 
 type pullCall struct {

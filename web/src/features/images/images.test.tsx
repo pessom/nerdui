@@ -102,7 +102,118 @@ describe("images page", () => {
       within(table)
         .getAllByRole("row")
         .slice(1)
-        .map((r) => r.querySelector("td")?.textContent);
+        .map((r) => r.querySelectorAll("td")[1]?.textContent); // after the selection checkbox
     expect(names()).toEqual(["<none> cccccccccccc", "nginx:1.27", "alpine:3"]);
+  });
+});
+
+describe("image actions", () => {
+  beforeEach(() => {
+    vi.stubGlobal("WebSocket", SilentWebSocket);
+    localStorage.clear();
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  const listed = () => json(200, { namespace: "default", images });
+
+  async function openMenu(name: string) {
+    fireEvent.click(await screen.findByRole("button", { name: `Actions for ${name}` }));
+    return screen.findByRole("menu", { hidden: true });
+  }
+
+  it("tags an image", async () => {
+    const { calls } = fakeApi({
+      ...signedIn,
+      "GET /api/v1/environments/local/images": listed,
+      "POST /api/v1/environments/local/images/tag": () => new Response(null, { status: 204 }),
+    });
+    renderApp("/env/local/images");
+    const menu = await openMenu("nginx:1.27");
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "Tag…", hidden: true }));
+    const dialog = await screen.findByRole("dialog", { name: "Tag nginx:1.27" });
+    fireEvent.change(within(dialog).getByLabelText(/New reference/), {
+      target: { value: "reg.local:5000/nginx:1.27" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Tag" }));
+    expect(await screen.findByText("Tagged reg.local:5000/nginx:1.27")).toBeInTheDocument();
+    expect(calls.find((c) => c.path.endsWith("/images/tag"))?.body).toEqual({
+      source: "docker.io/library/nginx:1.27",
+      target: "reg.local:5000/nginx:1.27",
+    });
+  });
+
+  it("pushes with the image reference prefilled", async () => {
+    const { calls } = fakeApi({
+      ...signedIn,
+      "GET /api/v1/environments/local/images": listed,
+      "POST /api/v1/environments/local/images/push": () =>
+        json(202, {
+          job: {
+            id: "p1",
+            kind: "image.push",
+            title: "Push docker.io/library/alpine:3",
+            environment: "local",
+            status: "running",
+            startedAt: "2027-03-01T10:00:00Z",
+          },
+        }),
+      "GET /api/v1/jobs": () => json(200, { jobs: [] }),
+    });
+    renderApp("/env/local/images");
+    const menu = await openMenu("alpine:3");
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "Push…", hidden: true }));
+    const dialog = await screen.findByRole("dialog", { name: "Push image" });
+    expect(within(dialog).getByLabelText(/^Image/)).toHaveValue("docker.io/library/alpine:3");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Push" }));
+    await screen.findByRole("dialog", { name: "Jobs" });
+    expect(calls.find((c) => c.path.endsWith("/images/push"))?.body).toEqual({
+      reference: "docker.io/library/alpine:3",
+    });
+  });
+
+  it("removes selected images with force and reports failures", async () => {
+    const { calls } = fakeApi({
+      ...signedIn,
+      "GET /api/v1/environments/local/images": listed,
+      "POST /api/v1/environments/local/images/remove": () =>
+        json(200, {
+          results: [
+            { reference: "docker.io/library/nginx:1.27", ok: true },
+            {
+              reference: "docker.io/library/alpine:3",
+              ok: false,
+              error: { code: "conflict", message: "image is being used by running container x" },
+            },
+          ],
+        }),
+    });
+    renderApp("/env/local/images");
+    fireEvent.click(await screen.findByLabelText("Select nginx:1.27"));
+    fireEvent.click(screen.getByLabelText("Select alpine:3"));
+    expect(screen.getByText("2 selected")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Remove…" }));
+
+    const dialog = await screen.findByRole("dialog", { name: "Remove 2 images?" });
+    expect(within(dialog).getByText(/used by 2 containers/)).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByLabelText(/Force/));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Remove" }));
+
+    expect(await screen.findByText("Removed docker.io/library/nginx:1.27")).toBeInTheDocument();
+    expect(screen.getByText(/being used by running container/)).toBeInTheDocument();
+    expect(calls.find((c) => c.path.endsWith("/images/remove"))?.body).toEqual({
+      references: ["docker.io/library/nginx:1.27", "docker.io/library/alpine:3"],
+      force: true,
+    });
+  });
+
+  it("refuses to remove only used images without force", async () => {
+    fakeApi({ ...signedIn, "GET /api/v1/environments/local/images": listed });
+    renderApp("/env/local/images");
+    const menu = await openMenu("nginx:1.27");
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "Remove…", hidden: true }));
+    const dialog = await screen.findByRole("dialog", { name: "Remove nginx:1.27?" });
+    expect(within(dialog).getByRole("button", { name: "Remove" })).toBeDisabled();
+    fireEvent.click(within(dialog).getByLabelText(/Force/));
+    expect(within(dialog).getByRole("button", { name: "Remove" })).toBeEnabled();
   });
 });

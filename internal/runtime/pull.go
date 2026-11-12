@@ -48,14 +48,7 @@ func (ci clientImages) Pull(ctx context.Context, namespace, ref string, opts Pul
 	if err != nil {
 		return err
 	}
-	ctx = namespaces.WithNamespace(ctx, namespace)
-	// nerdctl reports warnings (e.g. skipped TLS verification) through the context logger:
-	// show them in the job output too.
-	l := logrus.New()
-	l.SetOutput(out)
-	l.SetLevel(logrus.InfoLevel)
-	l.SetFormatter(&logrus.TextFormatter{DisableTimestamp: true, ForceColors: true})
-	ctx = log.WithLogger(ctx, logrus.NewEntry(l))
+	ctx = withJobLogger(namespaces.WithNamespace(ctx, namespace), out)
 
 	cfg := ci.c.nerdctlFor(namespace)
 	_, _ = fmt.Fprintf(out, "Pulling %s\r\n", ref)
@@ -72,4 +65,14 @@ func (ci clientImages) Pull(ctx context.Context, namespace, ref string, opts Pul
 		return fmt.Errorf("pull %s: %w", ref, classify(err))
 	}
 	return nil
+}
+
+// withJobLogger sends nerdctl's context-logger warnings (e.g. skipped TLS verification) to the
+// job output as well.
+func withJobLogger(ctx context.Context, out io.Writer) context.Context {
+	l := logrus.New()
+	l.SetOutput(out)
+	l.SetLevel(logrus.InfoLevel)
+	l.SetFormatter(&logrus.TextFormatter{DisableTimestamp: true, ForceColors: true})
+	return log.WithLogger(ctx, logrus.NewEntry(l))
 }

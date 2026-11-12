@@ -14,6 +14,9 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
   (#42).
 - **Pull images** from the Images page for the host platform, another one or all platforms,
   with live progress as in the terminal (#43).
+- **Image actions:** tag, push (as a background job, with the host's registry credentials) and
+  remove, one by one or selected images at once, with a force option for images used by
+  containers (#44).
 - **Background jobs:** long operations run in the background; the header shows running jobs and
   the Jobs panel lists recent ones with their output and a Cancel button (#126, ADR-0018).
 

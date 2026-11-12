@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/containerd/errdefs"
 	"github.com/containerd/platforms"
 )
 
@@ -115,5 +116,72 @@ func TestIntegrationPull(t *testing.T) {
 	stop()
 	if err := c.Images().Pull(canceled, DefaultNamespace, "docker.io/library/alpine:3.20", PullOptions{}, &out); err == nil {
 		t.Error("pull with a canceled context succeeded")
+	}
+}
+
+// TestIntegrationImageActions tags, pushes to a local registry and removes images (#44).
+func TestIntegrationImageActions(t *testing.T) {
+	ncfg, _, err := LoadNerdctlConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	ncfg.InsecureRegistry = true // the local registry below speaks plain HTTP
+	c := New(DefaultAddress, DefaultNamespace, WithNerdctlConfig(ncfg))
+	t.Cleanup(func() { _ = c.Close() })
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+	img := c.Images()
+	suffix := strconv.FormatInt(time.Now().UnixNano(), 36)
+	const source = "docker.io/library/alpine:3"
+	if out, err := exec.Command("nerdctl", "pull", "-q", source).CombinedOutput(); err != nil {
+		t.Fatalf("nerdctl pull: %v: %s", err, out)
+	}
+
+	// Tag.
+	tagged := "localhost:5000/nerdui-it/alpine:" + suffix
+	t.Cleanup(func() { _ = exec.Command("nerdctl", "rmi", "-f", tagged).Run() })
+	if err := img.Tag(ctx, DefaultNamespace, source, tagged); err != nil {
+		t.Fatal(err)
+	}
+	if err := img.Tag(ctx, DefaultNamespace, "nerdui-it/no-such-image:1", "x:1"); err == nil {
+		t.Error("tagging a missing image succeeded")
+	}
+
+	// Push to a local registry.
+	reg := "it-reg-" + suffix
+	t.Cleanup(func() { _ = exec.Command("nerdctl", "rm", "-f", reg).Run() })
+	if out, err := exec.Command("nerdctl", "run", "-d", "--name", reg, "-p", "127.0.0.1:5000:5000", "docker.io/library/registry:2").CombinedOutput(); err != nil {
+		t.Fatalf("start registry: %v: %s", err, out)
+	}
+	var out bytes.Buffer
+	var pushErr error
+	for range 20 { // the registry needs a moment to listen
+		out.Reset()
+		if pushErr = img.Push(ctx, DefaultNamespace, tagged, PushOptions{}, &out); pushErr == nil {
+			break
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	if pushErr != nil {
+		t.Fatalf("push: %v\n%s", pushErr, out.String())
+	}
+	if !bytes.Contains(out.Bytes(), []byte("elapsed")) {
+		t.Errorf("no progress in push output:\n%s", out.String())
+	}
+
+	// Remove: refused while a container uses the image, then forced.
+	name := "it-rmi-" + suffix
+	t.Cleanup(func() { _ = exec.Command("nerdctl", "rm", "-f", name).Run() })
+	if out, err := exec.Command("nerdctl", "create", "--name", name, tagged, "true").CombinedOutput(); err != nil {
+		t.Fatalf("nerdctl create: %v: %s", err, out)
+	}
+	if err := img.Remove(ctx, DefaultNamespace, tagged, false); !errdefs.IsConflict(err) {
+		t.Errorf("remove image used by a container: %v", err)
+	}
+	if err := img.Remove(ctx, DefaultNamespace, tagged, true); err != nil {
+		t.Fatalf("forced remove: %v", err)
+	}
+	if err := img.Remove(ctx, DefaultNamespace, tagged, false); !errdefs.IsNotFound(err) {
+		t.Errorf("remove a removed image: %v", err)
 	}
 }
