@@ -593,6 +593,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/environments/{env}/registries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Registries the host is logged in to
+         * @description Requires `registries:read`. Read from the docker config of the user running nerdui (the
+         *     same file `nerdctl login` writes); passwords are never returned.
+         */
+        get: operations["listRegistries"];
+        put?: never;
+        /**
+         * Log in to a registry
+         * @description Requires `registries:write`. Like `nerdctl login`: the credentials are verified with the
+         *     registry (400 when rejected, 503 when unreachable) and stored in the docker config, where
+         *     pull, push and compose use them.
+         */
+        post: operations["loginRegistry"];
+        /**
+         * Log out of a registry
+         * @description Requires `registries:write`. Like `nerdctl logout`.
+         */
+        delete: operations["logoutRegistry"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/environments/{env}/containers/{id}/{action}": {
         parameters: {
             query?: {
@@ -1162,6 +1196,11 @@ export interface components {
             labels: {
                 [key: string]: string;
             };
+        };
+        Registry: {
+            /** @description Key in the docker config, e.g. https://index.docker.io/v1/ */
+            server: string;
+            username?: string;
         };
         Job: {
             id: string;
@@ -2115,6 +2154,105 @@ export interface operations {
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
             503: components["responses"]["Error"];
+        };
+    };
+    listRegistries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Registries sorted by server */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        registries: components["schemas"]["Registry"][];
+                    };
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    loginRegistry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * @example registry.local:5000
+                     * @example ghcr.io
+                     */
+                    server: string;
+                    username: string;
+                    /** @description Password or access token */
+                    password: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Logged in */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Registry"] & {
+                        /** @description Set when the password is stored unencrypted */
+                        warning?: string;
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    logoutRegistry: {
+        parameters: {
+            query: {
+                server: string;
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Logged out */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
         };
     };
     containerAction: {

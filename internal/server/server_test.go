@@ -37,6 +37,7 @@ func (f fakeRuntime) Close() error                                       { retur
 func (f fakeRuntime) Events() runtime.EventSource                        { return noEvents{} }
 func (f fakeRuntime) Containers() runtime.Containers                     { return nil }
 func (f fakeRuntime) Images() runtime.Images                             { return nil }
+func (f fakeRuntime) Registries() runtime.Registries                     { return nil }
 func (f fakeRuntime) Versions(context.Context) (runtime.Versions, error) { return f.v, f.err }
 func (f fakeRuntime) Namespaces(context.Context) ([]string, error)       { return []string{"default"}, f.err }
 func (f fakeRuntime) Nerdctl(context.Context) runtime.NerdctlStatus {
@@ -287,6 +288,9 @@ func TestRouteAuthorization(t *testing.T) {
 		"POST /api/v1/environments/{env}/images/push":                "images:write",
 		"POST /api/v1/environments/{env}/images/tag":                 "images:write",
 		"POST /api/v1/environments/{env}/images/remove":              "images:write",
+		"GET /api/v1/environments/{env}/registries":                  "registries:read",
+		"POST /api/v1/environments/{env}/registries":                 "registries:write",
+		"DELETE /api/v1/environments/{env}/registries":               "registries:write",
 		"GET /api/v1/jobs":                                           "jobs:read",
 		"GET /api/v1/jobs/{id}":                                      "jobs:read",
 		"GET /api/v1/jobs/{id}/stream":                               "jobs:read",

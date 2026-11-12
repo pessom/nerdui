@@ -51,7 +51,8 @@ type fakeRuntime struct {
 	tags        [][3]string
 	removed     []string
 	pushes      []pushCall
-	imageErr    map[string]error // by reference
+	imageErr    map[string]error // by reference (and registry server for logins)
+	registries  []runtime.Registry
 }
 
 type actionCall struct {
@@ -76,6 +77,31 @@ func (f *fakeRuntime) Nerdctl(context.Context) runtime.NerdctlStatus { return f.
 func (f *fakeRuntime) Containers() runtime.Containers                { return f }
 func (f *fakeRuntime) Info(context.Context) (runtime.Info, error)    { return f.info, f.err }
 func (f *fakeRuntime) Images() runtime.Images                        { return fakeImages{f} }
+func (f *fakeRuntime) Registries() runtime.Registries                { return fakeRegistries{f} }
+
+type fakeRegistries struct{ f *fakeRuntime }
+
+func (fr fakeRegistries) List(context.Context) ([]runtime.Registry, error) {
+	return fr.f.registries, fr.f.err
+}
+
+func (fr fakeRegistries) Login(_ context.Context, server, user, _ string) (runtime.LoginResult, error) {
+	if err := fr.f.imageErr[server]; err != nil {
+		return runtime.LoginResult{}, err
+	}
+	fr.f.registries = append(fr.f.registries, runtime.Registry{Server: server, Username: user})
+	return runtime.LoginResult{Registry: runtime.Registry{Server: server, Username: user}, Warning: "stored unencrypted"}, nil
+}
+
+func (fr fakeRegistries) Logout(_ context.Context, server string) error {
+	for i, r := range fr.f.registries {
+		if r.Server == server {
+			fr.f.registries = append(fr.f.registries[:i], fr.f.registries[i+1:]...)
+			return nil
+		}
+	}
+	return fmt.Errorf("%w: not logged in to %s", errdefs.ErrNotFound, server)
+}
 
 type fakeImages struct{ f *fakeRuntime }
 
