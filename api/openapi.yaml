@@ -333,6 +333,40 @@ paths:
         "409": { $ref: "#/components/responses/Error" }
         "500": { $ref: "#/components/responses/Error" }
         "503": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/containers/{id}/inspect:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - name: id
+        in: path
+        required: true
+        schema: { type: string, pattern: "^[A-Za-z0-9][A-Za-z0-9_.-]*$", maxLength: 76 }
+        description: Full or short container ID, or name (resolved like `nerdctl inspect`)
+      - $ref: "#/components/parameters/Namespace"
+    get:
+      tags: [containers]
+      operationId: inspectContainer
+      summary: Full container configuration
+      description: |
+        Requires `containers:read`. Same JSON as `nerdctl inspect` (dockercompat mode,
+        ADR-0013); only the fields used by the UI are described here. A reference that
+        matches several containers → 400.
+      parameters:
+        - name: size
+          in: query
+          schema: { type: boolean, default: false }
+          description: Also compute SizeRw and SizeRootFs (slow for large containers)
+      responses:
+        "200":
+          description: Container
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ContainerInspect" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "500": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
   /api/v1/environments/{env}/containers/actions:
     parameters:
       - $ref: "#/components/parameters/Env"
@@ -590,6 +624,87 @@ components:
           enum: [invalid_argument, unauthenticated, forbidden, csrf_failed, not_found, conflict,
                  rate_limited, unsupported_media_type, internal, unavailable, nerdctl_incompatible]
         message: { type: string }
+    ContainerInspect:
+      type: object
+      description: "`nerdctl inspect` output (Docker-compatible). Other fields may be present."
+      additionalProperties: true
+      required: [Id, Name]
+      properties:
+        Id: { type: string }
+        Name: { type: string }
+        Created: { type: string }
+        Path: { type: string }
+        Args: { type: [array, "null"], items: { type: string } }
+        Image: { type: string }
+        RestartCount: { type: integer }
+        Platform: { type: string }
+        State:
+          type: [object, "null"]
+          additionalProperties: true
+          properties:
+            Status: { type: string }
+            Pid: { type: integer }
+            ExitCode: { type: integer }
+            Error: { type: string }
+            StartedAt: { type: string }
+            FinishedAt: { type: string }
+        HostConfig:
+          type: [object, "null"]
+          additionalProperties: true
+          properties:
+            NetworkMode: { type: string }
+            RestartPolicy:
+              type: object
+              additionalProperties: true
+              properties:
+                Name: { type: string }
+                MaximumRetryCount: { type: integer }
+        Mounts:
+          type: [array, "null"]
+          items:
+            type: object
+            additionalProperties: true
+            properties:
+              Type: { type: string }
+              Name: { type: string }
+              Source: { type: string }
+              Destination: { type: string }
+              Mode: { type: string }
+              RW: { type: boolean }
+        Config:
+          type: [object, "null"]
+          additionalProperties: true
+          properties:
+            Hostname: { type: string }
+            User: { type: string }
+            WorkingDir: { type: string }
+            Env: { type: array, items: { type: string } }
+            Cmd: { type: array, items: { type: string } }
+            Entrypoint: { type: array, items: { type: string } }
+            Labels: { type: object, additionalProperties: { type: string } }
+        NetworkSettings:
+          type: [object, "null"]
+          additionalProperties: true
+          properties:
+            Ports:
+              type: [object, "null"]
+              additionalProperties:
+                type: [array, "null"]
+                items:
+                  type: object
+                  properties:
+                    HostIp: { type: string }
+                    HostPort: { type: string }
+            Networks:
+              type: [object, "null"]
+              additionalProperties:
+                type: object
+                additionalProperties: true
+                properties:
+                  IPAddress: { type: string }
+                  IPPrefixLen: { type: integer }
+                  GlobalIPv6Address: { type: string }
+                  MacAddress: { type: string }
     ContainerActionName:
       type: string
       enum: [start, stop, restart, kill, pause, unpause, remove]

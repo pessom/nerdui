@@ -75,6 +75,8 @@ type Containers interface {
 	List(ctx context.Context, namespace string) ([]Container, error)
 	// Do performs a lifecycle action on the container with the exact id (#11, #12).
 	Do(ctx context.Context, namespace, id string, action Action, opts ActionOptions) error
+	// Inspect returns the container as `nerdctl inspect` shows it (#13).
+	Inspect(ctx context.Context, namespace, ref string, size bool) (any, error)
 }
 
 // Containers returns container operations of the local containerd.

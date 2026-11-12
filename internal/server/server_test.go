@@ -271,6 +271,7 @@ func TestRouteAuthorization(t *testing.T) {
 		"GET /api/v1/environments/{env}/namespaces":               "system:read",
 		"GET /api/v1/environments/{env}/events/stream":            "system:read",
 		"GET /api/v1/environments/{env}/containers":               "containers:read",
+		"GET /api/v1/environments/{env}/containers/{id}/inspect":  "containers:read",
 		"POST /api/v1/environments/{env}/containers/{id}/start":   "containers:operate",
 		"POST /api/v1/environments/{env}/containers/{id}/stop":    "containers:operate",
 		"POST /api/v1/environments/{env}/containers/{id}/restart": "containers:operate",

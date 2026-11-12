@@ -38,6 +38,7 @@ import {
   type SortingState,
 } from "@tanstack/react-table";
 import { Fragment, useMemo, useState } from "react";
+import { RouterAnchor } from "../../components/RouterAnchor";
 import { BulkActions, RowActions, type TableActions } from "./ContainerActions";
 import { useActionRequests } from "./useActionRequests";
 import {
@@ -71,9 +72,17 @@ const columns = col.columns([
       const c = row.original;
       return (
         <Group gap={6} wrap="nowrap">
-          <Text fw={500} size="sm" title={c.id}>
+          <RouterAnchor
+            from="/env/$env/containers"
+            to="/env/$env/containers/$id"
+            params={(p) => ({ ...p, id: c.id })}
+            search={(s) => ({ ns: s.ns })}
+            fw={500}
+            size="sm"
+            title={c.id}
+          >
             {displayName(c)}
-          </Text>
+          </RouterAnchor>
           {c.compose?.service && (
             <Badge size="xs" variant="outline" color="gray">
               {c.compose.service}

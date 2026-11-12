@@ -21,3 +21,4 @@ We record significant architectural decisions as ADRs
 | 0010 | [Frontend stack](0010-frontend-stack.md)                                                | Accepted              |
 | 0011 | [nerdctl version compatibility policy](0011-nerdctl-version-policy.md)                  | Accepted              |
 | 0012 | [Supported containerd versions](0012-containerd-version-support.md)                     | Accepted              |
+| 0013 | [Container inspect via nerdctl's container.Inspect](0013-container-inspect-via-nerdctl.md) | Accepted |
