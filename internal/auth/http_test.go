@@ -31,7 +31,7 @@ func newServer(t *testing.T, e *env) *client {
 	r.Route("/api/v1", func(r chi.Router) {
 		e.svc.Routes(r, authz.NewGuard(authz.AdminOnly{}, SubjectFromRequest, nil))
 		r.Group(func(r chi.Router) {
-			r.Use(e.svc.RequireSession, CSRF)
+			r.Use(e.svc.RequireSession, CSRF, PasswordChanged)
 			r.Post("/protected", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
 		})
 	})

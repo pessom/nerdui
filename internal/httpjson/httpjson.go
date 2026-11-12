@@ -29,7 +29,9 @@ const (
 	CodeRateLimited     = "rate_limited"
 	CodeUnsupportedType = "unsupported_media_type"
 	CodeInternal        = "internal"
-	CodeUnavailable     = "unavailable"
+	// CodePasswordChangeRequired: the session may only change its temporary password (#74).
+	CodePasswordChangeRequired = "password_change_required"
+	CodeUnavailable            = "unavailable"
 	// CodeNerdctlIncompatible: the host nerdctl is missing or its version does not match
 	// (ADR-0011); nerdui is read-only.
 	CodeNerdctlIncompatible = "nerdctl_incompatible"

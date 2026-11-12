@@ -24,3 +24,4 @@ We record significant architectural decisions as ADRs
 | 0013 | [Container inspect via nerdctl's container.Inspect](0013-container-inspect-via-nerdctl.md) | Accepted |
 | 0014 | [Container logs: nerdctl log viewers and xterm.js](0014-container-logs.md) | Accepted |
 | 0015 | [Host and runtime information via nerdctl infoutil](0015-host-and-runtime-info.md) | Accepted |
+| 0016 | [User management: temporary passwords, disabling, last-admin guard](0016-user-management.md) | Accepted |

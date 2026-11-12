@@ -12,6 +12,7 @@ export type VersionResponse = components["schemas"]["VersionResponse"];
 /** Query keys. Everything of an environment lives under ["env", id] (invalidated by events). */
 export const keys = {
   me: ["me"] as const,
+  users: ["users"] as const,
   setup: ["setup"] as const,
   version: ["version"] as const,
   environments: ["environments"] as const,
@@ -71,6 +72,13 @@ export const envInfoQuery = (env: string) =>
     staleTime: 60_000,
     retry: false,
   });
+
+export type UserDetail = components["schemas"]["UserDetail"];
+
+export const usersQuery = queryOptions({
+  queryKey: keys.users,
+  queryFn: async () => (await unwrap(api.GET("/api/v1/users"))).users,
+});
 
 export const namespacesQuery = (env: string) =>
   queryOptions({

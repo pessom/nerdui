@@ -36,7 +36,8 @@ func newResetPasswordCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "reset-password <username>",
 		Short: "Set a new password for a local user and revoke their sessions",
-		Long: "Set a new password for a local user and revoke all of their sessions.\n" +
+		Long: "Set a new password for a local user, enable the account if it was disabled and\n" +
+			"revoke all of its sessions.\n" +
 			"Requires direct access to the data directory (usually root); use it when the admin\n" +
 			"password is lost. The password is read from the terminal, or from the first line of\n" +
 			"standard input with --password-stdin.",

@@ -11,8 +11,10 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteImport } from './routes/_app'
+import { Route as ChangePasswordRouteImport } from './routes/change-password'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as SetupRouteImport } from './routes/setup'
+import { Route as AppUsersRouteImport } from './routes/_app/users'
 import { Route as AppEnvEnvRouteImport } from './routes/_app/env/$env'
 import { Route as AppEnvEnvIndexRouteImport } from './routes/_app/env/$env/index'
 import { Route as AppEnvEnvContainersRouteImport } from './routes/_app/env/$env/containers'
@@ -27,6 +29,11 @@ const AppRoute = AppRouteImport.update({
   id: '/_app',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ChangePasswordRoute = ChangePasswordRouteImport.update({
+  id: '/change-password',
+  path: '/change-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -36,6 +43,11 @@ const SetupRoute = SetupRouteImport.update({
   id: '/setup',
   path: '/setup',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AppUsersRoute = AppUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AppRoute,
 } as any)
 const AppEnvEnvRoute = AppEnvEnvRouteImport.update({
   id: '/env/$env',
@@ -60,8 +72,10 @@ const AppEnvEnvContainersIdRoute = AppEnvEnvContainersIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/change-password': typeof ChangePasswordRoute
   '/login': typeof LoginRoute
   '/setup': typeof SetupRoute
+  '/users': typeof AppUsersRoute
   '/env/$env': typeof AppEnvEnvRouteWithChildren
   '/env/$env/containers': typeof AppEnvEnvContainersRoute
   '/env/$env/': typeof AppEnvEnvIndexRoute
@@ -69,8 +83,10 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/change-password': typeof ChangePasswordRoute
   '/login': typeof LoginRoute
   '/setup': typeof SetupRoute
+  '/users': typeof AppUsersRoute
   '/env/$env/containers': typeof AppEnvEnvContainersRoute
   '/env/$env': typeof AppEnvEnvIndexRoute
   '/env/$env/containers/$id': typeof AppEnvEnvContainersIdRoute
@@ -79,8 +95,10 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_app': typeof AppRouteWithChildren
+  '/change-password': typeof ChangePasswordRoute
   '/login': typeof LoginRoute
   '/setup': typeof SetupRoute
+  '/_app/users': typeof AppUsersRoute
   '/_app/env/$env': typeof AppEnvEnvRouteWithChildren
   '/_app/env/$env/containers': typeof AppEnvEnvContainersRoute
   '/_app/env/$env/': typeof AppEnvEnvIndexRoute
@@ -90,8 +108,10 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/change-password'
     | '/login'
     | '/setup'
+    | '/users'
     | '/env/$env'
     | '/env/$env/containers'
     | '/env/$env/'
@@ -99,8 +119,10 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/change-password'
     | '/login'
     | '/setup'
+    | '/users'
     | '/env/$env/containers'
     | '/env/$env'
     | '/env/$env/containers/$id'
@@ -108,8 +130,10 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_app'
+    | '/change-password'
     | '/login'
     | '/setup'
+    | '/_app/users'
     | '/_app/env/$env'
     | '/_app/env/$env/containers'
     | '/_app/env/$env/'
@@ -119,6 +143,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
+  ChangePasswordRoute: typeof ChangePasswordRoute
   LoginRoute: typeof LoginRoute
   SetupRoute: typeof SetupRoute
 }
@@ -139,6 +164,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/change-password': {
+      id: '/change-password'
+      path: '/change-password'
+      fullPath: '/change-password'
+      preLoaderRoute: typeof ChangePasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -152,6 +184,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/setup'
       preLoaderRoute: typeof SetupRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_app/users': {
+      id: '/_app/users'
+      path: '/users'
+      fullPath: '/users'
+      preLoaderRoute: typeof AppUsersRouteImport
+      parentRoute: typeof AppRoute
     }
     '/_app/env/$env': {
       id: '/_app/env/$env'
@@ -201,10 +240,12 @@ const AppEnvEnvRouteWithChildren = AppEnvEnvRoute._addFileChildren(
 )
 
 interface AppRouteChildren {
+  AppUsersRoute: typeof AppUsersRoute
   AppEnvEnvRoute: typeof AppEnvEnvRouteWithChildren
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppUsersRoute: AppUsersRoute,
   AppEnvEnvRoute: AppEnvEnvRouteWithChildren,
 }
 
@@ -213,6 +254,7 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
+  ChangePasswordRoute: ChangePasswordRoute,
   LoginRoute: LoginRoute,
   SetupRoute: SetupRoute,
 }

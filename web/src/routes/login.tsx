@@ -8,6 +8,7 @@ import { useState, type FormEvent } from "react";
 import { ApiError, api, setCsrfToken, unwrap } from "../api/client";
 import { keys, setupQuery } from "../api/queries";
 import { AuthCard } from "../components/AuthCard";
+import { safeRedirect } from "../lib/redirect";
 
 export const Route = createFileRoute("/login")({
   validateSearch: (search: Record<string, unknown>): { redirect?: string } => ({
@@ -32,9 +33,12 @@ function LoginPage() {
     onSuccess: async (session) => {
       setCsrfToken(session.csrfToken);
       queryClient.setQueryData(keys.me, session);
-      // Only same-app paths are accepted as redirect targets.
-      const safe = target?.startsWith("/") && !target.startsWith("//") ? target : "/";
-      await navigate({ to: safe });
+      const safe = safeRedirect(target);
+      if (session.user.mustChangePassword) {
+        await navigate({ to: "/change-password", search: { redirect: safe } });
+      } else {
+        await navigate({ to: safe });
+      }
     },
   });
 
@@ -77,5 +81,8 @@ function errorText(err: unknown) {
     return "Too many attempts. Wait a moment and try again.";
   }
   if (err instanceof ApiError && err.status === 401) return "Invalid username or password.";
+  if (err instanceof ApiError && err.status === 403 && err.code === "forbidden") {
+    return "This account is disabled. Ask an administrator to enable it.";
+  }
   return err instanceof Error ? err.message : "Sign-in failed.";
 }

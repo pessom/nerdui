@@ -116,6 +116,110 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change the caller's own password
+         * @description Verifies the current password (rate limited), clears `mustChangePassword` and revokes
+         *     the caller's other sessions. Available while a temporary password is pending.
+         */
+        post: operations["changePassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List users
+         * @description Requires `users:read`.
+         */
+        get: operations["listUsers"];
+        put?: never;
+        /**
+         * Create a user with a temporary password
+         * @description Requires `users:write`. Without `password`, one is generated and returned once in
+         *     `generatedPassword`. The user must change it at the first sign-in.
+         */
+        post: operations["createUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description User ID */
+                id: components["parameters"]["UserId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Get a user
+         * @description Requires `users:read`.
+         */
+        get: operations["getUser"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a user
+         * @description Requires `users:write`. The caller's own account and the last active administrator
+         *     cannot be deleted (409).
+         */
+        delete: operations["deleteUser"];
+        options?: never;
+        head?: never;
+        /**
+         * Disable or enable a user
+         * @description Requires `users:write`. Disabling revokes the user's sessions. The caller's own account
+         *     and the last active administrator cannot be disabled (409).
+         */
+        patch: operations["updateUser"];
+        trace?: never;
+    };
+    "/api/v1/users/{id}/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description User ID */
+                id: components["parameters"]["UserId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set a temporary password for another user
+         * @description Requires `users:write`. Revokes the user's sessions; the user must change the password
+         *     at the next sign-in. Without `password`, one is generated and returned once. Use
+         *     `/auth/password` for your own account.
+         */
+        post: operations["setUserPassword"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/environments": {
         parameters: {
             query?: never;
@@ -609,6 +713,23 @@ export interface components {
             username: string;
             /** @enum {string} */
             role: "admin";
+            /**
+             * @description A temporary password is pending: every other endpoint answers 403
+             *     `password_change_required` until `POST /auth/password` succeeds.
+             */
+            mustChangePassword: boolean;
+        };
+        UserDetail: components["schemas"]["User"] & {
+            disabled: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            lastLoginAt?: string;
+        };
+        UserPasswordResponse: {
+            user?: components["schemas"]["UserDetail"];
+            /** @description Present only when the server generated the password; shown once */
+            generatedPassword?: string;
         };
         SessionResponse: {
             user: components["schemas"]["User"];
@@ -621,7 +742,7 @@ export interface components {
         };
         ErrorDetail: {
             /** @enum {string} */
-            code: "invalid_argument" | "unauthenticated" | "forbidden" | "csrf_failed" | "not_found" | "conflict" | "rate_limited" | "unsupported_media_type" | "internal" | "unavailable" | "nerdctl_incompatible";
+            code: "invalid_argument" | "unauthenticated" | "forbidden" | "csrf_failed" | "not_found" | "conflict" | "rate_limited" | "unsupported_media_type" | "internal" | "unavailable" | "nerdctl_incompatible" | "password_change_required";
             message: string;
         };
         /** @description `nerdctl inspect` output (Docker-compatible). Other fields may be present. */
@@ -824,6 +945,8 @@ export interface components {
         };
     };
     parameters: {
+        /** @description User ID */
+        UserId: number;
         /** @description Environment ID */
         Env: string;
         /** @description containerd namespace; defaults to the environment's default namespace */
@@ -1011,6 +1134,213 @@ export interface operations {
             };
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
+        };
+    };
+    changePassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    currentPassword: string;
+                    newPassword: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Changed; the current session stays valid */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionResponse"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            429: components["responses"]["Error"];
+        };
+    };
+    listUsers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Users sorted by name */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        users: components["schemas"]["UserDetail"][];
+                    };
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
+    createUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    username: string;
+                    password?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserPasswordResponse"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    getUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description User ID */
+                id: components["parameters"]["UserId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description User */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserDetail"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    deleteUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description User ID */
+                id: components["parameters"]["UserId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    updateUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description User ID */
+                id: components["parameters"]["UserId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    disabled: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Updated */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserDetail"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    setUserPassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description User ID */
+                id: components["parameters"]["UserId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    password?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Password set */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserPasswordResponse"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
         };
     };
     listEnvironments: {
