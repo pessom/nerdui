@@ -106,6 +106,10 @@ func (cr clientRegistries) Logout(ctx context.Context, server string) error {
 	}
 	registryMu.Lock()
 	defer registryMu.Unlock()
+	// The docker file store erases unknown keys without an error: check first.
+	if !loggedIn(server) {
+		return fmt.Errorf("%w: not logged in to %s", errdefs.ErrNotFound, server)
+	}
 	failures, err := logout.Logout(ctx, server)
 	if err != nil {
 		if errors.Is(err, dockerconfigresolver.ErrUnableToErase) {
@@ -132,4 +136,18 @@ func classifyLoginErr(err error) error {
 		return fmt.Errorf("%w: %w", errdefs.ErrUnavailable, err)
 	}
 	return err
+}
+
+// loggedIn reports whether credentials for server (or one of its variants) are stored.
+func loggedIn(server string) bool {
+	u, err := dockerconfigresolver.Parse(server)
+	if err != nil {
+		return false
+	}
+	store, err := dockerconfigresolver.NewCredentialsStore("")
+	if err != nil {
+		return false
+	}
+	c, err := store.Retrieve(u, true)
+	return err == nil && (c.Username != "" || c.Password != "" || c.IdentityToken != "" || c.RegistryToken != "")
 }
