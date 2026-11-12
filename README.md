@@ -19,8 +19,9 @@ as a systemd service:
 
 ```bash
 VERSION=0.1.0 ARCH=amd64   # or arm64
-curl -fsSLO https://github.com/pessom/nerdui/releases/download/v${VERSION}/nerdui_${VERSION}_linux_${ARCH}.tar.gz
-tar -xzf nerdui_${VERSION}_linux_${ARCH}.tar.gz
+NERDCTL=$(nerdctl --version | grep -oE '[0-9]+\.[0-9]+' | head -1)   # build for the host nerdctl: 2.4 or 2.3
+curl -fsSLO https://github.com/pessom/nerdui/releases/download/v${VERSION}/nerdui_${VERSION}_nerdctl${NERDCTL}_linux_${ARCH}.tar.gz
+tar -xzf nerdui_${VERSION}_nerdctl${NERDCTL}_linux_${ARCH}.tar.gz
 sudo install -m 0755 nerdui /usr/local/bin/nerdui
 sudo install -m 0644 deploy/systemd/nerdui.service /etc/systemd/system/nerdui.service
 sudo install -m 0644 deploy/systemd/nerdui.env /etc/default/nerdui
@@ -28,7 +29,9 @@ sudo systemctl daemon-reload && sudo systemctl enable --now nerdui
 journalctl -u nerdui | grep setup_token   # then open https://<host>:9443
 ```
 
-Details, upgrades and the (experimental) container image: [docs/deployment.md](docs/deployment.md).
+Each release has one build per supported nerdctl minor version (2.4 and 2.3); use the one that
+matches the host's nerdctl, otherwise nerdui is read-only. Details, upgrades and the
+(experimental) container image: [docs/deployment.md](docs/deployment.md).
 
 ## First run
 

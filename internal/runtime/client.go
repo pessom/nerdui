@@ -48,7 +48,9 @@ type Versions struct {
 	Containerd         string `json:"containerd"`
 	ContainerdRevision string `json:"containerdRevision"`
 	// ContainerdSupported is false for versions outside SupportedContainerdMinors (ADR-0012).
-	ContainerdSupported bool          `json:"containerdSupported"`
+	ContainerdSupported bool `json:"containerdSupported"`
+	// SupportedContainerd are the containerd minors this build supports (ADR-0017).
+	SupportedContainerd []string      `json:"supportedContainerd"`
 	NerdctlLibrary      string        `json:"nerdctlLibrary"`
 	Nerdctl             NerdctlStatus `json:"nerdctl"`
 }
@@ -125,7 +127,10 @@ func (c *Client) conn() (*containerd.Client, error) {
 
 // Versions returns containerd server and nerdctl library versions.
 func (c *Client) Versions(ctx context.Context) (Versions, error) {
-	v := Versions{NerdctlLibrary: NerdctlLibraryVersion(), Nerdctl: c.Nerdctl(ctx)}
+	v := Versions{
+		NerdctlLibrary: NerdctlLibraryVersion(), Nerdctl: c.Nerdctl(ctx),
+		SupportedContainerd: SupportedContainerdMinors(),
+	}
 
 	cl, err := c.conn()
 	if err != nil {

@@ -23,16 +23,39 @@ pre-releases and do not update the
    ```
 
 5. The workflow builds and publishes:
-   - `nerdui_<version>_linux_{amd64,arm64}.tar.gz` (binary, README, CHANGELOG, deploy examples)
+   - `nerdui_<version>_nerdctl<minor>_linux_{amd64,arm64}.tar.gz` for every nerdctl build
+     (binary, README, CHANGELOG, deploy examples)
    - `checksums.txt` + cosign signature/certificate
    - SBOMs (SPDX) per archive
-   - multi-arch image `ghcr.io/pessom/nerdui:<version>` (and `latest`), signed, with SBOM
+   - multi-arch images `ghcr.io/pessom/nerdui:<version>-nerdctl<minor>`, plus `<version>` and
+     (stable releases) `latest` for the newest nerdctl build and `latest-nerdctl<minor>` for each;
+     signed, with SBOM
    - GitHub Release with notes grouped by Conventional Commit type
+
+## nerdctl builds
+
+Every release is built once per supported nerdctl minor ([ADR-0017](adr/0017-builds-per-nerdctl-version.md)):
+`go.mod` links the newest, each older minor has `go.nerdctl-<minor>.mod/.sum`, generated from
+`go.mod` with only the nerdctl version changed. The list lives in `NERDCTL_VARIANTS` (Makefile),
+the CI integration matrix, `.goreleaser.yaml` and `supportedContainerd` in
+`internal/runtime/compat.go`.
+
+- **Any `go.mod` change** (including Dependabot PRs): run `make modfiles` and commit the result;
+  CI fails with "run make modfiles" otherwise.
+- **Work on an older build locally:** `make build NERDCTL=2.3`, or
+  `GOFLAGS=-modfile=go.nerdctl-2.3.mod go test ./...`.
 
 ## Runtime version updates
 
-- **nerdctl minor bump** ([ADR-0011](adr/0011-nerdctl-version-policy.md)): one PR that updates
-  `go.mod`, `NERDCTL_VERSION` in `.github/workflows/ci.yml` and the docs; followed by a release.
+- **nerdctl patch release of an older build:** update its version in `NERDCTL_VARIANTS` and the
+  CI matrix, run `make modfiles`.
+- **New nerdctl minor** ([ADR-0011](adr/0011-nerdctl-version-policy.md), ADR-0017): one PR that
+  - bumps `go.mod` to the new minor;
+  - turns the previous minor into a variant (`NERDCTL_VARIANTS`, `go.nerdctl-<minor>.mod`, a
+    GoReleaser build, archive and image) and drops the oldest one, so two builds remain;
+  - updates the CI matrix (`NERDCTL_VERSION`), `supportedContainerd` with the containerd versions
+    each nerdctl release supports, the required status checks of the `main` ruleset and the docs;
+  - is followed by a release.
 - **containerd matrix** ([ADR-0012](adr/0012-containerd-version-support.md)): when containerd
   releases a new minor or designates a new LTS, update the `integration` matrix in
   `.github/workflows/ci.yml`, ADR-0012, the technical specification, and the required status

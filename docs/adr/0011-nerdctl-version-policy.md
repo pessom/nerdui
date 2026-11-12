@@ -1,6 +1,8 @@
 # 0011. nerdctl version compatibility policy
 
-- **Status:** Accepted (complements [0003](0003-nerdctl-binary-runtime-dependency.md))
+- **Status:** Accepted (complements [0003](0003-nerdctl-binary-runtime-dependency.md); release
+  implications amended by [0017](0017-builds-per-nerdctl-version.md): one build per supported
+  nerdctl minor)
 - **Date:** 2026-11-11
 
 ## Context

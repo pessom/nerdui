@@ -7,7 +7,12 @@ import type { components } from "../api/client";
 
 type RuntimeVersions = components["schemas"]["RuntimeVersions"];
 
-/** Warnings for the runtime support policy (ADR-0011, ADR-0012) and connectivity. */
+/** "2.3.5" → "2.3"; empty for unknown versions. */
+function hostMinor(version: string | undefined): string {
+  return /^(\d+\.\d+)\./.exec(version ?? "")?.[1] ?? "";
+}
+
+/** Warnings for the runtime support policy (ADR-0011, ADR-0012, ADR-0017) and connectivity. */
 export function RuntimeBanners({
   runtime,
   containerdDown,
@@ -30,8 +35,15 @@ export function RuntimeBanners({
       {readOnly && (
         <Alert color="orange" icon={<IconLock />} title="Read-only mode">
           Host nerdctl {n.version || "was not found"}
-          {n.version ? " is incompatible" : ""}; nerdctl {n.required}.x is required. Changes are
-          disabled until it is installed.
+          {n.version ? " is incompatible" : ""}; this nerdui build requires nerdctl {n.required}.x.
+          Changes are disabled until it is installed
+          {hostMinor(n.version) && (
+            <>
+              , or use the nerdui build for nerdctl {hostMinor(n.version)} (release file names and
+              image tags contain <code>nerdctl{hostMinor(n.version)}</code>) if it is published
+            </>
+          )}
+          .
         </Alert>
       )}
       {skipped && (
@@ -41,7 +53,9 @@ export function RuntimeBanners({
       )}
       {unsupported && (
         <Alert color="yellow" icon={<IconAlertTriangle />} title="Unsupported containerd version">
-          containerd {runtime.containerd} is not tested with this nerdui release.
+          containerd {runtime.containerd} is not tested with this nerdui build, which supports
+          containerd {runtime.supportedContainerd.join(", ") || "—"} (nerdctl{" "}
+          {runtime.nerdctlLibrary}).
         </Alert>
       )}
     </Stack>

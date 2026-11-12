@@ -7,23 +7,34 @@
 ## Requirements
 
 - Linux `amd64` or `arm64`
-- containerd **2.3 (LTS) or 2.4** — supported and tested in CI; other versions work with an "unsupported" warning ([ADR-0012](adr/0012-containerd-version-support.md))
-- **nerdctl installed on the host (required)** with CNI plugins, e.g. `nerdctl-full`. Its
-  `major.minor` must match the nerdctl version nerdui is built with (see release notes);
-  otherwise nerdui runs read-only ([ADR-0011](adr/0011-nerdctl-version-policy.md)).
+- **nerdctl 2.4 or 2.3 installed on the host (required)** with CNI plugins, e.g. `nerdctl-full`.
+  Every release has one build per nerdctl minor; the build's `major.minor` must match the host
+  nerdctl, otherwise nerdui runs read-only ([ADR-0011](adr/0011-nerdctl-version-policy.md),
+  [ADR-0017](adr/0017-builds-per-nerdctl-version.md)).
+- containerd, supported and tested in CI per build; other versions work with an "unsupported"
+  warning ([ADR-0012](adr/0012-containerd-version-support.md)):
+
+  | nerdui build | containerd |
+  | --- | --- |
+  | `nerdctl2.4` | 2.3 (LTS), 2.4 |
+  | `nerdctl2.3` | 2.3 (LTS) — nerdctl 2.3 itself supports containerd up to 2.3 |
+
   Containers created by nerdui use the host `nerdctl` binary for networking hooks and logging,
   exactly like CLI-created ones ([ADR-0003](adr/0003-nerdctl-binary-runtime-dependency.md))
 - root privileges (rootful containerd/nerdctl; rootless is not supported yet)
 
 ## Binary with systemd (recommended)
 
-Release archives contain the binary and `deploy/systemd/` (unit and settings file).
+Release archives contain the binary and `deploy/systemd/` (unit and settings file). Archives
+are named `nerdui_<version>_nerdctl<minor>_linux_<arch>.tar.gz`; pick the nerdctl minor of the
+host (`nerdctl --version`).
 
 ```bash
 VERSION=0.1.0
 ARCH=amd64   # or arm64
-curl -fsSLO https://github.com/pessom/nerdui/releases/download/v${VERSION}/nerdui_${VERSION}_linux_${ARCH}.tar.gz
-tar -xzf nerdui_${VERSION}_linux_${ARCH}.tar.gz
+NERDCTL=$(nerdctl --version | grep -oE '[0-9]+\.[0-9]+' | head -1)   # build for the host nerdctl: 2.4 or 2.3
+curl -fsSLO https://github.com/pessom/nerdui/releases/download/v${VERSION}/nerdui_${VERSION}_nerdctl${NERDCTL}_linux_${ARCH}.tar.gz
+tar -xzf nerdui_${VERSION}_nerdctl${NERDCTL}_linux_${ARCH}.tar.gz
 
 sudo install -m 0755 nerdui /usr/local/bin/nerdui
 sudo install -m 0644 deploy/systemd/nerdui.service /etc/systemd/system/nerdui.service
@@ -43,8 +54,8 @@ reconnects while containerd restarts), keeps state in `/var/lib/nerdui` (`StateD
 variables (see `nerdui --help`).
 
 **Upgrade:** replace `/usr/local/bin/nerdui` and `sudo systemctl restart nerdui`. Containers are not
-affected by restarting nerdui. Keep the host nerdctl on the minor version the release requires
-(ADR-0011).
+affected by restarting nerdui. When you upgrade the host nerdctl to another minor version, switch to
+the matching nerdui build as well (ADR-0011, ADR-0017).
 
 **Uninstall:** `sudo systemctl disable --now nerdui`, remove the unit, `/etc/default/nerdui`,
 the binary and — to delete all nerdui data — `/var/lib/nerdui`.
@@ -56,7 +67,10 @@ the binary and — to delete all nerdui data — `/var/lib/nerdui`.
 > tracked in [#145](https://github.com/pessom/nerdui/issues/145). Use the binary with systemd.
 
 
-Image: `ghcr.io/pessom/nerdui:<version>` (multi-arch, distroless, signed with cosign, SBOM attached).
+Image: `ghcr.io/pessom/nerdui:<version>-nerdctl<minor>` (multi-arch, distroless, signed with
+cosign, SBOM attached), e.g. `0.1.0-nerdctl2.3`; `<version>` and `latest` are the build for the
+newest nerdctl, `latest-nerdctl<minor>` follows stable releases of each build. Use the tag that
+matches the host nerdctl mounted into the container.
 
 nerdui inside a container manages the **host** containerd, so it needs host mounts and privileges:
 

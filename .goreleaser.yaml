@@ -9,8 +9,11 @@ before:
     - make web
     - make licenses
 
+# One build per supported nerdctl minor (ADR-0017): go.mod links the newest, older minors use
+# go.nerdctl-<minor>.mod. A build is fully functional only with the same nerdctl minor on the
+# host (ADR-0011). Keep in sync with NERDCTL_VARIANTS in the Makefile and the CI matrix.
 builds:
-  - id: nerdui
+  - id: nerdctl2.4
     main: ./cmd/nerdui
     binary: nerdui
     env:
@@ -18,22 +21,38 @@ builds:
     goos: [linux]
     goarch: [amd64, arm64]
     flags: [-trimpath]
-    ldflags:
+    ldflags: &ldflags
       - -s -w
       - -X github.com/pessom/nerdui/internal/version.Version={{ .Version }}
       - -X github.com/pessom/nerdui/internal/version.Commit={{ .ShortCommit }}
       - -X github.com/pessom/nerdui/internal/version.Date={{ .Date }}
+  - id: nerdctl2.3
+    main: ./cmd/nerdui
+    binary: nerdui
+    env:
+      - CGO_ENABLED=0
+    goos: [linux]
+    goarch: [amd64, arm64]
+    flags: [-trimpath, -modfile=go.nerdctl-2.3.mod]
+    ldflags: *ldflags
 
 archives:
-  - formats: [tar.gz]
-    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
-    files:
+  - id: nerdctl2.4
+    ids: [nerdctl2.4]
+    formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_nerdctl2.4_{{ .Os }}_{{ .Arch }}"
+    files: &archive_files
       - LICENSE
       - NOTICE
       - README.md
       - CHANGELOG.md
       - deploy/**/*
       - third_party/**/*
+  - id: nerdctl2.3
+    ids: [nerdctl2.3]
+    formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_nerdctl2.3_{{ .Os }}_{{ .Arch }}"
+    files: *archive_files
 
 checksum:
   name_template: checksums.txt
@@ -55,22 +74,27 @@ signs:
       - --yes
     artifacts: checksum
 
-# Multi-arch image in GHCR, built with buildx from prebuilt binaries.
+# Multi-arch images in GHCR, built with buildx from prebuilt binaries: one per nerdctl build.
+# The newest nerdctl build also gets the plain version tag and `latest`.
 dockers_v2:
-  - images:
+  - id: nerdctl2.4
+    ids: [nerdctl2.4]
+    images:
       - ghcr.io/pessom/nerdui
     dockerfile: Dockerfile.goreleaser
-    extra_files:
+    extra_files: &image_files
       - LICENSE
       - NOTICE
       - third_party
-    platforms:
+    platforms: &platforms
       - linux/amd64
       - linux/arm64
     tags:
+      - "{{ .Version }}-nerdctl2.4"
       - "{{ .Version }}"
+      - "{{ if not .Prerelease }}latest-nerdctl2.4{{ end }}"
       - "{{ if not .Prerelease }}latest{{ end }}"
-    labels:
+    labels: &image_labels
       org.opencontainers.image.title: nerdui
       org.opencontainers.image.description: Web UI for nerdctl/containerd
       org.opencontainers.image.source: https://github.com/pessom/nerdui
@@ -78,6 +102,18 @@ dockers_v2:
       org.opencontainers.image.version: "{{ .Version }}"
       org.opencontainers.image.revision: "{{ .FullCommit }}"
       org.opencontainers.image.created: "{{ .Date }}"
+    sbom: true
+  - id: nerdctl2.3
+    ids: [nerdctl2.3]
+    images:
+      - ghcr.io/pessom/nerdui
+    dockerfile: Dockerfile.goreleaser
+    extra_files: *image_files
+    platforms: *platforms
+    tags:
+      - "{{ .Version }}-nerdctl2.3"
+      - "{{ if not .Prerelease }}latest-nerdctl2.3{{ end }}"
+    labels: *image_labels
     sbom: true
 
 docker_signs:
