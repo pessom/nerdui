@@ -236,3 +236,10 @@ func (h *Hub) closeAll() {
 	}
 	h.connected = false
 }
+
+// subscribers returns the number of subscribers (tests).
+func (h *Hub) subscribers() int {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return len(h.subs)
+}

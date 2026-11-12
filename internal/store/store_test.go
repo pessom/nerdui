@@ -17,7 +17,7 @@ import (
 const now = int64(1_800_000_000)
 
 // latestVersion is the number of embedded migrations.
-const latestVersion = 2
+const latestVersion = 3
 
 func openTest(t *testing.T, dir string) *Store {
 	t.Helper()

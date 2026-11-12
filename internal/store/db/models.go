@@ -8,6 +8,19 @@ import (
 	"database/sql"
 )
 
+type Event struct {
+	ID          int64
+	Environment string
+	Ts          int64
+	Namespace   string
+	Topic       string
+	Kind        string
+	Action      string
+	ObjectID    string
+	ObjectName  string
+	Attributes  string
+}
+
 type Session struct {
 	TokenHash  []byte
 	UserID     int64

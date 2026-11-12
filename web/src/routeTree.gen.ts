@@ -18,6 +18,7 @@ import { Route as AppUsersRouteImport } from './routes/_app/users'
 import { Route as AppEnvEnvRouteImport } from './routes/_app/env/$env'
 import { Route as AppEnvEnvIndexRouteImport } from './routes/_app/env/$env/index'
 import { Route as AppEnvEnvContainersRouteImport } from './routes/_app/env/$env/containers'
+import { Route as AppEnvEnvEventsRouteImport } from './routes/_app/env/$env/events'
 import { Route as AppEnvEnvImagesRouteImport } from './routes/_app/env/$env/images'
 import { Route as AppEnvEnvRegistriesRouteImport } from './routes/_app/env/$env/registries'
 import { Route as AppEnvEnvContainersIdRouteImport } from './routes/_app/env/$env/containers_.$id'
@@ -66,6 +67,11 @@ const AppEnvEnvContainersRoute = AppEnvEnvContainersRouteImport.update({
   path: '/containers',
   getParentRoute: () => AppEnvEnvRoute,
 } as any)
+const AppEnvEnvEventsRoute = AppEnvEnvEventsRouteImport.update({
+  id: '/events',
+  path: '/events',
+  getParentRoute: () => AppEnvEnvRoute,
+} as any)
 const AppEnvEnvImagesRoute = AppEnvEnvImagesRouteImport.update({
   id: '/images',
   path: '/images',
@@ -90,6 +96,7 @@ export interface FileRoutesByFullPath {
   '/users': typeof AppUsersRoute
   '/env/$env': typeof AppEnvEnvRouteWithChildren
   '/env/$env/containers': typeof AppEnvEnvContainersRoute
+  '/env/$env/events': typeof AppEnvEnvEventsRoute
   '/env/$env/images': typeof AppEnvEnvImagesRoute
   '/env/$env/registries': typeof AppEnvEnvRegistriesRoute
   '/env/$env/': typeof AppEnvEnvIndexRoute
@@ -102,6 +109,7 @@ export interface FileRoutesByTo {
   '/setup': typeof SetupRoute
   '/users': typeof AppUsersRoute
   '/env/$env/containers': typeof AppEnvEnvContainersRoute
+  '/env/$env/events': typeof AppEnvEnvEventsRoute
   '/env/$env/images': typeof AppEnvEnvImagesRoute
   '/env/$env/registries': typeof AppEnvEnvRegistriesRoute
   '/env/$env': typeof AppEnvEnvIndexRoute
@@ -117,6 +125,7 @@ export interface FileRoutesById {
   '/_app/users': typeof AppUsersRoute
   '/_app/env/$env': typeof AppEnvEnvRouteWithChildren
   '/_app/env/$env/containers': typeof AppEnvEnvContainersRoute
+  '/_app/env/$env/events': typeof AppEnvEnvEventsRoute
   '/_app/env/$env/images': typeof AppEnvEnvImagesRoute
   '/_app/env/$env/registries': typeof AppEnvEnvRegistriesRoute
   '/_app/env/$env/': typeof AppEnvEnvIndexRoute
@@ -132,6 +141,7 @@ export interface FileRouteTypes {
     | '/users'
     | '/env/$env'
     | '/env/$env/containers'
+    | '/env/$env/events'
     | '/env/$env/images'
     | '/env/$env/registries'
     | '/env/$env/'
@@ -144,6 +154,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/users'
     | '/env/$env/containers'
+    | '/env/$env/events'
     | '/env/$env/images'
     | '/env/$env/registries'
     | '/env/$env'
@@ -158,6 +169,7 @@ export interface FileRouteTypes {
     | '/_app/users'
     | '/_app/env/$env'
     | '/_app/env/$env/containers'
+    | '/_app/env/$env/events'
     | '/_app/env/$env/images'
     | '/_app/env/$env/registries'
     | '/_app/env/$env/'
@@ -237,6 +249,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppEnvEnvContainersRouteImport
       parentRoute: typeof AppEnvEnvRoute
     }
+    '/_app/env/$env/events': {
+      id: '/_app/env/$env/events'
+      path: '/events'
+      fullPath: '/env/$env/events'
+      preLoaderRoute: typeof AppEnvEnvEventsRouteImport
+      parentRoute: typeof AppEnvEnvRoute
+    }
     '/_app/env/$env/images': {
       id: '/_app/env/$env/images'
       path: '/images'
@@ -263,6 +282,7 @@ declare module '@tanstack/react-router' {
 
 interface AppEnvEnvRouteChildren {
   AppEnvEnvContainersRoute: typeof AppEnvEnvContainersRoute
+  AppEnvEnvEventsRoute: typeof AppEnvEnvEventsRoute
   AppEnvEnvImagesRoute: typeof AppEnvEnvImagesRoute
   AppEnvEnvRegistriesRoute: typeof AppEnvEnvRegistriesRoute
   AppEnvEnvIndexRoute: typeof AppEnvEnvIndexRoute
@@ -271,6 +291,7 @@ interface AppEnvEnvRouteChildren {
 
 const AppEnvEnvRouteChildren: AppEnvEnvRouteChildren = {
   AppEnvEnvContainersRoute: AppEnvEnvContainersRoute,
+  AppEnvEnvEventsRoute: AppEnvEnvEventsRoute,
   AppEnvEnvImagesRoute: AppEnvEnvImagesRoute,
   AppEnvEnvRegistriesRoute: AppEnvEnvRegistriesRoute,
   AppEnvEnvIndexRoute: AppEnvEnvIndexRoute,

@@ -401,6 +401,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/environments/{env}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Recorded events, newest first
+         * @description Requires `system:read` (#65, ADR-0021). Events are recorded while nerdui runs and kept for
+         *     `--events-retention` (default 7 days, at most 100 000). `recording` is false when the
+         *     history is disabled. Page with `before` = id of the oldest event shown.
+         */
+        get: operations["listEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/environments/{env}/events/stream": {
         parameters: {
             query?: never;
@@ -1202,6 +1227,34 @@ export interface components {
             server: string;
             username?: string;
         };
+        HistoryEvent: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            ts: string;
+            namespace?: string;
+            /** @example /tasks/exit */
+            topic: string;
+            /**
+             * @example container
+             * @example task
+             * @example image
+             * @example nerdui
+             */
+            kind: string;
+            /**
+             * @example create
+             * @example exit
+             * @example oom
+             */
+            action: string;
+            objectId?: string;
+            /** @description Container name at the time of the event */
+            objectName?: string;
+            attributes?: {
+                [key: string]: string;
+            };
+        };
         Job: {
             id: string;
             /** @example image.pull */
@@ -1885,6 +1938,46 @@ export interface operations {
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
             503: components["responses"]["Error"];
+        };
+    };
+    listEvents: {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; empty = the environment's default, `*` = all */
+                namespace?: string;
+                kind?: string;
+                /** @description Container ID or name, image name */
+                object?: string;
+                before?: number;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Events */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        events: components["schemas"]["HistoryEvent"][];
+                        /** @description Older events exist */
+                        more?: boolean;
+                        recording: boolean;
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
         };
     };
     streamEvents: {

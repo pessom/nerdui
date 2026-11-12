@@ -38,8 +38,10 @@ type Config struct {
 	// UI is the compiled frontend. When nil, the UI is not served.
 	UI fs.FS
 	// Jobs runs long operations (#126); when nil, a manager is created (tests).
-	Jobs   *jobs.Manager
-	Logger *slog.Logger
+	Jobs *jobs.Manager
+	// EventHistory serves recorded events (#65); nil when recording is disabled.
+	EventHistory api.EventHistory
+	Logger       *slog.Logger
 }
 
 // VersionResponse is returned by GET /api/v1/version. Keep in sync with api/openapi.yaml.
@@ -83,7 +85,9 @@ func New(cfg Config) http.Handler {
 		r.With(cfg.Auth.OptionalSession).Method(http.MethodGet, "/version", authz.Public(versionHandler(cfg.Environments, guard)))
 		r.Group(func(r chi.Router) {
 			r.Use(cfg.Auth.RequireSession, auth.CSRF, auth.PasswordChanged)
-			(&api.Handler{Envs: cfg.Environments, Jobs: cfg.Jobs, Logger: cfg.Logger}).Routes(r, guard)
+			(&api.Handler{
+				Envs: cfg.Environments, Jobs: cfg.Jobs, EventHistory: cfg.EventHistory, Logger: cfg.Logger,
+			}).Routes(r, guard)
 		})
 	})
 
