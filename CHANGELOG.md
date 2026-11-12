@@ -7,6 +7,14 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 
 ## [Unreleased]
 
+## [0.1.0-alpha.1.1] - 2026-11-12
+
+### Fixed
+
+- Choosing a namespace no longer switches to the Overview page: it stays on the current page,
+  the Containers menu link keeps it, and the last choice is remembered per environment in the
+  browser. The host-wide Overview has no namespace selector (#160).
+
 ## [0.1.0-alpha.1] - 2026-11-12
 
 First preview release: manage containers on one Linux host with containerd and nerdctl.
@@ -47,5 +55,6 @@ First preview release: manage containers on one Linux host with containerd and n
 - Every user is an administrator; roles are planned (#78).
 - The container image is experimental (#145); install the binary with systemd.
 
-[Unreleased]: https://github.com/pessom/nerdui/compare/v0.1.0-alpha.1...HEAD
+[Unreleased]: https://github.com/pessom/nerdui/compare/v0.1.0-alpha.1.1...HEAD
+[0.1.0-alpha.1.1]: https://github.com/pessom/nerdui/compare/v0.1.0-alpha.1...v0.1.0-alpha.1.1
 [0.1.0-alpha.1]: https://github.com/pessom/nerdui/releases/tag/v0.1.0-alpha.1
