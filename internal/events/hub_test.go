@@ -200,3 +200,38 @@ func TestRunClosesSubscriptions(t *testing.T) {
 	}
 	sub.Close() // idempotent after hub shutdown
 }
+
+// TestStateAnnouncedOnce subscribes while the hub connects: every subscriber must see the
+// "connected" state once, as its initial event or as the announcement, not both.
+func TestStateAnnouncedOnce(t *testing.T) {
+	for range 20 {
+		src := newSource(0)
+		h := newTestHub(src)
+		const n = 50
+		subs := make(chan *Subscription, n)
+		var wg sync.WaitGroup
+		for range n {
+			wg.Go(func() { subs <- h.Subscribe(Filter{}, 0) })
+		}
+		run(t, h)
+		sess := src.next(t)
+		wg.Wait()
+		close(subs)
+		sess.events <- runtime.Event{Topic: "/containers/create", ID: "marker"}
+		for sub := range subs {
+			connected := 0
+			for {
+				ev := recv(t, sub)
+				if ev.ID == "marker" {
+					break
+				}
+				if ev.Action == ActionConnected {
+					connected++
+				}
+			}
+			if connected != 1 {
+				t.Fatalf("subscriber saw %d connected events", connected)
+			}
+		}
+	}
+}
