@@ -3,7 +3,7 @@
 
 import { AppShell, Burger, Group, ScrollArea, Text } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { IconBox, IconLayoutDashboard } from "@tabler/icons-react";
+import { IconBox, IconLayoutDashboard, IconUsers } from "@tabler/icons-react";
 import { Link, Outlet, createFileRoute, redirect, useParams } from "@tanstack/react-router";
 import { ApiError } from "../api/client";
 import { meQuery, setupQuery } from "../api/queries";
@@ -18,14 +18,20 @@ import { UserMenu } from "../components/UserMenu";
  */
 export const Route = createFileRoute("/_app")({
   beforeLoad: async ({ context, location }) => {
+    let session;
     try {
-      return { session: await context.queryClient.ensureQueryData(meQuery) };
+      session = await context.queryClient.ensureQueryData(meQuery);
     } catch (err) {
       if (!(err instanceof ApiError) || err.status !== 401) throw err;
       const setup = await context.queryClient.fetchQuery(setupQuery).catch(() => null);
       if (setup?.required) throw redirect({ to: "/setup" });
       throw redirect({ to: "/login", search: { redirect: location.href } });
     }
+    // A temporary password must be replaced before anything else (#74).
+    if (session.user.mustChangePassword) {
+      throw redirect({ to: "/change-password", search: { redirect: location.href } });
+    }
+    return { session };
   },
   component: AppLayout,
 });
@@ -87,6 +93,12 @@ function AppLayout() {
             params={{ env }}
             label="Containers"
             leftSection={<IconBox size={18} stroke={1.5} />}
+            onClick={close}
+          />
+          <RouterNavLink
+            to="/users"
+            label="Users"
+            leftSection={<IconUsers size={18} stroke={1.5} />}
             onClick={close}
           />
         </ScrollArea>

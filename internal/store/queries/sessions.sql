@@ -25,3 +25,6 @@ SELECT sqlc.embed(sessions), sqlc.embed(users)
 FROM sessions
 JOIN users ON users.id = sessions.user_id
 WHERE sessions.token_hash = ?;
+
+-- name: DeleteOtherUserSessions :execrows
+DELETE FROM sessions WHERE user_id = @user_id AND token_hash != @keep;

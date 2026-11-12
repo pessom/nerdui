@@ -260,12 +260,20 @@ func TestRouteAuthorization(t *testing.T) {
 		got[r.Method+" "+r.Path] = access
 	}
 	want := map[string]string{
-		"GET /api/v1/version":      "public",
-		"GET /api/v1/setup":        "public",
-		"POST /api/v1/setup":       "public",
-		"POST /api/v1/auth/login":  "public",
-		"GET /api/v1/auth/me":      "session:self",
-		"POST /api/v1/auth/logout": "session:self",
+		"GET /api/v1/version":        "public",
+		"GET /api/v1/setup":          "public",
+		"POST /api/v1/setup":         "public",
+		"POST /api/v1/auth/login":    "public",
+		"GET /api/v1/auth/me":        "session:self",
+		"POST /api/v1/auth/logout":   "session:self",
+		"POST /api/v1/auth/password": "session:self",
+
+		"GET /api/v1/users":                "users:read",
+		"POST /api/v1/users":               "users:write",
+		"GET /api/v1/users/{id}":           "users:read",
+		"PATCH /api/v1/users/{id}":         "users:write",
+		"POST /api/v1/users/{id}/password": "users:write",
+		"DELETE /api/v1/users/{id}":        "users:write",
 
 		"GET /api/v1/environments":                                   "system:read",
 		"GET /api/v1/environments/{env}/":                            "system:read",

@@ -76,7 +76,7 @@ func New(cfg Config) http.Handler {
 		cfg.Auth.Routes(r, guard)
 		r.With(cfg.Auth.OptionalSession).Method(http.MethodGet, "/version", authz.Public(versionHandler(cfg.Environments, guard)))
 		r.Group(func(r chi.Router) {
-			r.Use(cfg.Auth.RequireSession, auth.CSRF)
+			r.Use(cfg.Auth.RequireSession, auth.CSRF, auth.PasswordChanged)
 			(&api.Handler{Envs: cfg.Environments, Logger: cfg.Logger}).Routes(r, guard)
 		})
 	})

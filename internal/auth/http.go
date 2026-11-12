@@ -123,7 +123,20 @@ func isSafeMethod(m string) bool {
 	return m == http.MethodGet || m == http.MethodHead || m == http.MethodOptions
 }
 
-// Routes registers the authentication endpoints under the API root.
+// PasswordChanged rejects requests of sessions that still have to replace a temporary
+// password (#74) with 403 password_change_required. Must run after RequireSession; only the
+// caller's own session endpoints (me, logout, password) are exempt.
+func PasswordChanged(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if p, ok := PrincipalFrom(r.Context()); ok && p.User.MustChangePassword {
+			httpjson.WriteError(w, http.StatusForbidden, httpjson.CodePasswordChangeRequired, ErrPasswordChange.Error())
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// Routes registers the authentication and user management endpoints under the API root.
 func (s *Service) Routes(r chi.Router, g *authz.Guard) {
 	r.Method(http.MethodGet, "/setup", authz.Public(s.handleSetupStatus))
 	r.Method(http.MethodPost, "/setup", authz.Public(s.handleSetup))
@@ -132,6 +145,11 @@ func (s *Service) Routes(r chi.Router, g *authz.Guard) {
 		r.Use(s.RequireSession, CSRF)
 		r.Method(http.MethodGet, "/auth/me", g.Protect(authz.SessionSelf, s.handleMe))
 		r.Method(http.MethodPost, "/auth/logout", g.Protect(authz.SessionSelf, s.handleLogout))
+		r.Method(http.MethodPost, "/auth/password", g.Protect(authz.SessionSelf, s.handleChangePassword))
+		r.Group(func(r chi.Router) {
+			r.Use(PasswordChanged)
+			s.userRoutes(r, g)
+		})
 	})
 }
 
@@ -212,9 +230,16 @@ func (s *Service) writeAuthError(w http.ResponseWriter, err error) bool {
 		httpjson.WriteRateLimited(w, rl.RetryAfter)
 	case errors.Is(err, ErrInvalidCredentials), errors.Is(err, ErrInvalidSetupToken):
 		httpjson.WriteError(w, http.StatusUnauthorized, httpjson.CodeUnauthenticated, err.Error())
-	case errors.Is(err, ErrSetupCompleted):
+	case errors.Is(err, ErrUserDisabled):
+		httpjson.WriteError(w, http.StatusForbidden, httpjson.CodeForbidden, err.Error())
+	case errors.Is(err, ErrUserNotFound):
+		httpjson.WriteError(w, http.StatusNotFound, httpjson.CodeNotFound, err.Error())
+	case errors.Is(err, ErrSetupCompleted), errors.Is(err, ErrUsernameTaken),
+		errors.Is(err, ErrOwnAccount), errors.Is(err, ErrLastAdmin):
 		httpjson.WriteError(w, http.StatusConflict, httpjson.CodeConflict, err.Error())
-	case errors.Is(err, ErrWeakPassword), errors.Is(err, ErrInvalidUsername):
+	// A wrong current password is not 401: the session itself is valid.
+	case errors.Is(err, ErrWeakPassword), errors.Is(err, ErrInvalidUsername),
+		errors.Is(err, ErrWrongPassword), errors.Is(err, ErrSamePassword):
 		httpjson.WriteError(w, http.StatusBadRequest, httpjson.CodeInvalidArgument, err.Error())
 	default:
 		s.opts.Logger.Error("authentication error", "error", err)

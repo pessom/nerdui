@@ -7,7 +7,19 @@ package db
 
 import (
 	"context"
+	"database/sql"
 )
+
+const countActiveAdmins = `-- name: CountActiveAdmins :one
+SELECT COUNT(*) FROM users WHERE role = 'admin' AND disabled_at IS NULL
+`
+
+func (q *Queries) CountActiveAdmins(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countActiveAdmins)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
 
 const countUsers = `-- name: CountUsers :one
 SELECT COUNT(*) FROM users
@@ -22,16 +34,17 @@ func (q *Queries) CountUsers(ctx context.Context) (int64, error) {
 
 const createUser = `-- name: CreateUser :one
 
-INSERT INTO users (username, password_hash, role, created_at, updated_at)
-VALUES (?1, ?2, ?3, ?4, ?4)
-RETURNING id, username, password_hash, role, created_at, updated_at
+INSERT INTO users (username, password_hash, role, must_change_password, created_at, updated_at)
+VALUES (?1, ?2, ?3, ?4, ?5, ?5)
+RETURNING id, username, password_hash, role, created_at, updated_at, disabled_at, must_change_password, last_login_at
 `
 
 type CreateUserParams struct {
-	Username     string
-	PasswordHash string
-	Role         string
-	Now          int64
+	Username           string
+	PasswordHash       string
+	Role               string
+	MustChangePassword int64
+	Now                int64
 }
 
 // SPDX-FileCopyrightText: 2026 The nerdui Authors
@@ -41,6 +54,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		arg.Username,
 		arg.PasswordHash,
 		arg.Role,
+		arg.MustChangePassword,
 		arg.Now,
 	)
 	var i User
@@ -51,6 +65,9 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.Role,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DisabledAt,
+		&i.MustChangePassword,
+		&i.LastLoginAt,
 	)
 	return i, err
 }
@@ -68,7 +85,7 @@ func (q *Queries) DeleteUser(ctx context.Context, id int64) (int64, error) {
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, username, password_hash, role, created_at, updated_at FROM users WHERE id = ?
+SELECT id, username, password_hash, role, created_at, updated_at, disabled_at, must_change_password, last_login_at FROM users WHERE id = ?
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id int64) (User, error) {
@@ -81,12 +98,15 @@ func (q *Queries) GetUserByID(ctx context.Context, id int64) (User, error) {
 		&i.Role,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DisabledAt,
+		&i.MustChangePassword,
+		&i.LastLoginAt,
 	)
 	return i, err
 }
 
 const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT id, username, password_hash, role, created_at, updated_at FROM users WHERE username = ?
+SELECT id, username, password_hash, role, created_at, updated_at, disabled_at, must_change_password, last_login_at FROM users WHERE username = ?
 `
 
 func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User, error) {
@@ -99,12 +119,15 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 		&i.Role,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.DisabledAt,
+		&i.MustChangePassword,
+		&i.LastLoginAt,
 	)
 	return i, err
 }
 
 const listUsers = `-- name: ListUsers :many
-SELECT id, username, password_hash, role, created_at, updated_at FROM users ORDER BY username
+SELECT id, username, password_hash, role, created_at, updated_at, disabled_at, must_change_password, last_login_at FROM users ORDER BY username
 `
 
 func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
@@ -123,6 +146,9 @@ func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 			&i.Role,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.DisabledAt,
+			&i.MustChangePassword,
+			&i.LastLoginAt,
 		); err != nil {
 			return nil, err
 		}
@@ -137,18 +163,61 @@ func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 	return items, nil
 }
 
+const setUserDisabled = `-- name: SetUserDisabled :execrows
+UPDATE users SET disabled_at = ?1, updated_at = ?2 WHERE id = ?3
+`
+
+type SetUserDisabledParams struct {
+	DisabledAt sql.NullInt64
+	Now        int64
+	ID         int64
+}
+
+func (q *Queries) SetUserDisabled(ctx context.Context, arg SetUserDisabledParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, setUserDisabled, arg.DisabledAt, arg.Now, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const setUserLastLogin = `-- name: SetUserLastLogin :execrows
+UPDATE users SET last_login_at = ?1 WHERE id = ?2
+`
+
+type SetUserLastLoginParams struct {
+	Now sql.NullInt64
+	ID  int64
+}
+
+func (q *Queries) SetUserLastLogin(ctx context.Context, arg SetUserLastLoginParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, setUserLastLogin, arg.Now, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const updateUserPassword = `-- name: UpdateUserPassword :execrows
-UPDATE users SET password_hash = ?1, updated_at = ?2 WHERE id = ?3
+UPDATE users
+SET password_hash = ?1, must_change_password = ?2, updated_at = ?3
+WHERE id = ?4
 `
 
 type UpdateUserPasswordParams struct {
-	PasswordHash string
-	Now          int64
-	ID           int64
+	PasswordHash       string
+	MustChangePassword int64
+	Now                int64
+	ID                 int64
 }
 
 func (q *Queries) UpdateUserPassword(ctx context.Context, arg UpdateUserPasswordParams) (int64, error) {
-	result, err := q.db.ExecContext(ctx, updateUserPassword, arg.PasswordHash, arg.Now, arg.ID)
+	result, err := q.db.ExecContext(ctx, updateUserPassword,
+		arg.PasswordHash,
+		arg.MustChangePassword,
+		arg.Now,
+		arg.ID,
+	)
 	if err != nil {
 		return 0, err
 	}

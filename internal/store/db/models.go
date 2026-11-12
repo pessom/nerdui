@@ -4,6 +4,10 @@
 
 package db
 
+import (
+	"database/sql"
+)
+
 type Session struct {
 	TokenHash  []byte
 	UserID     int64
@@ -29,10 +33,13 @@ type Stack struct {
 }
 
 type User struct {
-	ID           int64
-	Username     string
-	PasswordHash string
-	Role         string
-	CreatedAt    int64
-	UpdatedAt    int64
+	ID                 int64
+	Username           string
+	PasswordHash       string
+	Role               string
+	CreatedAt          int64
+	UpdatedAt          int64
+	DisabledAt         sql.NullInt64
+	MustChangePassword int64
+	LastLoginAt        sql.NullInt64
 }

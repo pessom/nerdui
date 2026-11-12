@@ -16,6 +16,9 @@ import (
 
 const now = int64(1_800_000_000)
 
+// latestVersion is the number of embedded migrations.
+const latestVersion = 2
+
 func openTest(t *testing.T, dir string) *Store {
 	t.Helper()
 	s, err := Open(context.Background(), dir)
@@ -56,7 +59,7 @@ func TestOpenMigratesAndIsIdempotent(t *testing.T) {
 	ctx := context.Background()
 
 	s := openTest(t, dir)
-	if v, err := s.SchemaVersion(ctx); err != nil || v != 1 {
+	if v, err := s.SchemaVersion(ctx); err != nil || v != latestVersion {
 		t.Fatalf("version = %d, err = %v", v, err)
 	}
 	if err := s.Close(); err != nil {
@@ -64,11 +67,44 @@ func TestOpenMigratesAndIsIdempotent(t *testing.T) {
 	}
 
 	s2 := openTest(t, dir)
-	if v, _ := s2.SchemaVersion(ctx); v != 1 {
+	if v, _ := s2.SchemaVersion(ctx); v != latestVersion {
 		t.Fatalf("version after reopen = %d", v)
 	}
 	if b := backups(t, dir); len(b) != 0 {
 		t.Errorf("unexpected backups without pending migrations: %v", b)
+	}
+}
+
+// TestUserStateMigration upgrades a database with an existing admin (#74): the account
+// stays active, needs no password change and has no sign-in time yet.
+func TestUserStateMigration(t *testing.T) {
+	dir := t.TempDir()
+	ctx := context.Background()
+	s, err := open(ctx, dir, migrationsV1(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.writer.ExecContext(ctx,
+		"INSERT INTO users (username, password_hash, role, created_at, updated_at) VALUES ('admin', 'h', 'admin', 1, 1)"); err != nil {
+		t.Fatal(err)
+	}
+	_ = s.Close()
+
+	s = openTest(t, dir)
+	u, err := s.Read().GetUserByUsername(ctx, "admin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u.DisabledAt.Valid || u.MustChangePassword != 0 || u.LastLoginAt.Valid {
+		t.Errorf("migrated user = %+v", u)
+	}
+	if n, err := s.Read().CountActiveAdmins(ctx); err != nil || n != 1 {
+		t.Errorf("active admins = %d, %v", n, err)
+	}
+	if _, err := s.Write().CreateUser(ctx, db.CreateUserParams{
+		Username: "x", PasswordHash: "h", Role: "admin", MustChangePassword: 2, Now: now,
+	}); err == nil {
+		t.Error("must_change_password = 2 accepted")
 	}
 }
 

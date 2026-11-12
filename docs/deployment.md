@@ -129,8 +129,12 @@ nerdui serves **HTTPS on port 9443** by default ([ADR-0005](adr/0005-authenticat
 - **Sessions.** Server-side, cookie `nerdui_session` (HttpOnly, SameSite=Strict, Secure with TLS);
   idle timeout 24 h, absolute lifetime 30 days. Failed logins are rate limited per IP and per
   username (5 per minute, then blocks of 1–15 minutes) and logged.
+- **Users.** Administrators add users, set temporary passwords, disable and delete accounts on
+  the Users page (ADR-0016). A temporary password must be changed at the next sign-in. Every
+  user is an administrator until roles are available.
 - **Password reset.** `nerdui admin reset-password <user>` on the host prompts for a new password
-  (or reads it with `--password-stdin`) and revokes that user's sessions. For the container image:
+  (or reads it with `--password-stdin`), enables the account if it was disabled and revokes that
+  user's sessions. For the container image:
   `sudo nerdctl exec -it nerdui nerdui admin reset-password admin`.
 
 ## Health check

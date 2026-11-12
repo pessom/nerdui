@@ -22,6 +22,8 @@ tags:
     description: Managed containerd hosts (ADR-0006); MVP has only "local"
   - name: containers
     description: Containers of an environment
+  - name: users
+    description: Local users (#74, ADR-0016); every user is an administrator until roles (#78)
 security:
   - session: []
 paths:
@@ -155,6 +157,172 @@ paths:
         "204": { description: Logged out; clears the session cookie }
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
+  /api/v1/auth/password:
+    post:
+      tags: [auth]
+      operationId: changePassword
+      summary: Change the caller's own password
+      description: |
+        Verifies the current password (rate limited), clears `mustChangePassword` and revokes
+        the caller's other sessions. Available while a temporary password is pending.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              additionalProperties: false
+              properties:
+                currentPassword: { type: string }
+                newPassword: { type: string, minLength: 12 }
+      responses:
+        "200":
+          description: Changed; the current session stays valid
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SessionResponse" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/Error" }
+  /api/v1/users:
+    get:
+      tags: [users]
+      operationId: listUsers
+      summary: List users
+      description: "Requires `users:read`."
+      responses:
+        "200":
+          description: Users sorted by name
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [users]
+                properties:
+                  users: { type: array, items: { $ref: "#/components/schemas/UserDetail" } }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+    post:
+      tags: [users]
+      operationId: createUser
+      summary: Create a user with a temporary password
+      description: |
+        Requires `users:write`. Without `password`, one is generated and returned once in
+        `generatedPassword`. The user must change it at the first sign-in.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username]
+              additionalProperties: false
+              properties:
+                username: { type: string, pattern: "^[A-Za-z0-9._-]{1,64}$" }
+                password: { type: string, minLength: 12 }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserPasswordResponse" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/v1/users/{id}:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    get:
+      tags: [users]
+      operationId: getUser
+      summary: Get a user
+      description: "Requires `users:read`."
+      responses:
+        "200":
+          description: User
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserDetail" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+    patch:
+      tags: [users]
+      operationId: updateUser
+      summary: Disable or enable a user
+      description: |
+        Requires `users:write`. Disabling revokes the user's sessions. The caller's own account
+        and the last active administrator cannot be disabled (409).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [disabled]
+              additionalProperties: false
+              properties:
+                disabled: { type: boolean }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserDetail" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [users]
+      operationId: deleteUser
+      summary: Delete a user
+      description: |
+        Requires `users:write`. The caller's own account and the last active administrator
+        cannot be deleted (409).
+      responses:
+        "204": { description: Deleted }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/v1/users/{id}/password:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    post:
+      tags: [users]
+      operationId: setUserPassword
+      summary: Set a temporary password for another user
+      description: |
+        Requires `users:write`. Revokes the user's sessions; the user must change the password
+        at the next sign-in. Without `password`, one is generated and returned once. Use
+        `/auth/password` for your own account.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                password: { type: string, minLength: 12 }
+      responses:
+        "200":
+          description: Password set
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserPasswordResponse" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
   /api/v1/environments:
     get:
       tags: [environments]
@@ -510,6 +678,12 @@ components:
         Server-side session (ADR-0005). Unsafe requests (POST, PUT, PATCH, DELETE) must also
         send the session's CSRF token in the X-CSRF-Token header.
   parameters:
+    UserId:
+      name: id
+      in: path
+      required: true
+      schema: { type: integer, format: int64, minimum: 1 }
+      description: User ID
     Env:
       name: env
       in: path
@@ -695,11 +869,32 @@ components:
         ts: { type: string, format: date-time }
     User:
       type: object
-      required: [id, username, role]
+      required: [id, username, role, mustChangePassword]
       properties:
         id: { type: integer, format: int64 }
         username: { type: string }
         role: { type: string, enum: [admin] }
+        mustChangePassword:
+          type: boolean
+          description: |
+            A temporary password is pending: every other endpoint answers 403
+            `password_change_required` until `POST /auth/password` succeeds.
+    UserDetail:
+      allOf:
+        - $ref: "#/components/schemas/User"
+        - type: object
+          required: [disabled, createdAt]
+          properties:
+            disabled: { type: boolean }
+            createdAt: { type: string, format: date-time }
+            lastLoginAt: { type: string, format: date-time }
+    UserPasswordResponse:
+      type: object
+      properties:
+        user: { $ref: "#/components/schemas/UserDetail" }
+        generatedPassword:
+          type: string
+          description: Present only when the server generated the password; shown once
     SessionResponse:
       type: object
       required: [user, csrfToken, expiresAt]
@@ -719,7 +914,8 @@ components:
         code:
           type: string
           enum: [invalid_argument, unauthenticated, forbidden, csrf_failed, not_found, conflict,
-                 rate_limited, unsupported_media_type, internal, unavailable, nerdctl_incompatible]
+                 rate_limited, unsupported_media_type, internal, unavailable, nerdctl_incompatible,
+                 password_change_required]
         message: { type: string }
     ContainerInspect:
       type: object

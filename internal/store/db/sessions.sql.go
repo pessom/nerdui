@@ -57,6 +57,23 @@ func (q *Queries) DeleteExpiredSessions(ctx context.Context, arg DeleteExpiredSe
 	return result.RowsAffected()
 }
 
+const deleteOtherUserSessions = `-- name: DeleteOtherUserSessions :execrows
+DELETE FROM sessions WHERE user_id = ?1 AND token_hash != ?2
+`
+
+type DeleteOtherUserSessionsParams struct {
+	UserID int64
+	Keep   []byte
+}
+
+func (q *Queries) DeleteOtherUserSessions(ctx context.Context, arg DeleteOtherUserSessionsParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteOtherUserSessions, arg.UserID, arg.Keep)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const deleteSession = `-- name: DeleteSession :execrows
 DELETE FROM sessions WHERE token_hash = ?
 `
@@ -102,7 +119,7 @@ func (q *Queries) GetSession(ctx context.Context, tokenHash []byte) (Session, er
 }
 
 const getSessionWithUser = `-- name: GetSessionWithUser :one
-SELECT sessions.token_hash, sessions.user_id, sessions.csrf_token, sessions.created_at, sessions.last_seen_at, sessions.expires_at, sessions.client_ip, sessions.user_agent, users.id, users.username, users.password_hash, users.role, users.created_at, users.updated_at
+SELECT sessions.token_hash, sessions.user_id, sessions.csrf_token, sessions.created_at, sessions.last_seen_at, sessions.expires_at, sessions.client_ip, sessions.user_agent, users.id, users.username, users.password_hash, users.role, users.created_at, users.updated_at, users.disabled_at, users.must_change_password, users.last_login_at
 FROM sessions
 JOIN users ON users.id = sessions.user_id
 WHERE sessions.token_hash = ?
@@ -131,6 +148,9 @@ func (q *Queries) GetSessionWithUser(ctx context.Context, tokenHash []byte) (Get
 		&i.User.Role,
 		&i.User.CreatedAt,
 		&i.User.UpdatedAt,
+		&i.User.DisabledAt,
+		&i.User.MustChangePassword,
+		&i.User.LastLoginAt,
 	)
 	return i, err
 }

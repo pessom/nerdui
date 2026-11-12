@@ -11,6 +11,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
+	"database/sql"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -44,6 +45,7 @@ var (
 	ErrInvalidSetupToken  = errors.New("invalid setup token")
 	ErrInvalidUsername    = errors.New("username must be 1-64 characters: letters, digits, '.', '_' or '-'")
 	ErrUserNotFound       = errors.New("user not found")
+	ErrUserDisabled       = errors.New("account is disabled")
 )
 
 // RateLimitedError carries the time until the next attempt is allowed.
@@ -60,6 +62,9 @@ type User struct {
 	ID       int64  `json:"id"`
 	Username string `json:"username"`
 	Role     string `json:"role"`
+	// MustChangePassword is set after an administrator chose the password (#74): until the
+	// user changes it, only their own session endpoints are available.
+	MustChangePassword bool `json:"mustChangePassword"`
 }
 
 // Principal is the authenticated caller attached to a request context.
@@ -240,14 +245,22 @@ func (s *Service) Login(ctx context.Context, username, password string, c Client
 	}
 	s.limiter.Reset(ipKey)
 	s.limiter.Reset(userKey)
+	// Reported only after the password matched, so it does not reveal which accounts exist.
+	if u.DisabledAt.Valid {
+		s.opts.Logger.Warn("login to a disabled account", "username", u.Username, "client_ip", c.IP)
+		return User{}, Issued{}, ErrUserDisabled
+	}
 
 	if rehash {
 		if h, err := HashPassword(password, s.opts.Argon2); err == nil {
 			_, _ = s.store.Write().UpdateUserPassword(ctx, db.UpdateUserPasswordParams{
-				ID: u.ID, PasswordHash: h, Now: s.opts.Now().Unix(),
+				ID: u.ID, PasswordHash: h, MustChangePassword: u.MustChangePassword, Now: s.opts.Now().Unix(),
 			})
 		}
 	}
+	_, _ = s.store.Write().SetUserLastLogin(ctx, db.SetUserLastLoginParams{
+		ID: u.ID, Now: sql.NullInt64{Int64: s.opts.Now().Unix(), Valid: true},
+	})
 	issued, err := s.createSession(ctx, u.ID, c)
 	return toUser(u), issued, err
 }
@@ -268,7 +281,7 @@ func (s *Service) Authenticate(ctx context.Context, token string) (Principal, er
 	now := s.opts.Now()
 	sess := row.Session
 	idleDeadline := time.Unix(sess.LastSeenAt, 0).Add(s.opts.IdleTimeout)
-	if !now.Before(time.Unix(sess.ExpiresAt, 0)) || !now.Before(idleDeadline) {
+	if !now.Before(time.Unix(sess.ExpiresAt, 0)) || !now.Before(idleDeadline) || row.User.DisabledAt.Valid {
 		_, _ = s.store.Write().DeleteSession(ctx, h)
 		return Principal{}, ErrUnauthenticated
 	}
@@ -331,8 +344,9 @@ func (s *Service) createSession(ctx context.Context, userID int64, c Client) (Is
 	return Issued{Token: token, CSRFToken: csrf, ExpiresAt: time.Unix(expires.Unix(), 0)}, nil
 }
 
-// ResetPassword sets a new password for username and revokes all of their sessions. It is
-// used by `nerdui admin reset-password` and works without a running server.
+// ResetPassword sets a new password for username, enables the account and revokes all of
+// its sessions. It is used by `nerdui admin reset-password` and works without a running
+// server; the operator chose the password, so it does not have to be changed.
 func ResetPassword(ctx context.Context, st *store.Store, username, password string, now time.Time) error {
 	if err := ValidatePassword(password); err != nil {
 		return err
@@ -354,12 +368,17 @@ func ResetPassword(ctx context.Context, st *store.Store, username, password stri
 		}); err != nil {
 			return err
 		}
+		if _, err := q.SetUserDisabled(ctx, db.SetUserDisabledParams{ID: u.ID, Now: now.Unix()}); err != nil {
+			return err
+		}
 		_, err = q.DeleteUserSessions(ctx, u.ID)
 		return err
 	})
 }
 
-func toUser(u db.User) User { return User{ID: u.ID, Username: u.Username, Role: u.Role} }
+func toUser(u db.User) User {
+	return User{ID: u.ID, Username: u.Username, Role: u.Role, MustChangePassword: u.MustChangePassword != 0}
+}
 
 func randomToken(n int) string {
 	b := make([]byte, n)
