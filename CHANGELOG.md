@@ -12,6 +12,10 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 - **Images:** list of the namespace's images with the number of containers using each, unpacked
   and downloaded size, platforms and creation time; search, used/unused filter and sorting
   (#42).
+- **Pull images** from the Images page for the host platform, another one or all platforms,
+  with live progress as in the terminal (#43).
+- **Background jobs:** long operations run in the background; the header shows running jobs and
+  the Jobs panel lists recent ones with their output and a Cancel button (#126, ADR-0018).
 
 ## [0.1.0-alpha.1.1] - 2026-11-12
 

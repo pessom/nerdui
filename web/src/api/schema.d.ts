@@ -220,6 +220,96 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/jobs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Recent background jobs, newest first
+         * @description Requires `jobs:read`; only jobs whose action the caller is allowed are listed. Jobs are
+         *     kept in memory: the last 100, finished ones for an hour (ADR-0018).
+         */
+        get: operations["listJobs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/jobs/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Job ID */
+                id: components["parameters"]["JobId"];
+            };
+            cookie?: never;
+        };
+        /** A background job */
+        get: operations["getJob"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/jobs/{id}/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Job ID */
+                id: components["parameters"]["JobId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Job state and terminal output (WebSocket)
+         * @description WebSocket stream (ADR-0007). Data messages are `JobFrame`s: the first has `reset` with
+         *     the job and its stored output (the terminal screen with progress redraws applied);
+         *     later ones carry raw output as written and state changes. The stream ends with `end`
+         *     after the final state. A client that falls behind gets an error and reconnects.
+         */
+        get: operations["streamJob"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/jobs/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Job ID */
+                id: components["parameters"]["JobId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a running job
+         * @description Ends the job with status `canceled`; a no-op for finished jobs.
+         */
+        post: operations["cancelJob"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/environments": {
         parameters: {
             query?: never;
@@ -387,6 +477,34 @@ export interface paths {
         get: operations["listImages"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/environments/{env}/images/pull": {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pull an image (background job)
+         * @description Requires `images:write` and a compatible host nerdctl (ADR-0011). Starts a job like
+         *     `nerdctl pull` (always contacts the registry) and answers 202; follow it at
+         *     `/jobs/{id}/stream`. One pull per reference and namespace runs at a time (409).
+         */
+        post: operations["pullImage"];
         delete?: never;
         options?: never;
         head?: never;
@@ -963,6 +1081,33 @@ export interface components {
                 [key: string]: string;
             };
         };
+        Job: {
+            id: string;
+            /** @example image.pull */
+            kind: string;
+            /** @example Pull nginx:1.27 */
+            title: string;
+            environment: string;
+            namespace?: string;
+            /** @description Lock key; one running job per resource */
+            resource?: string;
+            /** @description Who started the job */
+            user?: string;
+            /** @enum {string} */
+            status: "running" | "succeeded" | "failed" | "canceled";
+            error?: string;
+            /** Format: date-time */
+            startedAt: string;
+            /** Format: date-time */
+            finishedAt?: string;
+        };
+        JobFrame: {
+            job?: components["schemas"]["Job"];
+            /** @description Terminal output (ANSI) */
+            output?: string;
+            /** @description output is the whole stored screen: clear first */
+            reset?: boolean;
+        };
         LogLine: {
             /** @enum {string} */
             stream: "stdout" | "stderr";
@@ -1013,6 +1158,8 @@ export interface components {
         };
     };
     parameters: {
+        /** @description Job ID */
+        JobId: string;
         /** @description User ID */
         UserId: number;
         /** @description Environment ID */
@@ -1411,6 +1558,106 @@ export interface operations {
             409: components["responses"]["Error"];
         };
     };
+    listJobs: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Jobs */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        jobs: components["schemas"]["Job"][];
+                    };
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
+    getJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Job ID */
+                id: components["parameters"]["JobId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Job */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    streamJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Job ID */
+                id: components["parameters"]["JobId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Switching protocols */
+            101: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    cancelJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Job ID */
+                id: components["parameters"]["JobId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cancellation requested */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Job"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
     listEnvironments: {
         parameters: {
             query?: never;
@@ -1614,6 +1861,51 @@ export interface operations {
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    pullImage: {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @example nginx:1.27 */
+                    reference: string;
+                    /** @description e.g. linux/arm64; default: host platform */
+                    platform?: string;
+                    /** @description Pull every platform (no unpack) */
+                    allPlatforms?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Job started */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        job: components["schemas"]["Job"];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
             503: components["responses"]["Error"];
         };
     };

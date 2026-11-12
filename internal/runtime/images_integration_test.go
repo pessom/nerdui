@@ -78,3 +78,42 @@ func TestIntegrationImages(t *testing.T) {
 		t.Errorf("containers using %s: %d before, %d after creating one", ref, before.Containers, after.Containers)
 	}
 }
+
+// TestIntegrationPull pulls a small image with progress output and finds it in the list (#43).
+func TestIntegrationPull(t *testing.T) {
+	ncfg, _, err := LoadNerdctlConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := New(DefaultAddress, DefaultNamespace, WithNerdctlConfig(ncfg))
+	t.Cleanup(func() { _ = c.Close() })
+	const ref = "docker.io/library/busybox:1.37"
+	_ = exec.Command("nerdctl", "rmi", "-f", ref).Run()
+	t.Cleanup(func() { _ = exec.Command("nerdctl", "rmi", "-f", ref).Run() })
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+	var out bytes.Buffer
+	if err := c.Images().Pull(ctx, DefaultNamespace, "busybox:1.37", PullOptions{}, &out); err != nil {
+		t.Fatalf("pull: %v\n%s", err, out.String())
+	}
+	if !bytes.Contains(out.Bytes(), []byte("elapsed")) {
+		t.Errorf("no progress in output:\n%s", out.String())
+	}
+	list, err := c.Images().List(ctx, DefaultNamespace)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.ContainsFunc(list, func(i Image) bool { return i.Name == ref && i.Size > 0 }) {
+		t.Errorf("%s not listed after pull", ref)
+	}
+
+	if err := c.Images().Pull(ctx, DefaultNamespace, "invalid reference!", PullOptions{}, &out); err == nil {
+		t.Error("invalid reference accepted")
+	}
+	canceled, stop := context.WithCancel(ctx)
+	stop()
+	if err := c.Images().Pull(canceled, DefaultNamespace, "docker.io/library/alpine:3.20", PullOptions{}, &out); err == nil {
+		t.Error("pull with a canceled context succeeded")
+	}
+}

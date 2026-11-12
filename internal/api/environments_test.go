@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -20,6 +21,7 @@ import (
 	"github.com/pessom/nerdui/internal/authz"
 	"github.com/pessom/nerdui/internal/environment"
 	"github.com/pessom/nerdui/internal/httpjson"
+	"github.com/pessom/nerdui/internal/jobs"
 	"github.com/pessom/nerdui/internal/runtime"
 )
 
@@ -32,17 +34,20 @@ type fakeRuntime struct {
 	containers []runtime.Container
 	gotNS      string
 
-	mu        sync.Mutex
-	actions   []actionCall
-	actionErr map[string]error // by container id
-	inspect   map[string]any   // by container ref
-	logs      []runtime.LogLine
-	logErr    error // returned before any line
-	logFollow bool  // with Follow, block until ctx ends after the lines
-	gotLogs   runtime.LogOptions
-	gotSize   bool
-	info      runtime.Info
-	images    []runtime.Image
+	mu          sync.Mutex
+	actions     []actionCall
+	actionErr   map[string]error // by container id
+	inspect     map[string]any   // by container ref
+	logs        []runtime.LogLine
+	logErr      error // returned before any line
+	logFollow   bool  // with Follow, block until ctx ends after the lines
+	gotLogs     runtime.LogOptions
+	gotSize     bool
+	info        runtime.Info
+	images      []runtime.Image
+	pulls       []pullCall
+	pullRelease chan struct{}
+	pullErr     error
 }
 
 type actionCall struct {
@@ -74,6 +79,29 @@ func (fi fakeImages) List(_ context.Context, ns string) ([]runtime.Image, error)
 	fi.f.gotNS = ns
 	return fi.f.images, fi.f.err
 }
+
+// Pull writes pullOutput, then waits for pullRelease (when set) or cancellation.
+func (fi fakeImages) Pull(ctx context.Context, ns, ref string, opts runtime.PullOptions, out io.Writer) error {
+	fi.f.mu.Lock()
+	fi.f.pulls = append(fi.f.pulls, pullCall{ns, ref, opts})
+	release := fi.f.pullRelease
+	fi.f.mu.Unlock()
+	_, _ = io.WriteString(out, "pulling "+ref+"\n")
+	if release != nil {
+		select {
+		case <-release:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	return fi.f.pullErr
+}
+
+type pullCall struct {
+	ns, ref string
+	opts    runtime.PullOptions
+}
+
 func (f *fakeRuntime) List(_ context.Context, ns string) ([]runtime.Container, error) {
 	f.gotNS = ns
 	return f.containers, f.err
@@ -119,7 +147,7 @@ func newRouter(rt runtime.Runtime) http.Handler {
 	admin := func(*http.Request) (authz.Subject, bool) { return authz.Subject{Role: authz.RoleAdmin}, true }
 	r := chi.NewRouter()
 	r.Route("/api/v1", func(r chi.Router) {
-		h := &Handler{Envs: environment.NewRegistry(environment.Local(rt, "default"))}
+		h := &Handler{Envs: environment.NewRegistry(environment.Local(rt, "default")), Jobs: jobs.NewManager()}
 		h.Routes(r, authz.NewGuard(authz.AdminOnly{}, admin, nil))
 	})
 	return r

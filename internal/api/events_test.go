@@ -17,6 +17,7 @@ import (
 
 	"github.com/pessom/nerdui/internal/authz"
 	"github.com/pessom/nerdui/internal/environment"
+	"github.com/pessom/nerdui/internal/jobs"
 	"github.com/pessom/nerdui/internal/runtime"
 )
 
@@ -35,7 +36,7 @@ func (f *fakeSource) Subscribe(ctx context.Context) (<-chan runtime.Event, <-cha
 func startEventsServer(t *testing.T, src *fakeSource) (base string, env *environment.Environment) {
 	t.Helper()
 	env = environment.Local(&fakeRuntime{events: src}, "default")
-	h := &Handler{Envs: environment.NewRegistry(env)}
+	h := &Handler{Envs: environment.NewRegistry(env), Jobs: jobs.NewManager()}
 	admin := func(*http.Request) (authz.Subject, bool) { return authz.Subject{Role: authz.RoleAdmin}, true }
 	r := chi.NewRouter()
 	r.Route("/api/v1", func(r chi.Router) { h.Routes(r, authz.NewGuard(authz.AdminOnly{}, admin, nil)) })

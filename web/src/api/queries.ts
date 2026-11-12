@@ -12,6 +12,7 @@ export type VersionResponse = components["schemas"]["VersionResponse"];
 /** Query keys. Everything of an environment lives under ["env", id] (invalidated by events). */
 export const keys = {
   me: ["me"] as const,
+  jobs: ["jobs"] as const,
   users: ["users"] as const,
   setup: ["setup"] as const,
   version: ["version"] as const,
@@ -90,6 +91,15 @@ export const namespacesQuery = (env: string) =>
   });
 
 export type Image = components["schemas"]["Image"];
+export type Job = components["schemas"]["Job"];
+export type JobFrame = components["schemas"]["JobFrame"];
+
+/** Background jobs (#126); polled while any job runs. */
+export const jobsQuery = queryOptions({
+  queryKey: keys.jobs,
+  queryFn: async () => (await unwrap(api.GET("/api/v1/jobs"))).jobs,
+  refetchInterval: (q) => (q.state.data?.some((j) => j.status === "running") ? 2000 : false),
+});
 
 /** Images of a namespace (#42); refetched on environment events like containers. */
 export const imagesQuery = (env: string, namespace: string) =>

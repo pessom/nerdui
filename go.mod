@@ -20,6 +20,7 @@ require (
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/pelletier/go-toml/v2 v2.4.3
 	github.com/pressly/goose/v3 v3.30.0
+	github.com/sirupsen/logrus v1.10.2
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.1.0
 	golang.org/x/crypto v0.58.0
@@ -113,7 +114,6 @@ require (
 	github.com/rootless-containers/rootlesskit/v3 v3.3.0 // indirect
 	github.com/sasha-s/go-deadlock v0.3.5 // indirect
 	github.com/sethvargo/go-retry v0.5.0 // indirect
-	github.com/sirupsen/logrus v1.10.2 // indirect
 	github.com/smallstep/pkcs7 v0.2.1 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/stefanberger/go-pkcs11uri v0.0.0-20230803200340-78284954bff6 // indirect

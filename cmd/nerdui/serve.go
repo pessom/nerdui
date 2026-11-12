@@ -20,6 +20,7 @@ import (
 	"github.com/pessom/nerdui/internal/auth"
 	"github.com/pessom/nerdui/internal/config"
 	"github.com/pessom/nerdui/internal/environment"
+	"github.com/pessom/nerdui/internal/jobs"
 	"github.com/pessom/nerdui/internal/runtime"
 	"github.com/pessom/nerdui/internal/server"
 	"github.com/pessom/nerdui/internal/store"
@@ -114,8 +115,13 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 	// end with "going away" (ADR-0007).
 	streamsCtx, cancelStreams := context.WithCancel(context.WithoutCancel(ctx))
 	defer cancelStreams()
+	// Background jobs (#126) are canceled and awaited when serving ends.
+	jobManager := jobs.NewManager()
+	defer jobManager.Close()
 	srv := &http.Server{
-		Handler:           server.New(server.Config{Auth: authSvc, Environments: envs, UI: web.Dist(), Logger: logger}),
+		Handler: server.New(server.Config{
+			Auth: authSvc, Environments: envs, UI: web.Dist(), Jobs: jobManager, Logger: logger,
+		}),
 		ReadHeaderTimeout: 10 * time.Second,
 		BaseContext:       func(net.Listener) context.Context { return streamsCtx },
 	}
