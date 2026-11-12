@@ -236,6 +236,97 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/environments/{env}/containers/{id}/{action}": {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                /** @description Full container ID (prefixes and names are not resolved) */
+                id: components["parameters"]["ContainerID"];
+                action: "start" | "stop" | "restart" | "kill" | "pause" | "unpause";
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start, stop, restart, kill, pause or unpause a container
+         * @description Requires `containers:operate`. Synchronous: stop and restart wait for the container to
+         *     exit (its stop timeout, 10 s by default, then SIGKILL). Kill sends SIGKILL.
+         *     Unsafe request — send the CSRF token. Answers 409 when the action does not apply to
+         *     the current state (e.g. pause on a stopped container) and 503 `nerdctl_incompatible`
+         *     in read-only mode. Other failures carry nerdctl's error message.
+         */
+        post: operations["containerAction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/environments/{env}/containers/{id}": {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                /** @description Full container ID (prefixes and names are not resolved) */
+                id: components["parameters"]["ContainerID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a container
+         * @description Requires `containers:write`. Like `nerdctl rm`: releases the name and published ports.
+         *     A running or paused container is only removed with `force=true` (killed first);
+         *     otherwise 409. Unsafe request — send the CSRF token.
+         */
+        delete: operations["removeContainer"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/environments/{env}/containers/actions": {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply one action to several containers
+         * @description Requires `containers:operate`, and `containers:write` for `remove`. Up to 200 IDs; runs
+         *     a few at a time and answers 200 with one result per ID in request order, so partial
+         *     failures are reported per container. Unsafe request — send the CSRF token.
+         */
+        post: operations["bulkContainerAction"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -410,11 +501,27 @@ export interface components {
             expiresAt: string;
         };
         Error: {
-            error: {
-                /** @enum {string} */
-                code: "invalid_argument" | "unauthenticated" | "forbidden" | "csrf_failed" | "not_found" | "conflict" | "rate_limited" | "unsupported_media_type" | "internal" | "unavailable" | "nerdctl_incompatible";
-                message: string;
-            };
+            error: components["schemas"]["ErrorDetail"];
+        };
+        ErrorDetail: {
+            /** @enum {string} */
+            code: "invalid_argument" | "unauthenticated" | "forbidden" | "csrf_failed" | "not_found" | "conflict" | "rate_limited" | "unsupported_media_type" | "internal" | "unavailable" | "nerdctl_incompatible";
+            message: string;
+        };
+        /** @enum {string} */
+        ContainerActionName: "start" | "stop" | "restart" | "kill" | "pause" | "unpause" | "remove";
+        BulkActionRequest: {
+            action: components["schemas"]["ContainerActionName"];
+            ids: string[];
+            /** @description remove only: kill running containers first */
+            force?: boolean;
+            /** @description remove only: also remove anonymous volumes */
+            volumes?: boolean;
+        };
+        BulkActionResult: {
+            id: string;
+            ok: boolean;
+            error?: components["schemas"]["ErrorDetail"];
         };
     };
     responses: {
@@ -444,6 +551,8 @@ export interface components {
         Env: string;
         /** @description containerd namespace; defaults to the environment's default namespace */
         Namespace: string;
+        /** @description Full container ID (prefixes and names are not resolved) */
+        ContainerID: string;
         /** @description CSRF token from SessionResponse.csrfToken */
         CSRFToken: string;
     };
@@ -769,6 +878,116 @@ export interface operations {
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    containerAction: {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                /** @description Full container ID (prefixes and names are not resolved) */
+                id: components["parameters"]["ContainerID"];
+                action: "start" | "stop" | "restart" | "kill" | "pause" | "unpause";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Done */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            500: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    removeContainer: {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+                /** @description Kill a running or paused container before removing it */
+                force?: boolean;
+                /** @description Also remove the container's anonymous volumes */
+                volumes?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                /** @description Full container ID (prefixes and names are not resolved) */
+                id: components["parameters"]["ContainerID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            500: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    bulkContainerAction: {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BulkActionRequest"];
+            };
+        };
+        responses: {
+            /** @description Per-container results */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        action: components["schemas"]["ContainerActionName"];
+                        results: components["schemas"]["BulkActionResult"][];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            415: components["responses"]["Error"];
             503: components["responses"]["Error"];
         };
     };

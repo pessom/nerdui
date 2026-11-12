@@ -4,6 +4,7 @@
 import {
   Anchor,
   Badge,
+  Checkbox,
   Group,
   ScrollArea,
   SegmentedControl,
@@ -13,6 +14,7 @@ import {
   TextInput,
   Tooltip,
   UnstyledButton,
+  VisuallyHidden,
 } from "@mantine/core";
 import { useLocalStorage } from "@mantine/hooks";
 import {
@@ -36,6 +38,8 @@ import {
   type SortingState,
 } from "@tanstack/react-table";
 import { Fragment, useMemo, useState } from "react";
+import { BulkActions, RowActions, type TableActions } from "./ContainerActions";
+import { useActionRequests } from "./useActionRequests";
 import {
   displayName,
   groupByProject,
@@ -173,7 +177,16 @@ function Ports({ container }: { container: Container }) {
 
 type StateFilter = "all" | "running";
 
-export function ContainersTable({ containers }: { containers: Container[] }) {
+const noActions: TableActions = { run: () => {}, busy: new Set(), disabled: "Not available" };
+
+export function ContainersTable({
+  containers,
+  actions,
+}: {
+  containers: Container[];
+  /** Lifecycle actions (#11); without them the table is read-only. */
+  actions?: TableActions;
+}) {
   const [sorting, setSorting] = useState<SortingState>([{ id: "createdAt", desc: true }]);
   const [search, setSearch] = useState("");
   const [stateFilter, setStateFilter] = useLocalStorage<StateFilter>({
@@ -184,6 +197,9 @@ export function ContainersTable({ containers }: { containers: Container[] }) {
     key: "nerdui.containers.grouped",
     defaultValue: true,
   });
+
+  const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
+  const { request, dialog } = useActionRequests(actions ?? noActions);
 
   const data = useMemo(
     () =>
@@ -209,6 +225,21 @@ export function ContainersTable({ containers }: { containers: Container[] }) {
     : [{ project: undefined, containers: rows.map((r) => r.original) }];
   const rowById = new Map(rows.map((r) => [r.original.id, r]));
   const running = containers.filter((c) => c.state === "running").length;
+  // Selection survives refetches; containers that disappear drop out of it.
+  const selected = containers.filter((c) => selectedIds.has(c.id));
+  const visible = rows.map((r) => r.original);
+  const allVisible = visible.length > 0 && visible.every((c) => selectedIds.has(c.id));
+  const someVisible = visible.some((c) => selectedIds.has(c.id));
+  const toggle = (ids: string[], on: boolean) =>
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      for (const id of ids) {
+        if (on) next.add(id);
+        else next.delete(id);
+      }
+      return next;
+    });
+  const extraCols = actions ? 2 : 0;
 
   return (
     <>
@@ -239,11 +270,36 @@ export function ContainersTable({ containers }: { containers: Container[] }) {
         />
       </Group>
 
+      {actions && (
+        <BulkActions
+          selected={selected}
+          actions={actions}
+          request={request}
+          onClear={() => setSelectedIds(new Set())}
+        />
+      )}
+      {dialog}
+
       <ScrollArea>
         <Table striped highlightOnHover verticalSpacing="xs" miw={900}>
           <Table.Thead>
             {table.getHeaderGroups().map((hg) => (
               <Table.Tr key={hg.id}>
+                {actions && (
+                  <Table.Th w={40}>
+                    <Checkbox
+                      aria-label="Select all shown containers"
+                      checked={allVisible}
+                      indeterminate={someVisible && !allVisible}
+                      onChange={(e) =>
+                        toggle(
+                          visible.map((c) => c.id),
+                          e.currentTarget.checked,
+                        )
+                      }
+                    />
+                  </Table.Th>
+                )}
                 {hg.headers.map((h) => {
                   const sorted = h.column.getIsSorted();
                   const Icon =
@@ -280,13 +336,18 @@ export function ContainersTable({ containers }: { containers: Container[] }) {
                     </Table.Th>
                   );
                 })}
+                {actions && (
+                  <Table.Th w={48}>
+                    <VisuallyHidden>Actions</VisuallyHidden>
+                  </Table.Th>
+                )}
               </Table.Tr>
             ))}
           </Table.Thead>
           <Table.Tbody>
             {rows.length === 0 && (
               <Table.Tr>
-                <Table.Td colSpan={columns.length}>
+                <Table.Td colSpan={columns.length + extraCols}>
                   <Text c="dimmed" ta="center" py="md">
                     {containers.length === 0
                       ? "No containers in this namespace."
@@ -299,7 +360,10 @@ export function ContainersTable({ containers }: { containers: Container[] }) {
               <Fragment key={g.project ?? "__standalone"}>
                 {grouped && (g.project || groups.length > 1) && (
                   <Table.Tr>
-                    <Table.Td colSpan={columns.length} bg="var(--mantine-color-default-hover)">
+                    <Table.Td
+                      colSpan={columns.length + extraCols}
+                      bg="var(--mantine-color-default-hover)"
+                    >
                       <Tooltip
                         label={g.project ? "Compose project" : "Not part of a compose project"}
                       >
@@ -320,12 +384,29 @@ export function ContainersTable({ containers }: { containers: Container[] }) {
                 {g.containers.map((c) => {
                   const row = rowById.get(c.id)!;
                   return (
-                    <Table.Tr key={row.id}>
+                    <Table.Tr
+                      key={row.id}
+                      bg={selectedIds.has(c.id) ? "var(--mantine-primary-color-light)" : undefined}
+                    >
+                      {actions && (
+                        <Table.Td>
+                          <Checkbox
+                            aria-label={`Select ${displayName(c)}`}
+                            checked={selectedIds.has(c.id)}
+                            onChange={(e) => toggle([c.id], e.currentTarget.checked)}
+                          />
+                        </Table.Td>
+                      )}
                       {row.getAllCells().map((cell) => (
                         <Table.Td key={cell.id}>
                           <table.FlexRender cell={cell} />
                         </Table.Td>
                       ))}
+                      {actions && (
+                        <Table.Td>
+                          <RowActions container={c} actions={actions} request={request} />
+                        </Table.Td>
+                      )}
                     </Table.Tr>
                   );
                 })}

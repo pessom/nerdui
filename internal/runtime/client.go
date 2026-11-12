@@ -17,7 +17,7 @@ import (
 	containerd "github.com/containerd/containerd/v2/client"
 	"github.com/containerd/errdefs"
 	"github.com/containerd/errdefs/pkg/errgrpc"
-	ncdefaults "github.com/containerd/nerdctl/v2/pkg/defaults"
+	"github.com/containerd/nerdctl/v2/pkg/config"
 	"github.com/containerd/nerdctl/v2/pkg/labels"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -58,8 +58,9 @@ type Client struct {
 	address   string
 	namespace string
 	nerdctl   *nerdctlChecker
-	// nerdctlDataRoot is nerdctl's data_root (names, ports, logs, volumes).
-	nerdctlDataRoot string
+	// nerdctlConfig is nerdctl.toml (data_root, CNI paths, cgroup manager…); Address and
+	// Namespace are overridden per call.
+	nerdctlConfig config.Config
 
 	mu     sync.Mutex
 	client *containerd.Client
@@ -70,8 +71,8 @@ type Client struct {
 func New(address, namespace string, opts ...Option) *Client {
 	c := &Client{
 		address: address, namespace: namespace,
-		nerdctl:         newNerdctlChecker("nerdctl", false),
-		nerdctlDataRoot: ncdefaults.DataRoot(),
+		nerdctl:       newNerdctlChecker("nerdctl", false),
+		nerdctlConfig: *config.New(),
 	}
 	for _, o := range opts {
 		o(c)
@@ -88,11 +89,12 @@ func WithNerdctl(path string, skipVersionCheck bool) Option {
 	return func(c *Client) { c.nerdctl = newNerdctlChecker(path, skipVersionCheck) }
 }
 
-// WithNerdctlDataRoot sets nerdctl's data_root (from nerdctl.toml, see LoadNerdctlConfig).
-func WithNerdctlDataRoot(dir string) Option {
+// WithNerdctlConfig sets nerdctl's configuration (see LoadNerdctlConfig), so data_root,
+// CNI paths and other settings match the nerdctl CLI on the host.
+func WithNerdctlConfig(cfg *config.Config) Option {
 	return func(c *Client) {
-		if dir != "" {
-			c.nerdctlDataRoot = dir
+		if cfg != nil {
+			c.nerdctlConfig = *cfg
 		}
 	}
 }

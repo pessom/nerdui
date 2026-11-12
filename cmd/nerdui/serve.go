@@ -95,7 +95,7 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 	logger.Info("nerdctl config", "path", ncfgPath, "data_root", ncfg.DataRoot)
 	rt := runtime.New(cfg.ContainerdAddress, cfg.Namespace,
 		runtime.WithNerdctl(cfg.NerdctlPath, cfg.SkipNerdctlVersionCheck),
-		runtime.WithNerdctlDataRoot(ncfg.DataRoot))
+		runtime.WithNerdctlConfig(ncfg))
 	envs := environment.NewRegistry(environment.Local(rt, cfg.Namespace))
 	defer func() { _ = envs.Close() }()
 	// Background work (compatibility check, event hubs) does not delay startup; it is

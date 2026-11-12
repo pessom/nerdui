@@ -17,6 +17,10 @@ GO_BUILD    := CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)"
 # Dependency licenses compatible with AGPL-3.0-only that may be linked into nerdui.
 GO_LICENSES      := go run github.com/google/go-licenses/v2@v2.0.1
 ALLOWED_GO_LIC   := Apache-2.0,BSD-2-Clause,BSD-3-Clause,ISC,MIT,MPL-2.0
+# Modules whose license file go-licenses cannot classify, reviewed by hand; `make licenses`
+# copies their license texts into third_party.
+#   github.com/multiformats/go-base36: Apache-2.0 OR MIT (LICENSE.md, "Permissive License Stack")
+GO_LIC_MANUAL    := github.com/multiformats/go-base36
 ALLOWED_NPM_LIC  := MIT;ISC;Apache-2.0;BSD-2-Clause;BSD-3-Clause;0BSD;Unlicense;MIT OR CC0-1.0
 THIRD_PARTY_DIR  := third_party
 
@@ -102,14 +106,20 @@ spdx-check: ## Verify SPDX license headers in source files
 
 .PHONY: licenses-check
 licenses-check: ## Fail if a dependency has a license incompatible with AGPL-3.0-only
-	$(GO_LICENSES) check ./... --ignore $(PKG) --allowed_licenses=$(ALLOWED_GO_LIC)
+	$(GO_LICENSES) check ./... --ignore $(PKG) $(addprefix --ignore ,$(GO_LIC_MANUAL)) \
+		--allowed_licenses=$(ALLOWED_GO_LIC)
 	cd web && npx license-checker-rseidelsohn --production --excludePrivatePackages \
 		--onlyAllow '$(ALLOWED_NPM_LIC)' --summary
 
 .PHONY: licenses
 licenses: ## Collect third-party licenses and notices into third_party/
 	rm -rf $(THIRD_PARTY_DIR)
-	$(GO_LICENSES) save ./... --ignore $(PKG) --save_path=$(THIRD_PARTY_DIR)/go
+	$(GO_LICENSES) save ./... --ignore $(PKG) $(addprefix --ignore ,$(GO_LIC_MANUAL)) \
+		--save_path=$(THIRD_PARTY_DIR)/go
+	for m in $(GO_LIC_MANUAL); do \
+		mkdir -p $(THIRD_PARTY_DIR)/go/$$m && \
+		cp "$$(go list -m -f '{{.Dir}}' $$m)"/LICENSE* $(THIRD_PARTY_DIR)/go/$$m/; \
+	done
 	cd web && npx license-checker-rseidelsohn --production --excludePrivatePackages \
 		--plainVertical --out ../$(THIRD_PARTY_DIR)/web-licenses.txt
 

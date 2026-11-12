@@ -85,7 +85,7 @@ func TestIntegrationListContainers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	c := New(DefaultAddress, DefaultNamespace, WithNerdctlDataRoot(ncfg.DataRoot))
+	c := New(DefaultAddress, DefaultNamespace, WithNerdctlConfig(ncfg))
 	t.Cleanup(func() { _ = c.Close() })
 	suffix := strconv.FormatInt(time.Now().UnixNano(), 36)
 	running, stopped, created := "it-run-"+suffix, "it-stop-"+suffix, "it-new-"+suffix

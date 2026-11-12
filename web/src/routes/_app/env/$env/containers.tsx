@@ -5,6 +5,7 @@ import { Alert, Group, Loader, Title } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi } from "@tanstack/react-router";
 import { containersQuery, envStatusQuery } from "../../../../api/queries";
+import { useContainerActions } from "../../../../features/containers/actions";
 import { ContainersTable } from "../../../../features/containers/ContainersTable";
 
 const envRoute = getRouteApi("/_app/env/$env");
@@ -20,6 +21,10 @@ function ContainersPage() {
   const status = useQuery(envStatusQuery(env));
   const namespace = ns ?? status.data?.defaultNamespace ?? "default";
   const list = useQuery(containersQuery(env, namespace));
+  const { run, busy } = useContainerActions(env, namespace);
+  const nerdctl = status.data?.runtime?.nerdctl;
+  // Read-only mode (ADR-0011): the server would answer 503 nerdctl_incompatible.
+  const readOnly = !!nerdctl && !nerdctl.compatible && !nerdctl.checkSkipped;
 
   return (
     <>
@@ -33,7 +38,16 @@ function ContainersPage() {
           {list.error.message}
         </Alert>
       )}
-      {list.data && <ContainersTable containers={list.data.containers} />}
+      {list.data && (
+        <ContainersTable
+          containers={list.data.containers}
+          actions={{
+            run,
+            busy,
+            disabled: readOnly ? "Read-only mode: host nerdctl is incompatible" : undefined,
+          }}
+        />
+      )}
     </>
   );
 }

@@ -6,6 +6,7 @@ import { vi } from "vitest";
 export interface Call {
   method: string;
   path: string;
+  query: URLSearchParams;
   headers: Headers;
   body: unknown;
 }
@@ -22,6 +23,7 @@ export function fakeApi(routes: Record<string, Handler>) {
     const call: Call = {
       method: req.method,
       path: url.pathname,
+      query: url.searchParams,
       headers: req.headers,
       body: text ? JSON.parse(text) : undefined,
     };
