@@ -11,6 +11,7 @@ require (
 	github.com/containerd/go-cni v1.1.14
 	github.com/containerd/log v0.2.0
 	github.com/containerd/nerdctl/v2 v2.4.2
+	github.com/containerd/plugin v1.1.0
 	github.com/containerd/typeurl/v2 v2.3.0
 	github.com/go-chi/chi/v5 v5.5.0
 	github.com/moby/sys/signal v0.7.1
@@ -44,7 +45,6 @@ require (
 	github.com/containerd/log/otel v0.1.0 // indirect
 	github.com/containerd/nydus-snapshotter v0.16.1 // indirect
 	github.com/containerd/platforms v1.0.0-rc.5 // indirect
-	github.com/containerd/plugin v1.1.0 // indirect
 	github.com/containerd/stargz-snapshotter v0.19.1 // indirect
 	github.com/containerd/stargz-snapshotter/estargz v0.19.1 // indirect
 	github.com/containerd/stargz-snapshotter/ipfs v0.19.1 // indirect

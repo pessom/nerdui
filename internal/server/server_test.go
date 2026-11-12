@@ -41,6 +41,7 @@ func (f fakeRuntime) Namespaces(context.Context) ([]string, error)       { retur
 func (f fakeRuntime) Nerdctl(context.Context) runtime.NerdctlStatus {
 	return runtime.NerdctlStatus{Compatible: true}
 }
+func (f fakeRuntime) Info(context.Context) (runtime.Info, error) { return runtime.Info{}, f.err }
 
 // withRuntime returns a config whose local environment uses rt.
 func withRuntime(rt runtime.Runtime) Config {
@@ -268,6 +269,7 @@ func TestRouteAuthorization(t *testing.T) {
 
 		"GET /api/v1/environments":                                   "system:read",
 		"GET /api/v1/environments/{env}/":                            "system:read",
+		"GET /api/v1/environments/{env}/info":                        "system:read",
 		"GET /api/v1/environments/{env}/namespaces":                  "system:read",
 		"GET /api/v1/environments/{env}/events/stream":               "system:read",
 		"GET /api/v1/environments/{env}/containers":                  "containers:read",

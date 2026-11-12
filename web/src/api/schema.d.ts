@@ -159,6 +159,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/environments/{env}/info": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Host and runtime information
+         * @description Like `nerdctl info` and `nerdctl version`, plus containerd plugins (`ctr plugins ls`)
+         *     and CNI plugins (#66, ADR-0015). Host fields describe the machine nerdui runs on.
+         *     Requires `system:read`.
+         */
+        get: operations["getEnvironmentInfo"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/environments/{env}/namespaces": {
         parameters: {
             query?: never;
@@ -676,6 +701,79 @@ export interface components {
         } & {
             [key: string]: unknown;
         };
+        SystemInfo: {
+            /** @description containerd server UUID */
+            id: string;
+            hostname: string;
+            /** @description Distribution, e.g. Ubuntu 24.04.2 LTS */
+            operatingSystem: string;
+            /** @example linux */
+            osType: string;
+            /** @example x86_64 */
+            architecture: string;
+            kernelVersion: string;
+            cpus: number;
+            /** Format: int64 */
+            memoryBytes: number;
+            /** @example systemd */
+            cgroupDriver: string;
+            /** @example 2 */
+            cgroupVersion: string;
+            rootless: boolean;
+            /** @description nerdctl default snapshotter */
+            snapshotter: string;
+            /** @description Snapshotters loaded by containerd */
+            snapshotters: string[];
+            logDrivers: string[];
+            securityOptions: string[];
+            features: {
+                memoryLimit: boolean;
+                swapLimit: boolean;
+                cpuCfsPeriod: boolean;
+                cpuCfsQuota: boolean;
+                cpuShares: boolean;
+                cpuSet: boolean;
+                pidsLimit: boolean;
+                oomKillDisable: boolean;
+                ipv4Forwarding: boolean;
+            };
+            /** @description containerd, runc and buildctl */
+            components: {
+                name: string;
+                version?: string;
+                commit?: string;
+                /** @description Why the version is unknown */
+                error?: string;
+            }[];
+            cni: {
+                /** @description CNI plugin directory */
+                path: string;
+                netConfPath: string;
+                /** @description Version of the bridge plugin */
+                version?: string;
+                plugins: string[];
+                error?: string;
+            };
+            warnings: string[];
+            deprecations: {
+                id: string;
+                message: string;
+                /** Format: date-time */
+                lastOccurrence?: string;
+            }[];
+            plugins: {
+                /** @example io.containerd.snapshotter.v1 */
+                type: string;
+                /** @example overlayfs */
+                id: string;
+                platforms?: string[];
+                capabilities?: string[];
+                /** @enum {string} */
+                status: "ok" | "skip" | "error";
+                /** @description Init error (also for skipped plugins) */
+                error?: string;
+            }[];
+        };
         LogLine: {
             /** @enum {string} */
             stream: "stdout" | "stderr";
@@ -963,6 +1061,33 @@ export interface operations {
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
+        };
+    };
+    getEnvironmentInfo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Host and runtime information */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SystemInfo"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
         };
     };
     listNamespaces: {

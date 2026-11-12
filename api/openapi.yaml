@@ -192,6 +192,27 @@ paths:
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/info:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+    get:
+      tags: [environments]
+      operationId: getEnvironmentInfo
+      summary: Host and runtime information
+      description: |
+        Like `nerdctl info` and `nerdctl version`, plus containerd plugins (`ctr plugins ls`)
+        and CNI plugins (#66, ADR-0015). Host fields describe the machine nerdui runs on.
+        Requires `system:read`.
+      responses:
+        "200":
+          description: Host and runtime information
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SystemInfo" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
   /api/v1/environments/{env}/namespaces:
     parameters:
       - $ref: "#/components/parameters/Env"
@@ -781,6 +802,83 @@ components:
                   IPPrefixLen: { type: integer }
                   GlobalIPv6Address: { type: string }
                   MacAddress: { type: string }
+    SystemInfo:
+      type: object
+      required: [id, hostname, operatingSystem, osType, architecture, kernelVersion, cpus,
+        memoryBytes, cgroupDriver, cgroupVersion, rootless, snapshotter, snapshotters,
+        logDrivers, securityOptions, features, components, cni, warnings, deprecations, plugins]
+      properties:
+        id: { type: string, description: containerd server UUID }
+        hostname: { type: string }
+        operatingSystem: { type: string, description: "Distribution, e.g. Ubuntu 24.04.2 LTS" }
+        osType: { type: string, example: linux }
+        architecture: { type: string, example: x86_64 }
+        kernelVersion: { type: string }
+        cpus: { type: integer }
+        memoryBytes: { type: integer, format: int64 }
+        cgroupDriver: { type: string, example: systemd }
+        cgroupVersion: { type: string, example: "2" }
+        rootless: { type: boolean }
+        snapshotter: { type: string, description: nerdctl default snapshotter }
+        snapshotters: { type: array, items: { type: string }, description: Snapshotters loaded by containerd }
+        logDrivers: { type: array, items: { type: string } }
+        securityOptions: { type: array, items: { type: string } }
+        features:
+          type: object
+          required: [memoryLimit, swapLimit, cpuCfsPeriod, cpuCfsQuota, cpuShares, cpuSet,
+            pidsLimit, oomKillDisable, ipv4Forwarding]
+          properties:
+            memoryLimit: { type: boolean }
+            swapLimit: { type: boolean }
+            cpuCfsPeriod: { type: boolean }
+            cpuCfsQuota: { type: boolean }
+            cpuShares: { type: boolean }
+            cpuSet: { type: boolean }
+            pidsLimit: { type: boolean }
+            oomKillDisable: { type: boolean }
+            ipv4Forwarding: { type: boolean }
+        components:
+          type: array
+          description: containerd, runc and buildctl
+          items:
+            type: object
+            required: [name]
+            properties:
+              name: { type: string }
+              version: { type: string }
+              commit: { type: string }
+              error: { type: string, description: Why the version is unknown }
+        cni:
+          type: object
+          required: [path, netConfPath, plugins]
+          properties:
+            path: { type: string, description: CNI plugin directory }
+            netConfPath: { type: string }
+            version: { type: string, description: Version of the bridge plugin }
+            plugins: { type: array, items: { type: string } }
+            error: { type: string }
+        warnings: { type: array, items: { type: string } }
+        deprecations:
+          type: array
+          items:
+            type: object
+            required: [id, message]
+            properties:
+              id: { type: string }
+              message: { type: string }
+              lastOccurrence: { type: string, format: date-time }
+        plugins:
+          type: array
+          items:
+            type: object
+            required: [type, id, status]
+            properties:
+              type: { type: string, example: io.containerd.snapshotter.v1 }
+              id: { type: string, example: overlayfs }
+              platforms: { type: array, items: { type: string } }
+              capabilities: { type: array, items: { type: string } }
+              status: { type: string, enum: [ok, skip, error] }
+              error: { type: string, description: Init error (also for skipped plugins) }
     LogLine:
       type: object
       required: [stream, line]

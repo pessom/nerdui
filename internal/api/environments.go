@@ -37,6 +37,7 @@ func (h *Handler) Routes(r chi.Router, g *authz.Guard) {
 	r.Route("/environments/{env}", func(r chi.Router) {
 		r.Use(h.resolveEnv, h.requireWritable)
 		r.Method(http.MethodGet, "/", g.Protect(authz.SystemRead, h.get))
+		r.Method(http.MethodGet, "/info", g.Protect(authz.SystemRead, h.info))
 		r.Method(http.MethodGet, "/namespaces", g.Protect(authz.SystemRead, h.namespaces))
 		r.Method(http.MethodGet, "/events/stream", g.Protect(authz.SystemRead, h.eventsStream))
 		r.Method(http.MethodGet, "/containers", g.Protect(authz.ContainersRead, h.listContainers))
@@ -95,6 +96,17 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
 	// Partial versions (nerdctl status, library) are useful even when containerd is down.
 	resp.Runtime = &v
 	httpjson.Write(w, http.StatusOK, resp)
+}
+
+// info returns host and runtime information (#66): like `nerdctl info` and `nerdctl
+// version`, plus containerd plugins and CNI.
+func (h *Handler) info(w http.ResponseWriter, r *http.Request) {
+	info, err := EnvFrom(r.Context()).Runtime.System().Info(r.Context())
+	if err != nil {
+		httpjson.WriteErr(w, r, h.Logger, err)
+		return
+	}
+	httpjson.Write(w, http.StatusOK, info)
 }
 
 func (h *Handler) namespaces(w http.ResponseWriter, r *http.Request) {

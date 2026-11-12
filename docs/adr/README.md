@@ -23,3 +23,4 @@ We record significant architectural decisions as ADRs
 | 0012 | [Supported containerd versions](0012-containerd-version-support.md)                     | Accepted              |
 | 0013 | [Container inspect via nerdctl's container.Inspect](0013-container-inspect-via-nerdctl.md) | Accepted |
 | 0014 | [Container logs: nerdctl log viewers and xterm.js](0014-container-logs.md) | Accepted |
+| 0015 | [Host and runtime information via nerdctl infoutil](0015-host-and-runtime-info.md) | Accepted |
