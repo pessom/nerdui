@@ -33,8 +33,7 @@ Release checksums and container images are signed with [cosign](https://github.c
 ```bash
 # binaries
 cosign verify-blob \
-  --certificate checksums.txt.pem \
-  --signature checksums.txt.sig \
+  --bundle checksums.txt.sigstore.json \
   --certificate-identity-regexp '^https://github.com/pessom/nerdui/\.github/workflows/release\.yml@' \
   --certificate-oidc-issuer https://token.actions.githubusercontent.com \
   checksums.txt
