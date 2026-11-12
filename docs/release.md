@@ -25,7 +25,7 @@ pre-releases and do not update the
 5. The workflow builds and publishes:
    - `nerdui_<version>_nerdctl<minor>_linux_{amd64,arm64}.tar.gz` for every nerdctl build
      (binary, README, CHANGELOG, deploy examples)
-   - `checksums.txt` + cosign signature/certificate
+   - `checksums.txt` + cosign Sigstore bundle `checksums.txt.sigstore.json` (signature and certificate)
    - SBOMs (SPDX) per archive
    - multi-arch images `ghcr.io/pessom/nerdui:<version>-nerdctl<minor>`, plus `<version>` and
      (stable releases) `latest` for the newest nerdctl build and `latest-nerdctl<minor>` for each;

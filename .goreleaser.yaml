@@ -62,14 +62,13 @@ sboms:
   - artifacts: archive
 
 # Keyless signing (Sigstore/cosign via GitHub OIDC) of the checksums file.
+# cosign v3 writes signature and certificate into one Sigstore bundle.
 signs:
   - cmd: cosign
-    signature: "${artifact}.sig"
-    certificate: "${artifact}.pem"
+    signature: "${artifact}.sigstore.json"
     args:
       - sign-blob
-      - --output-signature=${signature}
-      - --output-certificate=${certificate}
+      - --bundle=${signature}
       - ${artifact}
       - --yes
     artifacts: checksum
