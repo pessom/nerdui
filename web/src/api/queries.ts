@@ -105,6 +105,7 @@ export const registriesQuery = (env: string) =>
         )
       ).registries,
   });
+export type HistoryEvent = components["schemas"]["HistoryEvent"];
 export type JobFrame = components["schemas"]["JobFrame"];
 
 /** Background jobs (#126); polled while any job runs. */

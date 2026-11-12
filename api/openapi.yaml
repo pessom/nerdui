@@ -482,6 +482,51 @@ paths:
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
         "503": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/events:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+    get:
+      tags: [environments]
+      operationId: listEvents
+      summary: Recorded events, newest first
+      description: |
+        Requires `system:read` (#65, ADR-0021). Events are recorded while nerdui runs and kept for
+        `--events-retention` (default 7 days, at most 100 000). `recording` is false when the
+        history is disabled. Page with `before` = id of the oldest event shown.
+      parameters:
+        - name: namespace
+          in: query
+          schema: { type: string }
+          description: containerd namespace; empty = the environment's default, `*` = all
+        - name: kind
+          in: query
+          schema: { type: string, examples: ["container", "task", "image"] }
+        - name: object
+          in: query
+          schema: { type: string }
+          description: Container ID or name, image name
+        - name: before
+          in: query
+          schema: { type: integer, format: int64 }
+        - name: limit
+          in: query
+          schema: { type: integer, minimum: 1, maximum: 500, default: 100 }
+      responses:
+        "200":
+          description: Events
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [events, recording]
+                properties:
+                  events: { type: array, items: { $ref: "#/components/schemas/HistoryEvent" } }
+                  more: { type: boolean, description: Older events exist }
+                  recording: { type: boolean }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
   /api/v1/environments/{env}/events/stream:
     parameters:
       - $ref: "#/components/parameters/Env"
@@ -1445,6 +1490,19 @@ components:
       properties:
         server: { type: string, description: "Key in the docker config, e.g. https://index.docker.io/v1/" }
         username: { type: string }
+    HistoryEvent:
+      type: object
+      required: [id, ts, topic, kind, action]
+      properties:
+        id: { type: integer, format: int64 }
+        ts: { type: string, format: date-time }
+        namespace: { type: string }
+        topic: { type: string, examples: ["/tasks/exit"] }
+        kind: { type: string, examples: ["container", "task", "image", "nerdui"] }
+        action: { type: string, examples: ["create", "exit", "oom"] }
+        objectId: { type: string }
+        objectName: { type: string, description: Container name at the time of the event }
+        attributes: { type: object, additionalProperties: { type: string } }
     Job:
       type: object
       required: [id, kind, title, environment, status, startedAt]

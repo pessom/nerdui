@@ -20,6 +20,7 @@ import (
 	"github.com/pessom/nerdui/internal/auth"
 	"github.com/pessom/nerdui/internal/config"
 	"github.com/pessom/nerdui/internal/environment"
+	"github.com/pessom/nerdui/internal/events"
 	"github.com/pessom/nerdui/internal/jobs"
 	"github.com/pessom/nerdui/internal/runtime"
 	"github.com/pessom/nerdui/internal/server"
@@ -108,6 +109,13 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 	checks.Go(func() { logRuntimeCompatibility(checkCtx, logger, rt) })
 	for _, env := range envs.List() {
 		checks.Go(func() { env.Events.Run(checkCtx) })
+		if cfg.EventsRetention > 0 {
+			rec := &events.Recorder{
+				Environment: env.ID, Hub: env.Events, Store: st, Names: rt.ContainerName,
+				Retention: cfg.EventsRetention, Logger: logger,
+			}
+			checks.Go(func() { rec.Run(checkCtx) })
+		}
 	}
 
 	// Hijacked WebSocket connections are neither tracked nor closed by Shutdown; their
@@ -118,9 +126,14 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 	// Background jobs (#126) are canceled and awaited when serving ends.
 	jobManager := jobs.NewManager()
 	defer jobManager.Close()
+	var eventHistory api.EventHistory
+	if cfg.EventsRetention > 0 {
+		eventHistory = st.Read()
+	}
 	srv := &http.Server{
 		Handler: server.New(server.Config{
-			Auth: authSvc, Environments: envs, UI: web.Dist(), Jobs: jobManager, Logger: logger,
+			Auth: authSvc, Environments: envs, UI: web.Dist(), Jobs: jobManager,
+			EventHistory: eventHistory, Logger: logger,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
 		BaseContext:       func(net.Listener) context.Context { return streamsCtx },

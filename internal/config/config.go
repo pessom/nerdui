@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Defaults. See docs/architecture.md (Configuration).
@@ -27,6 +28,8 @@ const (
 	DefaultNerdctlPath       = "nerdctl"
 	DefaultLogLevel          = "info"
 
+	// DefaultEventsRetention keeps a week of event history (ADR-0021).
+	DefaultEventsRetention = 7 * 24 * time.Hour
 	// DataDirMode is the permission of the data directory (ADR-0004).
 	DataDirMode fs.FileMode = 0o700
 )
@@ -57,6 +60,8 @@ type Config struct {
 	TLSKey  string
 	// LogLevel is one of debug, info, warn, error.
 	LogLevel string
+	// EventsRetention is how long the event history is kept (#65); 0 disables it.
+	EventsRetention time.Duration
 }
 
 // Default returns the configuration with all default values.
@@ -69,6 +74,7 @@ func Default() Config {
 		NerdctlPath:       DefaultNerdctlPath,
 		TLS:               true,
 		LogLevel:          DefaultLogLevel,
+		EventsRetention:   DefaultEventsRetention,
 	}
 }
 

@@ -28,9 +28,11 @@ const statusTimeout = 3 * time.Second
 
 // Handler serves environment endpoints.
 type Handler struct {
-	Envs   *environment.Registry
-	Jobs   *jobs.Manager
-	Logger *slog.Logger
+	Envs *environment.Registry
+	Jobs *jobs.Manager
+	// EventHistory serves the event feed (#65); nil when recording is disabled.
+	EventHistory EventHistory
+	Logger       *slog.Logger
 }
 
 // Routes registers the environment endpoints under the API root.
@@ -43,6 +45,7 @@ func (h *Handler) Routes(r chi.Router, g *authz.Guard) {
 		r.Method(http.MethodGet, "/info", g.Protect(authz.SystemRead, h.info))
 		r.Method(http.MethodGet, "/namespaces", g.Protect(authz.SystemRead, h.namespaces))
 		r.Method(http.MethodGet, "/events/stream", g.Protect(authz.SystemRead, h.eventsStream))
+		r.Method(http.MethodGet, "/events", g.Protect(authz.SystemRead, h.listEvents))
 		r.Method(http.MethodGet, "/containers", g.Protect(authz.ContainersRead, h.listContainers))
 		r.Method(http.MethodGet, "/containers/{id}/inspect", g.Protect(authz.ContainersRead, h.inspectContainer))
 		r.Method(http.MethodGet, "/containers/{id}/logs", g.Protect(authz.ContainersRead, h.containerLogsDownload))

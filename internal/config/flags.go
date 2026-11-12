@@ -38,6 +38,8 @@ func BindServeFlags(fs *pflag.FlagSet, c *Config) {
 	BindTLSCertFlag(fs, c)
 	str(&c.TLSKey, "tls-key", "PEM private key file for --tls-cert")
 	str(&c.LogLevel, "log-level", "log level: debug, info, warn, error")
+	fs.DurationVar(&c.EventsRetention, "events-retention", c.EventsRetention,
+		"how long the event history is kept, e.g. 168h; 0 disables it (env "+EnvName("events-retention")+")")
 }
 
 // BindListenFlags registers --listen and --tls (shared by serve and healthcheck).

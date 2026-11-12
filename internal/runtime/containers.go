@@ -216,3 +216,22 @@ func taskState(ctx context.Context, c containerd.Container, lbls map[string]stri
 func (c *Client) dataStore() (string, error) {
 	return clientutil.DataStore(c.nerdctlConfig.DataRoot, c.address)
 }
+
+// ContainerName returns the nerdctl name of a container, or "" when it has none or is gone
+// (event history, #65).
+func (c *Client) ContainerName(ctx context.Context, namespace, id string) string {
+	cl, err := c.conn()
+	if err != nil {
+		return ""
+	}
+	ctx = namespaces.WithNamespace(ctx, namespace)
+	ct, err := cl.LoadContainer(ctx, id)
+	if err != nil {
+		return ""
+	}
+	lbls, err := ct.Labels(ctx)
+	if err != nil {
+		return ""
+	}
+	return lbls[labels.Name]
+}
