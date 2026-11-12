@@ -48,3 +48,23 @@ func TestListContainersEmptyIsArray(t *testing.T) {
 		t.Errorf("%d %q", rec.Code, rec.Body)
 	}
 }
+
+func TestInspectContainer(t *testing.T) {
+	rt := &fakeRuntime{inspect: map[string]any{"web": map[string]any{"Id": "abc", "Name": "web"}}}
+	var got map[string]any
+	rec := do(t, newRouter(rt), "/api/v1/environments/local/containers/web/inspect?namespace=k8s.io&size=true", &got)
+	if rec.Code != http.StatusOK || got["Id"] != "abc" || rt.gotNS != "k8s.io" || !rt.gotSize {
+		t.Fatalf("%d %s (ns %q, size %v)", rec.Code, rec.Body, rt.gotNS, rt.gotSize)
+	}
+	for path, want := range map[string]int{
+		"/api/v1/environments/local/containers/nope/inspect":         http.StatusNotFound,
+		"/api/v1/environments/local/containers/web/inspect?size=yes": http.StatusBadRequest,
+	} {
+		if rec := do(t, newRouter(rt), path, nil); rec.Code != want {
+			t.Errorf("%s: %d, want %d", path, rec.Code, want)
+		}
+	}
+	if rec := do(t, newRouter(&fakeRuntime{err: runtime.ErrNotConnected}), "/api/v1/environments/local/containers/web/inspect", nil); rec.Code != http.StatusServiceUnavailable {
+		t.Errorf("containerd down: %d", rec.Code)
+	}
+}

@@ -299,6 +299,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/environments/{env}/containers/{id}/inspect": {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                /** @description Full or short container ID, or name (resolved like `nerdctl inspect`) */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * Full container configuration
+         * @description Requires `containers:read`. Same JSON as `nerdctl inspect` (dockercompat mode,
+         *     ADR-0013); only the fields used by the UI are described here. A reference that
+         *     matches several containers → 400.
+         */
+        get: operations["inspectContainer"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/environments/{env}/containers/actions": {
         parameters: {
             query?: {
@@ -507,6 +537,83 @@ export interface components {
             /** @enum {string} */
             code: "invalid_argument" | "unauthenticated" | "forbidden" | "csrf_failed" | "not_found" | "conflict" | "rate_limited" | "unsupported_media_type" | "internal" | "unavailable" | "nerdctl_incompatible";
             message: string;
+        };
+        /** @description `nerdctl inspect` output (Docker-compatible). Other fields may be present. */
+        ContainerInspect: {
+            Id: string;
+            Name: string;
+            Created?: string;
+            Path?: string;
+            Args?: string[] | null;
+            Image?: string;
+            RestartCount?: number;
+            Platform?: string;
+            State?: ({
+                Status?: string;
+                Pid?: number;
+                ExitCode?: number;
+                Error?: string;
+                StartedAt?: string;
+                FinishedAt?: string;
+            } & {
+                [key: string]: unknown;
+            }) | null;
+            HostConfig?: ({
+                NetworkMode?: string;
+                RestartPolicy?: {
+                    Name?: string;
+                    MaximumRetryCount?: number;
+                } & {
+                    [key: string]: unknown;
+                };
+            } & {
+                [key: string]: unknown;
+            }) | null;
+            Mounts?: ({
+                Type?: string;
+                Name?: string;
+                Source?: string;
+                Destination?: string;
+                Mode?: string;
+                RW?: boolean;
+            } & {
+                [key: string]: unknown;
+            })[] | null;
+            Config?: ({
+                Hostname?: string;
+                User?: string;
+                WorkingDir?: string;
+                Env?: string[];
+                Cmd?: string[];
+                Entrypoint?: string[];
+                Labels?: {
+                    [key: string]: string;
+                };
+            } & {
+                [key: string]: unknown;
+            }) | null;
+            NetworkSettings?: ({
+                Ports?: {
+                    [key: string]: {
+                        HostIp?: string;
+                        HostPort?: string;
+                    }[] | null;
+                } | null;
+                Networks?: {
+                    [key: string]: {
+                        IPAddress?: string;
+                        IPPrefixLen?: number;
+                        GlobalIPv6Address?: string;
+                        MacAddress?: string;
+                    } & {
+                        [key: string]: unknown;
+                    };
+                } | null;
+            } & {
+                [key: string]: unknown;
+            }) | null;
+        } & {
+            [key: string]: unknown;
         };
         /** @enum {string} */
         ContainerActionName: "start" | "stop" | "restart" | "kill" | "pause" | "unpause" | "remove";
@@ -948,6 +1055,42 @@ export interface operations {
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
+            500: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    inspectContainer: {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+                /** @description Also compute SizeRw and SizeRootFs (slow for large containers) */
+                size?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                /** @description Full or short container ID, or name (resolved like `nerdctl inspect`) */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Container */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContainerInspect"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
             500: components["responses"]["Error"];
             503: components["responses"]["Error"];
         };

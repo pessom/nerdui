@@ -35,6 +35,8 @@ type fakeRuntime struct {
 	mu        sync.Mutex
 	actions   []actionCall
 	actionErr map[string]error // by container id
+	inspect   map[string]any   // by container ref
+	gotSize   bool
 }
 
 type actionCall struct {
@@ -66,6 +68,18 @@ func (f *fakeRuntime) Do(_ context.Context, ns, id string, a runtime.Action, o r
 	defer f.mu.Unlock()
 	f.actions = append(f.actions, actionCall{ns, id, a, o})
 	return f.actionErr[id]
+}
+
+func (f *fakeRuntime) Inspect(_ context.Context, ns, ref string, size bool) (any, error) {
+	f.gotNS, f.gotSize = ns, size
+	if f.err != nil {
+		return nil, f.err
+	}
+	v, ok := f.inspect[ref]
+	if !ok {
+		return nil, fmt.Errorf("%w: no such container: %s", errdefs.ErrNotFound, ref)
+	}
+	return v, nil
 }
 
 func newRouter(rt runtime.Runtime) http.Handler {

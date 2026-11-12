@@ -19,6 +19,9 @@ export const keys = {
   envStatus: (env: string) => ["env", env, "status"] as const,
   namespaces: (env: string) => ["env", env, "namespaces"] as const,
   containers: (env: string, ns: string) => ["env", env, "containers", ns] as const,
+  /** Under containers(env, ns), so container actions refresh it too. */
+  containerInspect: (env: string, ns: string, id: string, size: boolean) =>
+    ["env", env, "containers", ns, "inspect", id, size] as const,
 };
 
 export const meQuery = queryOptions({
@@ -71,6 +74,19 @@ export const containersQuery = (env: string, namespace: string) =>
       unwrap(
         api.GET("/api/v1/environments/{env}/containers", {
           params: { path: { env }, query: { namespace } },
+        }),
+      ),
+  });
+
+export type ContainerInspect = components["schemas"]["ContainerInspect"];
+
+export const containerInspectQuery = (env: string, namespace: string, id: string, size = false) =>
+  queryOptions({
+    queryKey: keys.containerInspect(env, namespace, id, size),
+    queryFn: () =>
+      unwrap(
+        api.GET("/api/v1/environments/{env}/containers/{id}/inspect", {
+          params: { path: { env, id }, query: { namespace, size } },
         }),
       ),
   });
