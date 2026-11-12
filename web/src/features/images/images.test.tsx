@@ -22,8 +22,9 @@ const img = (over: Partial<Image>): Image => ({
   ...over,
 });
 
+const nginx = img({});
 const images: Image[] = [
-  img({}),
+  nginx,
   img({
     name: "docker.io/library/alpine:3",
     repository: "alpine",
@@ -45,8 +46,8 @@ const images: Image[] = [
 
 describe("image helpers", () => {
   it("formats names and filters by usage", () => {
-    expect(displayName(images[0])).toBe("nginx:1.27");
-    expect(displayName(images[2])).toBe("<none> cccccccccccc");
+    expect(displayName(nginx)).toBe("nginx:1.27");
+    expect(displayName(images.at(-1)!)).toBe("<none> cccccccccccc");
     expect(displayName(img({ tag: "" }))).toBe("nginx");
     expect(shortID("sha256:0123456789abcdef")).toBe("0123456789ab");
     expect(images.filter((i) => matchesUsage(i, "unused")).length).toBe(2);
