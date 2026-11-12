@@ -582,6 +582,14 @@ export interface components {
             containerdRevision: string;
             /** @description False for containerd versions outside the supported set (ADR-0012); nerdui still works. */
             containerdSupported: boolean;
+            /**
+             * @description containerd minors supported by this build; depends on its nerdctl version (ADR-0017)
+             * @example [
+             *       "2.3",
+             *       "2.4"
+             *     ]
+             */
+            supportedContainerd: string[];
             /** @example v2.4.2 */
             nerdctlLibrary: string;
             nerdctl: components["schemas"]["NerdctlStatus"];

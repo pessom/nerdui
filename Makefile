@@ -14,6 +14,16 @@ LDFLAGS     := -s -w \
 	-X $(PKG)/internal/version.Date=$(DATE)
 GO_BUILD    := CGO_ENABLED=0 go build -trimpath -ldflags "$(LDFLAGS)"
 
+# nerdctl builds (ADR-0017). go.mod links the newest supported nerdctl minor; each older
+# minor has go.nerdctl-<minor>.mod/.sum generated from go.mod by `make modfiles`, differing
+# only in the nerdctl version. Select one with NERDCTL=<minor>, e.g. `make build NERDCTL=2.3`.
+# Keep in sync with the CI integration matrix and .goreleaser.yaml.
+NERDCTL_VARIANTS := 2.3=v2.3.5
+NERDCTL          ?=
+ifneq ($(NERDCTL),)
+export GOFLAGS += -modfile=go.nerdctl-$(NERDCTL).mod
+endif
+
 # Dependency licenses compatible with AGPL-3.0-only that may be linked into nerdui.
 GO_LICENSES      := go run github.com/google/go-licenses/v2@v2.0.1
 ALLOWED_GO_LIC   := Apache-2.0,BSD-2-Clause,BSD-3-Clause,ISC,MIT,MPL-2.0
@@ -52,6 +62,20 @@ sqlc: ## Regenerate typed Go code from internal/store/queries/*.sql (sqlc)
 .PHONY: sqlc-check
 sqlc-check: ## Fail if generated sqlc code is out of date
 	cd internal/store && $(SQLC) diff
+
+.PHONY: modfiles
+modfiles: ## Regenerate go.nerdctl-<minor>.mod/.sum from go.mod (after any go.mod change)
+	@for v in $(NERDCTL_VARIANTS); do \
+		minor=$${v%%=*}; ver=$${v#*=}; mod=go.nerdctl-$$minor.mod; \
+		echo "$$mod: nerdctl $$ver"; \
+		cp go.mod $$mod && cp go.sum $${mod%.mod}.sum && \
+		GOFLAGS= go get -modfile=$$mod github.com/containerd/nerdctl/v2@$$ver || exit 1; \
+	done
+
+.PHONY: modfiles-check
+modfiles-check: modfiles ## Fail if go.nerdctl-<minor>.mod/.sum are out of date
+	@out=$$(git status --porcelain -- 'go.nerdctl-*.mod' 'go.nerdctl-*.sum'); \
+	if [ -n "$$out" ]; then echo "$$out"; echo "run make modfiles and commit the result"; exit 1; fi
 
 .PHONY: api-gen
 api-gen: ## Regenerate TypeScript types from api/openapi.yaml

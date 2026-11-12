@@ -14,14 +14,33 @@ import (
 	"time"
 )
 
-// SupportedContainerdMinors are the containerd releases nerdui supports and tests:
-// the latest LTS and the latest release (ADR-0012). Update together with the CI matrix.
-var SupportedContainerdMinors = []string{"2.3", "2.4"}
+// supportedContainerd maps the nerdctl minor a build links (ADR-0017) to the containerd
+// minors that build supports: the latest LTS and the latest release (ADR-0012), limited to
+// the containerd versions that nerdctl release declares compatible, and tested in CI.
+// Update together with the CI integration matrix.
+var supportedContainerd = map[string][]string{
+	"2.4": {"2.3", "2.4"},
+	"2.3": {"2.3"}, // nerdctl 2.3 supports containerd up to 2.3
+}
 
-// ContainerdSupported reports whether a containerd version (e.g. "v2.3.7") is supported.
+// SupportedContainerdMinors returns the containerd minors supported by this build.
+func SupportedContainerdMinors() []string {
+	return supportedContainerdFor(NerdctlLibraryVersion())
+}
+
+func supportedContainerdFor(nerdctlVersion string) []string {
+	mm, _ := majorMinor(nerdctlVersion)
+	return slices.Clone(supportedContainerd[mm])
+}
+
+// ContainerdSupported reports whether this build supports a containerd version (e.g. "v2.3.7").
 func ContainerdSupported(version string) bool {
+	return containerdSupportedBy(NerdctlLibraryVersion(), version)
+}
+
+func containerdSupportedBy(nerdctlVersion, version string) bool {
 	mm, ok := majorMinor(version)
-	return ok && slices.Contains(SupportedContainerdMinors, mm)
+	return ok && slices.Contains(supportedContainerdFor(nerdctlVersion), mm)
 }
 
 // NerdctlStatus is the result of the nerdctl compatibility check (ADR-0011).

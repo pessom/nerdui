@@ -749,13 +749,18 @@ components:
         platform: { type: string, examples: ["linux/amd64"] }
     RuntimeVersions:
       type: object
-      required: [containerd, containerdRevision, containerdSupported, nerdctlLibrary, nerdctl]
+      required: [containerd, containerdRevision, containerdSupported, supportedContainerd, nerdctlLibrary, nerdctl]
       properties:
         containerd: { type: string, examples: ["v2.4.2"] }
         containerdRevision: { type: string }
         containerdSupported:
           type: boolean
           description: False for containerd versions outside the supported set (ADR-0012); nerdui still works.
+        supportedContainerd:
+          type: array
+          items: { type: string }
+          description: containerd minors supported by this build; depends on its nerdctl version (ADR-0017)
+          examples: [["2.3", "2.4"]]
         nerdctlLibrary: { type: string, examples: ["v2.4.2"] }
         nerdctl: { $ref: "#/components/schemas/NerdctlStatus" }
     NerdctlStatus:

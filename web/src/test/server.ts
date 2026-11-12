@@ -68,6 +68,7 @@ export const runtime = {
   containerd: "v2.4.2",
   containerdRevision: "rev",
   containerdSupported: true,
+  supportedContainerd: ["2.3", "2.4"],
   nerdctlLibrary: "v2.4.2",
   nerdctl: { path: "nerdctl", version: "2.4.2", required: "2.4", compatible: true },
 };

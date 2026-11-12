@@ -1,6 +1,6 @@
 # 0012. Supported containerd versions
 
-- **Status:** Accepted
+- **Status:** Accepted (supported versions per nerdctl build: [0017](0017-builds-per-nerdctl-version.md))
 - **Date:** 2026-11-11
 
 ## Context

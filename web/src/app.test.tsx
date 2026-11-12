@@ -157,6 +157,7 @@ describe("nerdui app shell", () => {
             ...runtime,
             containerd: "v2.0.14",
             containerdSupported: false,
+            supportedContainerd: ["2.3", "2.4"],
             nerdctl: { path: "nerdctl", version: "2.3.5", required: "2.4", compatible: false },
           },
         }),
@@ -165,7 +166,9 @@ describe("nerdui app shell", () => {
 
     expect(await screen.findByText("Read-only mode")).toBeInTheDocument();
     expect(screen.getByText(/Host nerdctl 2.3.5 is incompatible/)).toBeInTheDocument();
+    expect(screen.getByText(/nerdui build for nerdctl 2.3/)).toBeInTheDocument();
     expect(screen.getByText("Unsupported containerd version")).toBeInTheDocument();
+    expect(screen.getByText(/supports containerd 2.3, 2.4/)).toBeInTheDocument();
     expect(screen.getByText("read-only")).toBeInTheDocument();
   });
 

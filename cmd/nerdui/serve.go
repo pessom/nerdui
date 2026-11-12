@@ -176,7 +176,7 @@ func logRuntimeCompatibility(ctx context.Context, logger *slog.Logger, rt *runti
 		}
 	case !v.ContainerdSupported:
 		logger.Warn("unsupported containerd version: nerdui works but is not tested with it",
-			"version", v.Containerd, "supported", runtime.SupportedContainerdMinors)
+			"version", v.Containerd, "supported", runtime.SupportedContainerdMinors(), "nerdctl", runtime.NerdctlLibraryVersion())
 	default:
 		logger.Info("containerd connected", "version", v.Containerd)
 	}

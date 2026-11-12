@@ -25,3 +25,4 @@ We record significant architectural decisions as ADRs
 | 0014 | [Container logs: nerdctl log viewers and xterm.js](0014-container-logs.md) | Accepted |
 | 0015 | [Host and runtime information via nerdctl infoutil](0015-host-and-runtime-info.md) | Accepted |
 | 0016 | [User management: temporary passwords, disabling, last-admin guard](0016-user-management.md) | Accepted |
+| 0017 | [One build per supported nerdctl minor version](0017-builds-per-nerdctl-version.md) | Accepted |

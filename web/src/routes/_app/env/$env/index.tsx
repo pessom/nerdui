@@ -51,6 +51,10 @@ function Overview() {
               )
             }
           />
+          <Row
+            label="Supported by this build"
+            value={rt?.supportedContainerd.length ? rt.supportedContainerd.join(", ") : "—"}
+          />
           <Row label="Default namespace" value={s.defaultNamespace} />
         </InfoCard>
         <InfoCard title="nerdctl">

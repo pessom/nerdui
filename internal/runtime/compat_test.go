@@ -45,10 +45,22 @@ func TestParseNerdctlVersion(t *testing.T) {
 }
 
 func TestContainerdSupported(t *testing.T) {
-	for v, want := range map[string]bool{"v2.3.7": true, "v2.4.2": true, "v2.0.14": false, "v2.2.10": false, "v1.7.36": false, "": false} {
-		if got := ContainerdSupported(v); got != want {
-			t.Errorf("ContainerdSupported(%q) = %v", v, got)
+	cases := map[string]map[string]bool{
+		"v2.4.2": {"v2.3.7": true, "v2.4.2": true, "v2.0.14": false, "v2.2.10": false, "v1.7.36": false, "": false},
+		// nerdctl 2.3 declares containerd up to 2.3 compatible.
+		"v2.3.5": {"v2.3.7": true, "v2.4.2": false, "v2.2.10": false},
+		"v2.9.0": {"v2.3.7": false},
+	}
+	for nerdctl, versions := range cases {
+		for v, want := range versions {
+			if got := containerdSupportedBy(nerdctl, v); got != want {
+				t.Errorf("nerdctl %s: containerd %q supported = %v", nerdctl, v, got)
+			}
 		}
+	}
+	// Every build in go.mod / go.nerdctl-*.mod has an entry.
+	if len(SupportedContainerdMinors()) == 0 {
+		t.Errorf("no supported containerd versions for linked nerdctl %s", NerdctlLibraryVersion())
 	}
 }
 
