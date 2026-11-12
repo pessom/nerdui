@@ -91,6 +91,7 @@ function AppLayout() {
           <RouterNavLink
             to="/env/$env/containers"
             params={{ env }}
+            search={(prev: { ns?: string }) => ({ ns: prev.ns })}
             label="Containers"
             leftSection={<IconBox size={18} stroke={1.5} />}
             onClick={close}
