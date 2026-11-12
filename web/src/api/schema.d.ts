@@ -329,6 +329,67 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/environments/{env}/containers/{id}/logs": {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                /** @description Full container ID (prefixes and names are not resolved) */
+                id: components["parameters"]["ContainerID"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Container logs as plain text (download)
+         * @description Requires `containers:read`. Like `nerdctl logs` without `--follow`: stdout and stderr
+         *     interleaved, ANSI sequences preserved. Sent as an attachment `<id12>-logs.txt`.
+         */
+        get: operations["downloadContainerLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/environments/{env}/containers/{id}/logs/stream": {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                /** @description Full container ID (prefixes and names are not resolved) */
+                id: components["parameters"]["ContainerID"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Container logs (WebSocket)
+         * @description WebSocket stream (ADR-0007, ADR-0014); requires `containers:read` and a same-origin
+         *     upgrade. `StreamMessage.data` is an array of `LogLine`. The stream sends `end` when the
+         *     logs are exhausted or, with `follow`, when the container stops. Errors (unknown
+         *     container, log driver `none` → `conflict`) arrive as `error` followed by `end`.
+         *     To resume after a disconnect, reconnect with `since` = last `ts` and skip lines up to it.
+         */
+        get: operations["streamContainerLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/environments/{env}/containers/actions": {
         parameters: {
             query?: {
@@ -614,6 +675,17 @@ export interface components {
             }) | null;
         } & {
             [key: string]: unknown;
+        };
+        LogLine: {
+            /** @enum {string} */
+            stream: "stdout" | "stderr";
+            /**
+             * Format: date-time
+             * @description Absent when the log driver does not record times (journald)
+             */
+            ts?: string;
+            /** @description Line without the newline; ANSI sequences preserved */
+            line: string;
         };
         /** @enum {string} */
         ContainerActionName: "start" | "stop" | "restart" | "kill" | "pause" | "unpause" | "remove";
@@ -1093,6 +1165,85 @@ export interface operations {
             404: components["responses"]["Error"];
             500: components["responses"]["Error"];
             503: components["responses"]["Error"];
+        };
+    };
+    downloadContainerLogs: {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+                /** @description Only the last N lines; empty or `all` = all lines */
+                tail?: string;
+                /** @description Lines at or after this time (RFC 3339 or relative), second precision */
+                since?: string;
+                /** @description Lines at or before this time (RFC 3339 or relative) */
+                until?: string;
+                /** @description Prefix lines with their RFC 3339 time */
+                timestamps?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                /** @description Full container ID (prefixes and names are not resolved) */
+                id: components["parameters"]["ContainerID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Log text */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/plain": string;
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            500: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    streamContainerLogs: {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+                /** @description Keep streaming new lines while the container runs */
+                follow?: boolean;
+                /** @description Only the last N lines; empty or `all` = all lines */
+                tail?: string;
+                /** @description Lines at or after this time (RFC 3339 or relative), second precision */
+                since?: string;
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                /** @description Full container ID (prefixes and names are not resolved) */
+                id: components["parameters"]["ContainerID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Switching protocols (WebSocket) */
+            101: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
         };
     };
     bulkContainerAction: {

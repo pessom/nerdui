@@ -36,6 +36,10 @@ type fakeRuntime struct {
 	actions   []actionCall
 	actionErr map[string]error // by container id
 	inspect   map[string]any   // by container ref
+	logs      []runtime.LogLine
+	logErr    error // returned before any line
+	logFollow bool  // with Follow, block until ctx ends after the lines
+	gotLogs   runtime.LogOptions
 	gotSize   bool
 }
 
@@ -80,6 +84,24 @@ func (f *fakeRuntime) Inspect(_ context.Context, ns, ref string, size bool) (any
 		return nil, fmt.Errorf("%w: no such container: %s", errdefs.ErrNotFound, ref)
 	}
 	return v, nil
+}
+
+func (f *fakeRuntime) Logs(ctx context.Context, ns, _ string, o runtime.LogOptions, emit runtime.LogEmitter) error {
+	f.mu.Lock()
+	f.gotNS, f.gotLogs = ns, o
+	f.mu.Unlock()
+	if f.logErr != nil {
+		return f.logErr
+	}
+	for _, l := range f.logs {
+		if err := emit(l); err != nil {
+			return err
+		}
+	}
+	if o.Follow && f.logFollow {
+		<-ctx.Done()
+	}
+	return nil
 }
 
 func newRouter(rt runtime.Runtime) http.Handler {

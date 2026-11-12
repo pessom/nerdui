@@ -160,6 +160,18 @@ func (c *Conn) Send(m Message) bool {
 // SendData queues a data message.
 func (c *Conn) SendData(v any) bool { return c.Send(Message{Type: TypeData, Data: v}) }
 
+// SendDataWait queues a data message, waiting while the queue is full instead of
+// disconnecting the client. It is for producers that can pause without harm, such as log
+// files read for this connection only, unlike shared containerd readers. It returns false
+// when the connection has closed.
+func (c *Conn) SendDataWait(v any) bool {
+	b, err := json.Marshal(Message{Type: TypeData, Data: v, TS: time.Now().UTC()})
+	if err != nil {
+		return c.SendError(httpjson.CodeInternal, "cannot encode message")
+	}
+	return c.enqueueWait(frame{typ: websocket.MessageText, data: b})
+}
+
 // SendError queues an error message; streams usually call End or Close afterwards.
 func (c *Conn) SendError(code, message string) bool {
 	return c.Send(Message{Type: TypeError, Error: &httpjson.ErrorDetail{Code: code, Message: message}})
@@ -173,11 +185,17 @@ func (c *Conn) SendBinary(p []byte) bool {
 	return c.enqueue(frame{typ: websocket.MessageBinary, data: p})
 }
 
-// End sends the end message and closes the connection normally after it was delivered.
+// End sends the end message, closes the connection normally after it was delivered and
+// returns when the connection is closed. It waits for queue space: the stream is over, and a full queue must not turn the end
+// into a slow-consumer close.
 func (c *Conn) End() {
-	if c.Send(Message{Type: TypeEnd}) {
-		c.enqueue(frame{}) // sentinel: close after flushing
+	b, _ := json.Marshal(Message{Type: TypeEnd, TS: time.Now().UTC()})
+	if c.enqueueWait(frame{typ: websocket.MessageText, data: b}) {
+		c.enqueueWait(frame{}) // sentinel: close after flushing
 	}
+	// Handlers usually return right after End; returning ends the request context, which
+	// would close the connection before the queue is flushed.
+	<-c.done
 }
 
 // discardReads keeps reading on one-way streams so control frames (pong, close) are
@@ -212,6 +230,22 @@ func (c *Conn) enqueue(f frame) bool {
 	default:
 		go c.Close(websocket.StatusPolicyViolation, ReasonSlowConsumer)
 		c.closed = true
+		return false
+	}
+}
+
+// enqueueWait queues f, waiting for space; false when the connection has closed.
+func (c *Conn) enqueueWait(f frame) bool {
+	c.mu.Lock()
+	closed := c.closed
+	c.mu.Unlock()
+	if closed {
+		return false
+	}
+	select {
+	case c.queue <- f:
+		return true
+	case <-c.done:
 		return false
 	}
 }

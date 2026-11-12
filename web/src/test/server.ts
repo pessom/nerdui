@@ -89,3 +89,31 @@ export class SilentWebSocket {
   constructor(public url: string) {}
   close() {}
 }
+
+/** WebSocket fake that records instances, so tests can open, feed and drop streams. */
+export class RecordingWebSocket {
+  static instances: RecordingWebSocket[] = [];
+  onopen: (() => void) | null = null;
+  onmessage: ((ev: MessageEvent) => void) | null = null;
+  onclose: (() => void) | null = null;
+  closed = false;
+  constructor(public url: string) {
+    RecordingWebSocket.instances.push(this);
+  }
+  static find(part: string): RecordingWebSocket[] {
+    return RecordingWebSocket.instances.filter((s) => s.url.includes(part));
+  }
+  open() {
+    this.onopen?.();
+  }
+  message(data: unknown) {
+    this.onmessage?.({ data: JSON.stringify(data) } as MessageEvent);
+  }
+  drop() {
+    this.onclose?.();
+  }
+  close() {
+    this.closed = true;
+    this.onclose?.();
+  }
+}

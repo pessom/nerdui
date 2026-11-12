@@ -265,3 +265,30 @@ func TestReadOnOneWayConnection(t *testing.T) {
 		t.Error("Read allowed on a one-way connection")
 	}
 }
+
+func TestSendDataWaitPacesProducer(t *testing.T) {
+	const n = 200
+	url, _ := serve(t, Options{SendQueue: 2}, func(c *Conn) {
+		payload := strings.Repeat("x", 64<<10)
+		for i := 0; i < n; i++ {
+			if !c.SendDataWait(payload) {
+				return
+			}
+		}
+		c.End()
+	})
+	c, _, err := dial(t, url, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.SetReadLimit(1 << 20)
+	time.Sleep(200 * time.Millisecond) // let the queue fill up: the producer must wait
+	for i := 0; i < n; i++ {
+		if m := readMsg(t, c); m.Type != TypeData {
+			t.Fatalf("message %d: %+v", i, m)
+		}
+	}
+	if m := readMsg(t, c); m.Type != TypeEnd {
+		t.Fatalf("last message: %+v", m)
+	}
+}

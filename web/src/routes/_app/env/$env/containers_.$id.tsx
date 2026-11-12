@@ -24,18 +24,21 @@ import { RowActions } from "../../../../features/containers/ContainerActions";
 import { ContainerOverview } from "../../../../features/containers/ContainerOverview";
 import { displayName, stateColor, statusText } from "../../../../features/containers/format";
 import { inspectJSON } from "../../../../features/containers/inspect";
+import { LogsPanel } from "../../../../features/containers/LogsPanel";
 import { useActionRequests } from "../../../../features/containers/useActionRequests";
 
 const JsonViewer = lazy(() => import("../../../../features/containers/JsonViewer"));
 
 const envRoute = getRouteApi("/_app/env/$env");
 
-type Tab = "overview" | "inspect";
+type Tab = "overview" | "logs" | "inspect";
+const tabs: readonly Tab[] = ["overview", "logs", "inspect"];
+const isTab = (v: unknown): v is Tab => tabs.includes(v as Tab);
 
-/** Container page (#13): overview of key fields and the full inspect JSON; logs follow in #14. */
+/** Container page: overview of key fields and the inspect JSON (#13), logs (#14). */
 export const Route = createFileRoute("/_app/env/$env/containers_/$id")({
   validateSearch: (search: Record<string, unknown>): { tab?: Tab; size?: boolean } => ({
-    tab: search.tab === "inspect" ? "inspect" : undefined,
+    tab: isTab(search.tab) && search.tab !== "overview" ? search.tab : undefined,
     size: search.size === true || search.size === "true" ? true : undefined,
   }),
   component: ContainerPage,
@@ -104,7 +107,7 @@ function ContainerPage() {
           value={tab}
           onChange={(t) =>
             void navigate({
-              search: (s) => ({ ...s, tab: t === "inspect" ? "inspect" : undefined }),
+              search: (s) => ({ ...s, tab: isTab(t) && t !== "overview" ? t : undefined }),
               replace: true,
             })
           }
@@ -112,10 +115,22 @@ function ContainerPage() {
         >
           <Tabs.List mb="md">
             <Tabs.Tab value="overview">Overview</Tabs.Tab>
+            <Tabs.Tab value="logs">Logs</Tabs.Tab>
             <Tabs.Tab value="inspect">Inspect</Tabs.Tab>
           </Tabs.List>
           <Tabs.Panel value="overview">
             <ContainerOverview inspect={inspect.data} />
+          </Tabs.Panel>
+          <Tabs.Panel value="logs">
+            <LogsPanel
+              env={env}
+              id={inspect.data.Id}
+              name={name}
+              namespace={namespace}
+              running={
+                summary ? summary.state === "running" : inspect.data.State?.Status === "running"
+              }
+            />
           </Tabs.Panel>
           <Tabs.Panel value="inspect">
             <Stack gap="xs">

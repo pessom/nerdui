@@ -77,6 +77,8 @@ type Containers interface {
 	Do(ctx context.Context, namespace, id string, action Action, opts ActionOptions) error
 	// Inspect returns the container as `nerdctl inspect` shows it (#13).
 	Inspect(ctx context.Context, namespace, ref string, size bool) (any, error)
+	// Logs passes the log lines of the container with the exact id to emit (#14).
+	Logs(ctx context.Context, namespace, id string, opts LogOptions, emit LogEmitter) error
 }
 
 // Containers returns container operations of the local containerd.
