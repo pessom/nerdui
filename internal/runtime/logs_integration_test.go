@@ -69,14 +69,23 @@ func TestIntegrationLogs(t *testing.T) {
 	if time.Since(start) > 15*time.Second {
 		t.Errorf("follow took %v", time.Since(start))
 	}
-	if len(lines) < 8 || lines[0].Line != "one" || lines[2].Line != "three" || lines[0].Time.IsZero() {
-		t.Fatalf("follow lines: %+v", lines)
+	// The logger reads stdout and stderr concurrently: order holds within a stream only.
+	var stdout, stderr []LogLine
+	for _, l := range lines {
+		if l.Time.IsZero() {
+			t.Errorf("line without time: %+v", l)
+		}
+		if l.Stream == "stderr" {
+			stderr = append(stderr, l)
+		} else {
+			stdout = append(stdout, l)
+		}
 	}
-	if lines[1].Stream != "stderr" || lines[1].Line != "\x1b[31mtwo\x1b[0m" {
-		t.Errorf("stderr line with ANSI: %+v", lines[1])
+	if len(stdout) < 3 || stdout[0].Line != "one" || stdout[1].Line != "three" || !strings.HasPrefix(stdout[2].Line, "tick ") {
+		t.Fatalf("stdout lines: %+v", stdout)
 	}
-	if !strings.HasPrefix(lines[3].Line, "tick ") {
-		t.Errorf("line 4: %+v", lines[3])
+	if len(stderr) != 1 || stderr[0].Line != "\x1b[31mtwo\x1b[0m" {
+		t.Errorf("stderr line with ANSI: %+v", stderr)
 	}
 
 	// Tail without follow returns immediately.
