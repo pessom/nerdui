@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/containerd/errdefs"
@@ -30,6 +31,16 @@ type fakeRuntime struct {
 	events     runtime.EventSource
 	containers []runtime.Container
 	gotNS      string
+
+	mu        sync.Mutex
+	actions   []actionCall
+	actionErr map[string]error // by container id
+}
+
+type actionCall struct {
+	ns, id string
+	action runtime.Action
+	opts   runtime.ActionOptions
 }
 
 func (f *fakeRuntime) System() runtime.System { return f }
@@ -49,6 +60,12 @@ func (f *fakeRuntime) Containers() runtime.Containers                { return f 
 func (f *fakeRuntime) List(_ context.Context, ns string) ([]runtime.Container, error) {
 	f.gotNS = ns
 	return f.containers, f.err
+}
+func (f *fakeRuntime) Do(_ context.Context, ns, id string, a runtime.Action, o runtime.ActionOptions) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.actions = append(f.actions, actionCall{ns, id, a, o})
+	return f.actionErr[id]
 }
 
 func newRouter(rt runtime.Runtime) http.Handler {

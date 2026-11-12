@@ -266,11 +266,19 @@ func TestRouteAuthorization(t *testing.T) {
 		"GET /api/v1/auth/me":      "session:self",
 		"POST /api/v1/auth/logout": "session:self",
 
-		"GET /api/v1/environments":                     "system:read",
-		"GET /api/v1/environments/{env}/":              "system:read",
-		"GET /api/v1/environments/{env}/namespaces":    "system:read",
-		"GET /api/v1/environments/{env}/events/stream": "system:read",
-		"GET /api/v1/environments/{env}/containers":    "containers:read",
+		"GET /api/v1/environments":                                "system:read",
+		"GET /api/v1/environments/{env}/":                         "system:read",
+		"GET /api/v1/environments/{env}/namespaces":               "system:read",
+		"GET /api/v1/environments/{env}/events/stream":            "system:read",
+		"GET /api/v1/environments/{env}/containers":               "containers:read",
+		"POST /api/v1/environments/{env}/containers/{id}/start":   "containers:operate",
+		"POST /api/v1/environments/{env}/containers/{id}/stop":    "containers:operate",
+		"POST /api/v1/environments/{env}/containers/{id}/restart": "containers:operate",
+		"POST /api/v1/environments/{env}/containers/{id}/kill":    "containers:operate",
+		"POST /api/v1/environments/{env}/containers/{id}/pause":   "containers:operate",
+		"POST /api/v1/environments/{env}/containers/{id}/unpause": "containers:operate",
+		"DELETE /api/v1/environments/{env}/containers/{id}":       "containers:write",
+		"POST /api/v1/environments/{env}/containers/actions":      "containers:operate",
 	}
 	for k, v := range want {
 		if got[k] != v {

@@ -73,6 +73,8 @@ type ComposeRef struct {
 type Containers interface {
 	// List returns all containers of a namespace (any state), newest first.
 	List(ctx context.Context, namespace string) ([]Container, error)
+	// Do performs a lifecycle action on the container with the exact id (#11, #12).
+	Do(ctx context.Context, namespace, id string, action Action, opts ActionOptions) error
 }
 
 // Containers returns container operations of the local containerd.
@@ -208,5 +210,5 @@ func taskState(ctx context.Context, c containerd.Container, lbls map[string]stri
 
 // dataStore is nerdctl's per-address state directory (names, ports, logs).
 func (c *Client) dataStore() (string, error) {
-	return clientutil.DataStore(c.nerdctlDataRoot, c.address)
+	return clientutil.DataStore(c.nerdctlConfig.DataRoot, c.address)
 }

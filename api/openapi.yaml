@@ -274,6 +274,101 @@ paths:
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
         "503": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/containers/{id}/{action}:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - $ref: "#/components/parameters/ContainerID"
+      - name: action
+        in: path
+        required: true
+        schema: { type: string, enum: [start, stop, restart, kill, pause, unpause] }
+      - $ref: "#/components/parameters/Namespace"
+    post:
+      tags: [containers]
+      operationId: containerAction
+      summary: Start, stop, restart, kill, pause or unpause a container
+      description: |
+        Requires `containers:operate`. Synchronous: stop and restart wait for the container to
+        exit (its stop timeout, 10 s by default, then SIGKILL). Kill sends SIGKILL.
+        Unsafe request — send the CSRF token. Answers 409 when the action does not apply to
+        the current state (e.g. pause on a stopped container) and 503 `nerdctl_incompatible`
+        in read-only mode. Other failures carry nerdctl's error message.
+      responses:
+        "204": { description: Done }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "500": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/containers/{id}:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - $ref: "#/components/parameters/ContainerID"
+      - $ref: "#/components/parameters/Namespace"
+    delete:
+      tags: [containers]
+      operationId: removeContainer
+      summary: Remove a container
+      description: |
+        Requires `containers:write`. Like `nerdctl rm`: releases the name and published ports.
+        A running or paused container is only removed with `force=true` (killed first);
+        otherwise 409. Unsafe request — send the CSRF token.
+      parameters:
+        - name: force
+          in: query
+          schema: { type: boolean, default: false }
+          description: Kill a running or paused container before removing it
+        - name: volumes
+          in: query
+          schema: { type: boolean, default: false }
+          description: Also remove the container's anonymous volumes
+      responses:
+        "204": { description: Removed }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "500": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/containers/actions:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - $ref: "#/components/parameters/Namespace"
+    post:
+      tags: [containers]
+      operationId: bulkContainerAction
+      summary: Apply one action to several containers
+      description: |
+        Requires `containers:operate`, and `containers:write` for `remove`. Up to 200 IDs; runs
+        a few at a time and answers 200 with one result per ID in request order, so partial
+        failures are reported per container. Unsafe request — send the CSRF token.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BulkActionRequest" }
+      responses:
+        "200":
+          description: Per-container results
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [action, results]
+                properties:
+                  action: { $ref: "#/components/schemas/ContainerActionName" }
+                  results:
+                    type: array
+                    items: { $ref: "#/components/schemas/BulkActionResult" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "415": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
 components:
   securitySchemes:
     session:
@@ -296,6 +391,12 @@ components:
       required: false
       schema: { type: string, examples: ["default", "k8s.io"] }
       description: containerd namespace; defaults to the environment's default namespace
+    ContainerID:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, pattern: "^[A-Za-z0-9][A-Za-z0-9_.-]*$", maxLength: 76 }
+      description: Full container ID (prefixes and names are not resolved)
     CSRFToken:
       name: X-CSRF-Token
       in: header
@@ -479,12 +580,36 @@ components:
       type: object
       required: [error]
       properties:
-        error:
-          type: object
-          required: [code, message]
-          properties:
-            code:
-              type: string
-              enum: [invalid_argument, unauthenticated, forbidden, csrf_failed, not_found, conflict,
-                     rate_limited, unsupported_media_type, internal, unavailable, nerdctl_incompatible]
-            message: { type: string }
+        error: { $ref: "#/components/schemas/ErrorDetail" }
+    ErrorDetail:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          enum: [invalid_argument, unauthenticated, forbidden, csrf_failed, not_found, conflict,
+                 rate_limited, unsupported_media_type, internal, unavailable, nerdctl_incompatible]
+        message: { type: string }
+    ContainerActionName:
+      type: string
+      enum: [start, stop, restart, kill, pause, unpause, remove]
+    BulkActionRequest:
+      type: object
+      required: [action, ids]
+      additionalProperties: false
+      properties:
+        action: { $ref: "#/components/schemas/ContainerActionName" }
+        ids:
+          type: array
+          minItems: 1
+          maxItems: 200
+          items: { type: string }
+        force: { type: boolean, description: "remove only: kill running containers first" }
+        volumes: { type: boolean, description: "remove only: also remove anonymous volumes" }
+    BulkActionResult:
+      type: object
+      required: [id, ok]
+      properties:
+        id: { type: string }
+        ok: { type: boolean }
+        error: { $ref: "#/components/schemas/ErrorDetail" }
