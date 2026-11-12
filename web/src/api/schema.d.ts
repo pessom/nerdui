@@ -808,6 +808,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/environments/{env}/containers/{id}/stats/stream": {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                /** @description Full container ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * Live resource usage of a running container (WebSocket)
+         * @description Requires `containers:read` (#16). Samples like `nerdctl stats` every `interval` (1s to
+         *     10s, default 2s) while the client is connected; data messages are `StatsSample`s. The
+         *     stream ends with `end` when the container stops; a container that is not running gets
+         *     an error (`conflict`) and `end`.
+         */
+        get: operations["streamContainerStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/environments/{env}/containers/{id}/logs/stream": {
         parameters: {
             query?: {
@@ -1332,6 +1363,36 @@ export interface components {
             output?: string;
             /** @description output is the whole stored screen: clear first */
             reset?: boolean;
+        };
+        StatsSample: {
+            /** Format: date-time */
+            ts: string;
+            /** @description Relative to one CPU: 200 = two CPUs busy */
+            cpuPercent: number;
+            /** Format: int64 */
+            memoryUsage: number;
+            /**
+             * Format: int64
+             * @description Container limit
+             */
+            memoryLimit: number;
+            memoryPercent: number;
+            /**
+             * Format: int64
+             * @description Cumulative bytes
+             */
+            networkRx: number;
+            /** Format: int64 */
+            networkTx: number;
+            /**
+             * Format: int64
+             * @description Cumulative bytes
+             */
+            blockRead: number;
+            /** Format: int64 */
+            blockWrite: number;
+            /** Format: int64 */
+            pids: number;
         };
         LogLine: {
             /** @enum {string} */
@@ -2628,6 +2689,37 @@ export interface operations {
             409: components["responses"]["Error"];
             500: components["responses"]["Error"];
             503: components["responses"]["Error"];
+        };
+    };
+    streamContainerStats: {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+                interval?: string;
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                /** @description Full container ID */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Switching protocols */
+            101: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
         };
     };
     streamContainerLogs: {

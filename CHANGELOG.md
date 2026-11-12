@@ -9,6 +9,9 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 
 ### Added
 
+- **Container stats:** a Stats tab with live CPU, memory (used / limit), network and block I/O
+  rates and PIDs, sampled like `nerdctl stats` every 1–5 s while the tab is open, with charts of
+  the last five minutes (#16).
 - **Events:** feed of containerd events (container and task changes, exits with status, OOM,
   images, containerd connection) with filters by kind, object and namespace; recorded in the
   database for `--events-retention` (default 7 days) (#65, ADR-0021).

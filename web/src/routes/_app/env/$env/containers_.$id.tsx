@@ -25,17 +25,18 @@ import { ContainerOverview } from "../../../../features/containers/ContainerOver
 import { displayName, stateColor, statusText } from "../../../../features/containers/format";
 import { inspectJSON } from "../../../../features/containers/inspect";
 import { LogsPanel } from "../../../../features/containers/LogsPanel";
+import { StatsPanel } from "../../../../features/containers/StatsPanel";
 import { useActionRequests } from "../../../../features/containers/useActionRequests";
 
 const JsonViewer = lazy(() => import("../../../../features/containers/JsonViewer"));
 
 const envRoute = getRouteApi("/_app/env/$env");
 
-type Tab = "overview" | "logs" | "inspect";
-const tabs: readonly Tab[] = ["overview", "logs", "inspect"];
+type Tab = "overview" | "logs" | "stats" | "inspect";
+const tabs: readonly Tab[] = ["overview", "logs", "stats", "inspect"];
 const isTab = (v: unknown): v is Tab => tabs.includes(v as Tab);
 
-/** Container page: overview of key fields and the inspect JSON (#13), logs (#14). */
+/** Container page: overview and inspect JSON (#13), logs (#14), stats (#16). */
 export const Route = createFileRoute("/_app/env/$env/containers_/$id")({
   validateSearch: (search: Record<string, unknown>): { tab?: Tab; size?: boolean } => ({
     tab: isTab(search.tab) && search.tab !== "overview" ? search.tab : undefined,
@@ -116,6 +117,7 @@ function ContainerPage() {
           <Tabs.List mb="md">
             <Tabs.Tab value="overview">Overview</Tabs.Tab>
             <Tabs.Tab value="logs">Logs</Tabs.Tab>
+            <Tabs.Tab value="stats">Stats</Tabs.Tab>
             <Tabs.Tab value="inspect">Inspect</Tabs.Tab>
           </Tabs.List>
           <Tabs.Panel value="overview">
@@ -126,6 +128,16 @@ function ContainerPage() {
               env={env}
               id={inspect.data.Id}
               name={name}
+              namespace={namespace}
+              running={
+                summary ? summary.state === "running" : inspect.data.State?.Status === "running"
+              }
+            />
+          </Tabs.Panel>
+          <Tabs.Panel value="stats">
+            <StatsPanel
+              env={env}
+              id={inspect.data.Id}
               namespace={namespace}
               running={
                 summary ? summary.state === "running" : inspect.data.State?.Status === "running"

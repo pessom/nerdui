@@ -79,6 +79,8 @@ type Containers interface {
 	Inspect(ctx context.Context, namespace, ref string, size bool) (any, error)
 	// Logs passes the log lines of the container with the exact id to emit (#14).
 	Logs(ctx context.Context, namespace, id string, opts LogOptions, emit LogEmitter) error
+	// Stats samples the running container with the exact id every interval (#16).
+	Stats(ctx context.Context, namespace, id string, interval time.Duration, emit StatsEmitter) error
 }
 
 // Containers returns container operations of the local containerd.
