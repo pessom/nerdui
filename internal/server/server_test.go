@@ -44,6 +44,12 @@ func (f fakeRuntime) Nerdctl(context.Context) runtime.NerdctlStatus {
 	return runtime.NerdctlStatus{Compatible: true}
 }
 func (f fakeRuntime) Info(context.Context) (runtime.Info, error) { return runtime.Info{}, f.err }
+func (f fakeRuntime) PrunePreview(context.Context, string, bool) (runtime.PrunePreview, error) {
+	return runtime.PrunePreview{}, f.err
+}
+func (f fakeRuntime) Prune(context.Context, string, runtime.PruneOptions, io.Writer) error {
+	return f.err
+}
 
 // withRuntime returns a config whose local environment uses rt.
 func withRuntime(rt runtime.Runtime) Config {
@@ -290,6 +296,8 @@ func TestRouteAuthorization(t *testing.T) {
 		"POST /api/v1/environments/{env}/images/tag":                 "images:write",
 		"POST /api/v1/environments/{env}/images/remove":              "images:write",
 		"GET /api/v1/environments/{env}/registries":                  "registries:read",
+		"GET /api/v1/environments/{env}/system/prune":                "system:read",
+		"POST /api/v1/environments/{env}/system/prune":               "system:prune",
 		"POST /api/v1/environments/{env}/registries":                 "registries:write",
 		"DELETE /api/v1/environments/{env}/registries":               "registries:write",
 		"GET /api/v1/jobs":                                           "jobs:read",

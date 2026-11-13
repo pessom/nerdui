@@ -1,11 +1,14 @@
 // SPDX-FileCopyrightText: 2026 The nerdui Authors
 // SPDX-License-Identifier: AGPL-3.0-only
 
-import { Badge, Group, Loader, SimpleGrid, Stack, Text, Title } from "@mantine/core";
+import { Badge, Button, Group, Loader, SimpleGrid, Stack, Text, Title } from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
+import { IconTrash } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { envStatusQuery, versionQuery } from "../../../../api/queries";
 import { InfoCard, Row } from "../../../../components/InfoCard";
+import { PruneDialog } from "../../../../features/prune/PruneDialog";
 import { SystemInfoSection } from "../../../../features/system/SystemInfoSection";
 
 /** Environment overview: connectivity, versions, host and runtime information (#66). */
@@ -17,6 +20,7 @@ function Overview() {
   const { env } = Route.useParams();
   const status = useQuery(envStatusQuery(env));
   const version = useQuery(versionQuery);
+  const [pruning, { open, close }] = useDisclosure();
 
   if (status.isPending) return <Loader aria-label="Loading" />;
   if (status.isError) return <Text c="red">{status.error.message}</Text>;
@@ -27,10 +31,28 @@ function Overview() {
     <Stack>
       <Group justify="space-between">
         <Title order={2}>{s.name}</Title>
-        <Badge color={s.status === "connected" ? "teal" : "red"} size="lg">
-          {s.status}
-        </Badge>
+        <Group gap="xs">
+          {s.status === "connected" && (
+            <Button
+              variant="default"
+              leftSection={<IconTrash size={16} />}
+              onClick={open}
+              disabled={!!rt && !rt.nerdctl.compatible && !rt.nerdctl.checkSkipped}
+            >
+              Clean up…
+            </Button>
+          )}
+          <Badge color={s.status === "connected" ? "teal" : "red"} size="lg">
+            {s.status}
+          </Badge>
+        </Group>
       </Group>
+      <PruneDialog
+        env={env}
+        defaultNamespace={s.defaultNamespace}
+        opened={pruning}
+        onClose={close}
+      />
       {s.error && (
         <Text c="dimmed" size="sm">
           {s.error}

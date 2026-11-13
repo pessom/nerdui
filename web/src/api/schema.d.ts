@@ -618,6 +618,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/environments/{env}/system/prune": {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Estimate what a prune removes
+         * @description Requires `system:read` (#52, ADR-0020). Images are selected exactly as the prune does
+         *     (dangling, or all unused with `allImages`); containers are those stopped now; networks
+         *     and build cache are not previewed. Image sizes overlap where layers are shared.
+         */
+        get: operations["prunePreview"];
+        put?: never;
+        /**
+         * Remove unused resources (background job)
+         * @description Requires `system:prune` and a compatible host nerdctl. Runs nerdctl's container, network,
+         *     image and build cache prunes in the order of `nerdctl system prune`; volumes are never
+         *     pruned. One prune per namespace at a time (409).
+         */
+        post: operations["prune"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/environments/{env}/registries": {
         parameters: {
             query?: never;
@@ -1221,6 +1255,23 @@ export interface components {
             labels: {
                 [key: string]: string;
             };
+        };
+        PrunedItem: {
+            id: string;
+            name: string;
+            /** Format: int64 */
+            size?: number;
+        };
+        PrunePreview: {
+            containers: components["schemas"]["PrunedItem"][];
+            images: components["schemas"]["PrunedItem"][];
+            /**
+             * Format: int64
+             * @description Sum of unpacked sizes (upper bound)
+             */
+            imagesSize: number;
+            /** @description A BuildKit daemon is available for build cache pruning */
+            buildKit: boolean;
         };
         Registry: {
             /** @description Key in the docker config, e.g. https://index.docker.io/v1/ */
@@ -2246,6 +2297,87 @@ export interface operations {
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    prunePreview: {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+                allImages?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Preview */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrunePreview"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    prune: {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Stopped containers */
+                    containers?: boolean;
+                    /** @description Dangling images */
+                    images?: boolean;
+                    /** @description With images: all images no container uses; also all build cache */
+                    allImages?: boolean;
+                    /** @description Networks no container uses (not bridge */
+                    networks?: boolean;
+                    /** @description BuildKit cache (skipped without a BuildKit daemon) */
+                    buildCache?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Job started */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        job: components["schemas"]["Job"];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
             503: components["responses"]["Error"];
         };
     };

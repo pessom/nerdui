@@ -37,6 +37,13 @@ func jobsServer(t *testing.T, f *fakeRuntime, az authz.Authorizer) (*httptest.Se
 	t.Helper()
 	m := jobs.NewManager()
 	t.Cleanup(m.Close)
+	return jobsServerWith(t, f, az, m), m
+}
+
+// jobsServerWith serves the API over an existing job manager, e.g. to look at the same jobs
+// with another authorizer.
+func jobsServerWith(t *testing.T, f *fakeRuntime, az authz.Authorizer, m *jobs.Manager) *httptest.Server {
+	t.Helper()
 	subject := func(*http.Request) (authz.Subject, bool) { return authz.Subject{Role: authz.RoleAdmin}, true }
 	r := chi.NewRouter()
 	r.Route("/api/v1", func(r chi.Router) {
@@ -45,7 +52,7 @@ func jobsServer(t *testing.T, f *fakeRuntime, az authz.Authorizer) (*httptest.Se
 	})
 	srv := httptest.NewServer(r)
 	t.Cleanup(srv.Close)
-	return srv, m
+	return srv
 }
 
 func postJSON(t *testing.T, url, body string) (*http.Response, map[string]any) {
@@ -157,13 +164,24 @@ func TestCancelJobAndVisibility(t *testing.T) {
 		t.Errorf("job %+v", j)
 	}
 
-	// A caller without images:write does not see the pull job.
-	other, _ := jobsServer(t, f, onlyActions{authz.JobsRead})
-	otherJobs := other.Config.Handler
+	// The same jobs seen by a caller without images:write: not listed, not readable.
+	other := jobsServerWith(t, f, onlyActions{authz.JobsRead}, m).Config.Handler
 	rec := httptest.NewRecorder()
-	otherJobs.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/v1/jobs", nil))
+	other.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/v1/jobs", nil))
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"jobs":[]`) {
 		t.Errorf("list without images:write: %d %s", rec.Code, rec.Body)
+	}
+	rec = httptest.NewRecorder()
+	other.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/v1/jobs/"+id+"/cancel", nil))
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("cancel without images:write: %d", rec.Code)
+	}
+	// With images:write the job is listed.
+	allowed := jobsServerWith(t, f, onlyActions{authz.JobsRead, authz.ImagesWrite}, m).Config.Handler
+	rec = httptest.NewRecorder()
+	allowed.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/v1/jobs", nil))
+	if !strings.Contains(rec.Body.String(), id) {
+		t.Errorf("list with images:write: %s", rec.Body)
 	}
 }
 

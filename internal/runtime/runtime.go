@@ -3,7 +3,10 @@
 
 package runtime
 
-import "context"
+import (
+	"context"
+	"io"
+)
 
 // Runtime is everything nerdui can do with one environment (ADR-0006). It is split into
 // small interfaces so handlers depend only on what they use and can be tested with fakes.
@@ -30,6 +33,9 @@ type System interface {
 	Nerdctl(ctx context.Context) NerdctlStatus
 	// Info describes the host, runtime components and containerd plugins (#66).
 	Info(ctx context.Context) (Info, error)
+	// PrunePreview estimates what Prune removes; Prune runs nerdctl's prunes (#52).
+	PrunePreview(ctx context.Context, namespace string, allImages bool) (PrunePreview, error)
+	Prune(ctx context.Context, namespace string, opts PruneOptions, out io.Writer) error
 }
 
 var _ Runtime = (*Client)(nil)

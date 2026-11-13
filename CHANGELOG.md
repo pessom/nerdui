@@ -23,6 +23,9 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 - **Registries:** log in to and out of registries from the UI; logins are verified by the
   registry and stored in the host's docker config, shared with `nerdctl login`, and used for
   pulls and pushes (#51, ADR-0019).
+- **Clean up:** remove stopped containers, dangling or all unused images, unused networks and
+  build cache of a namespace as a background job, with an estimate of what goes; volumes are not
+  touched (#52, ADR-0020).
 - **Background jobs:** long operations run in the background; the header shows running jobs and
   the Jobs panel lists recent ones with their output and a Cancel button (#126, ADR-0018).
 
