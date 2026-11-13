@@ -14,6 +14,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/containerd/errdefs"
 	"github.com/go-chi/chi/v5"
@@ -34,26 +35,29 @@ type fakeRuntime struct {
 	containers []runtime.Container
 	gotNS      string
 
-	mu          sync.Mutex
-	actions     []actionCall
-	actionErr   map[string]error // by container id
-	inspect     map[string]any   // by container ref
-	logs        []runtime.LogLine
-	logErr      error // returned before any line
-	logFollow   bool  // with Follow, block until ctx ends after the lines
-	gotLogs     runtime.LogOptions
-	gotSize     bool
-	info        runtime.Info
-	images      []runtime.Image
-	pulls       []pullCall
-	pullRelease chan struct{}
-	pullErr     error
-	tags        [][3]string
-	removed     []string
-	pushes      []pushCall
-	imageErr    map[string]error // by reference (and registry server for logins)
-	registries  []runtime.Registry
-	prunes      []runtime.PruneOptions
+	mu           sync.Mutex
+	actions      []actionCall
+	actionErr    map[string]error // by container id
+	inspect      map[string]any   // by container ref
+	logs         []runtime.LogLine
+	logErr       error // returned before any line
+	logFollow    bool  // with Follow, block until ctx ends after the lines
+	gotLogs      runtime.LogOptions
+	gotSize      bool
+	info         runtime.Info
+	images       []runtime.Image
+	pulls        []pullCall
+	pullRelease  chan struct{}
+	pullErr      error
+	tags         [][3]string
+	removed      []string
+	pushes       []pushCall
+	imageErr     map[string]error // by reference (and registry server for logins)
+	registries   []runtime.Registry
+	prunes       []runtime.PruneOptions
+	statsSamples []runtime.StatsSample
+	statsErr     error
+	gotInterval  time.Duration
 }
 
 type actionCall struct {
@@ -93,6 +97,22 @@ func (f *fakeRuntime) Prune(_ context.Context, _ string, opts runtime.PruneOptio
 	f.mu.Unlock()
 	_, _ = io.WriteString(out, "Deleted Containers:\nc1\n")
 	return f.err
+}
+
+// Stats emits statsSamples, then ends (container stopped) or returns statsErr.
+func (f *fakeRuntime) Stats(_ context.Context, _, _ string, interval time.Duration, emit runtime.StatsEmitter) error {
+	f.mu.Lock()
+	f.gotInterval = interval
+	f.mu.Unlock()
+	if f.statsErr != nil {
+		return f.statsErr
+	}
+	for _, s := range f.statsSamples {
+		if err := emit(s); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 func (f *fakeRuntime) Registries() runtime.Registries { return fakeRegistries{f} }
 

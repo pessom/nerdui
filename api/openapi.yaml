@@ -1041,6 +1041,34 @@ paths:
         "409": { $ref: "#/components/responses/Error" }
         "500": { $ref: "#/components/responses/Error" }
         "503": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/containers/{id}/stats/stream:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - $ref: "#/components/parameters/Namespace"
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+        description: Full container ID
+    get:
+      tags: [containers]
+      operationId: streamContainerStats
+      summary: Live resource usage of a running container (WebSocket)
+      description: |
+        Requires `containers:read` (#16). Samples like `nerdctl stats` every `interval` (1s to
+        10s, default 2s) while the client is connected; data messages are `StatsSample`s. The
+        stream ends with `end` when the container stops; a container that is not running gets
+        an error (`conflict`) and `end`.
+      parameters:
+        - name: interval
+          in: query
+          schema: { type: string, examples: ["2s"] }
+      responses:
+        "101": { description: Switching protocols }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
   /api/v1/environments/{env}/containers/{id}/logs/stream:
     parameters:
       - $ref: "#/components/parameters/Env"
@@ -1603,6 +1631,20 @@ components:
         job: { $ref: "#/components/schemas/Job" }
         output: { type: string, description: Terminal output (ANSI) }
         reset: { type: boolean, description: "output is the whole stored screen: clear first" }
+    StatsSample:
+      type: object
+      required: [ts, cpuPercent, memoryUsage, memoryLimit, memoryPercent, networkRx, networkTx, blockRead, blockWrite, pids]
+      properties:
+        ts: { type: string, format: date-time }
+        cpuPercent: { type: number, description: "Relative to one CPU: 200 = two CPUs busy" }
+        memoryUsage: { type: integer, format: int64 }
+        memoryLimit: { type: integer, format: int64, description: Container limit, or host memory }
+        memoryPercent: { type: number }
+        networkRx: { type: integer, format: int64, description: Cumulative bytes }
+        networkTx: { type: integer, format: int64 }
+        blockRead: { type: integer, format: int64, description: Cumulative bytes }
+        blockWrite: { type: integer, format: int64 }
+        pids: { type: integer, format: int64 }
     LogLine:
       type: object
       required: [stream, line]

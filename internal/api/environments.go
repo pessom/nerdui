@@ -50,6 +50,7 @@ func (h *Handler) Routes(r chi.Router, g *authz.Guard) {
 		r.Method(http.MethodGet, "/containers/{id}/inspect", g.Protect(authz.ContainersRead, h.inspectContainer))
 		r.Method(http.MethodGet, "/containers/{id}/logs", g.Protect(authz.ContainersRead, h.containerLogsDownload))
 		r.Method(http.MethodGet, "/containers/{id}/logs/stream", g.Protect(authz.ContainersRead, h.containerLogsStream))
+		r.Method(http.MethodGet, "/containers/{id}/stats/stream", g.Protect(authz.ContainersRead, h.containerStatsStream))
 		h.containerActionRoutes(r, g)
 		r.Method(http.MethodGet, "/images", g.Protect(authz.ImagesRead, h.listImages))
 		r.Method(http.MethodPost, "/images/pull", g.Protect(authz.ImagesWrite, h.pullImage))

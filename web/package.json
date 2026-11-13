@@ -39,7 +39,8 @@
     "@xterm/xterm": "^6.0.0",
     "openapi-fetch": "^0.17.0",
     "react": "^19.3.1",
-    "react-dom": "^19.3.1"
+    "react-dom": "^19.3.1",
+    "uplot": "1.6.32"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
