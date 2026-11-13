@@ -10,6 +10,7 @@ import {
   Group,
   Indicator,
   Loader,
+  Modal,
   Paper,
   Stack,
   Text,
@@ -22,6 +23,7 @@ import {
   IconChevronDown,
   IconChevronRight,
   IconListCheck,
+  IconMaximize,
   IconPlayerStop,
 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -48,6 +50,8 @@ const statusColor: Record<Job["status"], string> = {
 export function JobsProvider({ children }: { children: ReactNode }) {
   const [opened, setOpened] = useState(false);
   const [expanded, setExpanded] = useState<string>();
+  // The job whose output is open full screen; Escape then closes only that modal.
+  const [fullScreen, setFullScreen] = useState<string>();
   const open = useCallback((jobId?: string) => {
     if (jobId) setExpanded(jobId);
     setOpened(true);
@@ -62,8 +66,21 @@ export function JobsProvider({ children }: { children: ReactNode }) {
         title="Jobs"
         position="right"
         size="xl"
+        closeOnEscape={!fullScreen}
+        // The expanded job takes the free height: the body is a column down to the bottom.
+        styles={{
+          content: { display: "flex", flexDirection: "column" },
+          body: { flex: 1, minHeight: 0, display: "flex", flexDirection: "column" },
+        }}
       >
-        {opened && <JobList expanded={expanded} setExpanded={setExpanded} />}
+        {opened && (
+          <JobList
+            expanded={expanded}
+            setExpanded={setExpanded}
+            fullScreen={fullScreen}
+            setFullScreen={setFullScreen}
+          />
+        )}
       </Drawer>
     </JobsContext.Provider>
   );
@@ -87,9 +104,13 @@ export function JobsIndicator({ onOpen }: { onOpen: () => void }) {
 function JobList({
   expanded,
   setExpanded,
+  fullScreen,
+  setFullScreen,
 }: {
   expanded?: string;
   setExpanded: (id?: string) => void;
+  fullScreen?: string;
+  setFullScreen: (id?: string) => void;
 }) {
   const jobs = useQuery(jobsQuery);
   if (jobs.isPending) return <Loader aria-label="Loading jobs" />;
@@ -101,13 +122,15 @@ function JobList({
       </Text>
     );
   return (
-    <Stack gap="xs">
+    <Stack gap="xs" style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
       {jobs.data.map((j) => (
         <JobItem
           key={j.id}
           job={j}
           expanded={expanded === j.id}
           onToggle={() => setExpanded(expanded === j.id ? undefined : j.id)}
+          fullScreen={fullScreen === j.id}
+          setFullScreen={(on) => setFullScreen(on ? j.id : undefined)}
         />
       ))}
     </Stack>
@@ -118,10 +141,14 @@ function JobItem({
   job,
   expanded,
   onToggle,
+  fullScreen,
+  setFullScreen,
 }: {
   job: Job;
   expanded: boolean;
   onToggle: () => void;
+  fullScreen: boolean;
+  setFullScreen: (on: boolean) => void;
 }) {
   const queryClient = useQueryClient();
   const dark = useComputedColorScheme("light") === "dark";
@@ -142,7 +169,17 @@ function JobItem({
   );
   const Chevron = expanded ? IconChevronDown : IconChevronRight;
   return (
-    <Paper withBorder p="xs" component="section" aria-label={job.title}>
+    <Paper
+      withBorder
+      p="xs"
+      component="section"
+      aria-label={job.title}
+      style={
+        expanded
+          ? { flex: "1 0 auto", minHeight: 320, display: "flex", flexDirection: "column" }
+          : { flex: "none" }
+      }
+    >
       <Group justify="space-between" wrap="nowrap">
         <UnstyledButton
           onClick={onToggle}
@@ -178,6 +215,19 @@ function JobItem({
               Cancel
             </Button>
           )}
+          {expanded && (
+            <Tooltip label="Full screen">
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                size="sm"
+                aria-label="Full screen output"
+                onClick={() => setFullScreen(true)}
+              >
+                <IconMaximize size={14} />
+              </ActionIcon>
+            </Tooltip>
+          )}
           {job.result?.containerId && (
             <Button
               size="compact-xs"
@@ -200,13 +250,31 @@ function JobItem({
           {job.error}
         </Text>
       )}
-      {expanded && (
-        <Box h={320} mt="xs">
+      {expanded && !fullScreen && (
+        <Box mt="xs" style={{ flex: 1, minHeight: 0 }}>
           <Suspense fallback={<Loader aria-label="Loading output" />}>
             <JobTerminal jobId={job.id} dark={dark} onJob={onJob} />
           </Suspense>
         </Box>
       )}
+      <Modal
+        opened={fullScreen}
+        onClose={() => setFullScreen(false)}
+        title={job.title}
+        fullScreen
+        styles={{
+          content: { display: "flex", flexDirection: "column" },
+          body: { flex: 1, minHeight: 0 },
+        }}
+      >
+        {fullScreen && (
+          <Box h="100%">
+            <Suspense fallback={<Loader aria-label="Loading output" />}>
+              <JobTerminal jobId={job.id} dark={dark} onJob={onJob} />
+            </Suspense>
+          </Box>
+        )}
+      </Modal>
     </Paper>
   );
 }

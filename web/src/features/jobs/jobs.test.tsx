@@ -68,6 +68,19 @@ describe("jobs", () => {
     // The header shows the running job.
     expect(screen.getByRole("button", { name: "Jobs" })).toBeInTheDocument();
 
+    // The output can be opened full screen.
+    fireEvent.click(within(item).getByRole("button", { name: "Full screen output" }));
+    const full = await screen.findByRole("dialog", { name: "Pull nginx:1.27" });
+    expect(within(full).getByLabelText("Job output")).toHaveTextContent("output of j1");
+    fireEvent.keyDown(full, { key: "Escape" });
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "Pull nginx:1.27" })).not.toBeInTheDocument(),
+    );
+    // Escape closes only the full-screen output; the panel stays open with the inline output.
+    expect(screen.getByRole("dialog", { name: "Jobs" })).toBeInTheDocument();
+    expect(item.isConnected).toBe(true);
+    expect(await within(item).findByLabelText("Job output")).toBeInTheDocument();
+
     fireEvent.click(within(item).getByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(within(item).getByText("canceled")).toBeInTheDocument());
   });
