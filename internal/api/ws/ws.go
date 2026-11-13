@@ -14,6 +14,7 @@
 package ws
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -183,6 +184,15 @@ func (c *Conn) SendBinary(p []byte) bool {
 		return true
 	}
 	return c.enqueue(frame{typ: websocket.MessageBinary, data: p})
+}
+
+// SendBinaryWait queues a binary frame, waiting for queue space instead of disconnecting a
+// slow client: exec output is paced to the client like logs (ADR-0014). The data is copied.
+func (c *Conn) SendBinaryWait(p []byte) bool {
+	if len(p) == 0 {
+		return true
+	}
+	return c.enqueueWait(frame{typ: websocket.MessageBinary, data: bytes.Clone(p)})
 }
 
 // End sends the end message, closes the connection normally after it was delivered and

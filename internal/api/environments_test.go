@@ -4,6 +4,7 @@
 package api
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
@@ -58,6 +59,9 @@ type fakeRuntime struct {
 	statsSamples []runtime.StatsSample
 	statsErr     error
 	gotInterval  time.Duration
+	gotExec      runtime.ExecOptions
+	gotSizes     []runtime.TermSize
+	execErr      error
 }
 
 type actionCall struct {
@@ -81,7 +85,45 @@ func (f *fakeRuntime) Namespaces(context.Context) ([]string, error)  { return f.
 func (f *fakeRuntime) Nerdctl(context.Context) runtime.NerdctlStatus { return f.nerdctl }
 func (f *fakeRuntime) Containers() runtime.Containers                { return f }
 func (f *fakeRuntime) Info(context.Context) (runtime.Info, error)    { return f.info, f.err }
-func (f *fakeRuntime) Images() runtime.Images                        { return fakeImages{f} }
+
+// Exec echoes input until a line "exit N" and records sizes; execErr fails it up front.
+func (f *fakeRuntime) Exec(ctx context.Context, _, _ string, opts runtime.ExecOptions, stdin io.Reader, out io.Writer, resize <-chan runtime.TermSize) (int, error) {
+	f.mu.Lock()
+	f.gotExec = opts
+	f.mu.Unlock()
+	if f.execErr != nil {
+		return -1, f.execErr
+	}
+	lines := make(chan string)
+	go func() {
+		sc := bufio.NewScanner(stdin)
+		for sc.Scan() {
+			lines <- sc.Text()
+		}
+		close(lines)
+	}()
+	for {
+		select {
+		case <-ctx.Done():
+			return -1, ctx.Err()
+		case s := <-resize:
+			f.mu.Lock()
+			f.gotSizes = append(f.gotSizes, s)
+			f.mu.Unlock()
+		case l, ok := <-lines:
+			if !ok {
+				return -1, io.EOF
+			}
+			var code int
+			if _, err := fmt.Sscanf(l, "exit %d", &code); err == nil {
+				return code, nil
+			}
+			_, _ = io.WriteString(out, "echo: "+l+"\r\n")
+		}
+	}
+}
+
+func (f *fakeRuntime) Images() runtime.Images { return fakeImages{f} }
 func (f *fakeRuntime) PrunePreview(_ context.Context, ns string, all bool) (runtime.PrunePreview, error) {
 	f.gotNS = ns
 	p := runtime.PrunePreview{Containers: []runtime.PrunedItem{{ID: "c1", Name: "old"}}, Images: []runtime.PrunedItem{}}

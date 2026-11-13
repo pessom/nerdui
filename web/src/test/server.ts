@@ -80,6 +80,7 @@ export const envStatus = {
   defaultNamespace: "default",
   status: "connected",
   runtime,
+  features: { exec: true },
 };
 
 /** No-op WebSocket so the events stream does not reach the network in tests. */

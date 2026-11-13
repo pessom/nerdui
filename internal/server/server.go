@@ -41,7 +41,9 @@ type Config struct {
 	Jobs *jobs.Manager
 	// EventHistory serves recorded events (#65); nil when recording is disabled.
 	EventHistory api.EventHistory
-	Logger       *slog.Logger
+	// DisableExec turns off the web terminal (#15).
+	DisableExec bool
+	Logger      *slog.Logger
 }
 
 // VersionResponse is returned by GET /api/v1/version. Keep in sync with api/openapi.yaml.
@@ -86,7 +88,8 @@ func New(cfg Config) http.Handler {
 		r.Group(func(r chi.Router) {
 			r.Use(cfg.Auth.RequireSession, auth.CSRF, auth.PasswordChanged)
 			(&api.Handler{
-				Envs: cfg.Environments, Jobs: cfg.Jobs, EventHistory: cfg.EventHistory, Logger: cfg.Logger,
+				Envs: cfg.Environments, Jobs: cfg.Jobs, EventHistory: cfg.EventHistory,
+				ExecDisabled: cfg.DisableExec, Logger: cfg.Logger,
 			}).Routes(r, guard)
 		})
 	})

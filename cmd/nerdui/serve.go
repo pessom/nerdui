@@ -133,7 +133,7 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 	srv := &http.Server{
 		Handler: server.New(server.Config{
 			Auth: authSvc, Environments: envs, UI: web.Dist(), Jobs: jobManager,
-			EventHistory: eventHistory, Logger: logger,
+			EventHistory: eventHistory, DisableExec: cfg.DisableExec, Logger: logger,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
 		BaseContext:       func(net.Listener) context.Context { return streamsCtx },

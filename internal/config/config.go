@@ -62,6 +62,8 @@ type Config struct {
 	LogLevel string
 	// EventsRetention is how long the event history is kept (#65); 0 disables it.
 	EventsRetention time.Duration
+	// DisableExec turns off the web terminal into containers (#15, ADR-0022).
+	DisableExec bool
 }
 
 // Default returns the configuration with all default values.

@@ -1069,6 +1069,52 @@ paths:
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/containers/{id}/exec:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - $ref: "#/components/parameters/Namespace"
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+        description: Full container ID
+    get:
+      tags: [containers]
+      operationId: execContainer
+      summary: Terminal in a running container (WebSocket)
+      description: |
+        Requires `containers:exec` (#15, ADR-0022); 403 when the server runs with
+        `--disable-exec`. Like `nerdctl exec -it`. Binary frames carry input (client) and
+        terminal output (server); the client sends `{"type":"resize","cols":n,"rows":n}` as
+        text. The session ends with a data message `{"exitCode": n}` and `end`; closing the
+        WebSocket kills the process. A container that is not running gets an error
+        (`conflict`).
+      parameters:
+        - name: cmd
+          in: query
+          schema: { type: array, items: { type: string } }
+          style: form
+          explode: true
+          description: argv, repeated; default bash if present, else sh
+        - name: user
+          in: query
+          schema: { type: string }
+          description: Name or UID[:GID], resolved in the container
+        - name: workdir
+          in: query
+          schema: { type: string }
+        - name: cols
+          in: query
+          schema: { type: integer }
+        - name: rows
+          in: query
+          schema: { type: integer }
+      responses:
+        "101": { description: Switching protocols }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
   /api/v1/environments/{env}/containers/{id}/logs/stream:
     parameters:
       - $ref: "#/components/parameters/Env"
@@ -1275,11 +1321,16 @@ components:
       allOf:
         - $ref: "#/components/schemas/Environment"
         - type: object
-          required: [status]
+          required: [status, features]
           properties:
             status: { type: string, enum: [connected, unavailable] }
             error: { type: string }
             runtime: { $ref: "#/components/schemas/RuntimeVersions" }
+            features:
+              type: object
+              required: [exec]
+              properties:
+                exec: { type: boolean, description: "False when the web terminal is disabled (--disable-exec)" }
     Container:
       type: object
       required: [id, name, namespace, image, command, state, createdAt, ports, labels]

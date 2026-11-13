@@ -32,6 +32,8 @@ type Handler struct {
 	Jobs *jobs.Manager
 	// EventHistory serves the event feed (#65); nil when recording is disabled.
 	EventHistory EventHistory
+	// ExecDisabled turns off the web terminal (--disable-exec, #15).
+	ExecDisabled bool
 	Logger       *slog.Logger
 }
 
@@ -51,6 +53,7 @@ func (h *Handler) Routes(r chi.Router, g *authz.Guard) {
 		r.Method(http.MethodGet, "/containers/{id}/logs", g.Protect(authz.ContainersRead, h.containerLogsDownload))
 		r.Method(http.MethodGet, "/containers/{id}/logs/stream", g.Protect(authz.ContainersRead, h.containerLogsStream))
 		r.Method(http.MethodGet, "/containers/{id}/stats/stream", g.Protect(authz.ContainersRead, h.containerStatsStream))
+		r.Method(http.MethodGet, "/containers/{id}/exec", g.Protect(authz.ContainersExec, h.containerExec))
 		h.containerActionRoutes(r, g)
 		r.Method(http.MethodGet, "/images", g.Protect(authz.ImagesRead, h.listImages))
 		r.Method(http.MethodPost, "/images/pull", g.Protect(authz.ImagesWrite, h.pullImage))
@@ -79,6 +82,14 @@ type EnvironmentStatus struct {
 	Status  string            `json:"status"` // connected | unavailable
 	Error   string            `json:"error,omitempty"`
 	Runtime *runtime.Versions `json:"runtime,omitempty"`
+	// Features reports server settings the UI adapts to.
+	Features Features `json:"features"`
+}
+
+// Features of the server for an environment.
+type Features struct {
+	// Exec is false when the web terminal is disabled (--disable-exec).
+	Exec bool `json:"exec"`
 }
 
 // Environment statuses.
@@ -104,7 +115,7 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
 	e := EnvFrom(r.Context())
 	ctx, cancel := context.WithTimeout(r.Context(), statusTimeout)
 	defer cancel()
-	resp := EnvironmentStatus{Environment: toAPI(e), Status: StatusConnected}
+	resp := EnvironmentStatus{Environment: toAPI(e), Status: StatusConnected, Features: Features{Exec: !h.ExecDisabled}}
 	v, err := e.Runtime.System().Versions(ctx)
 	if err != nil {
 		resp.Status = StatusUnavailable

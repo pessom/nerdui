@@ -145,6 +145,8 @@ nerdui serves **HTTPS on port 9443** by default ([ADR-0005](adr/0005-authenticat
   username (5 per minute, then blocks of 1–15 minutes) and logged.
 - **Event history.** Containerd events are recorded in the database for the Events page; keep
   them for `--events-retention` (default `168h`, `0` disables recording).
+- **Web terminal.** Any user can open a shell in running containers (Terminal tab); sessions are
+  logged. Start nerdui with `--disable-exec` (`NERDUI_DISABLE_EXEC=true`) to turn it off.
 - **Users.** Administrators add users, set temporary passwords, disable and delete accounts on
   the Users page (ADR-0016). A temporary password must be changed at the next sign-in. Every
   user is an administrator until roles are available.
