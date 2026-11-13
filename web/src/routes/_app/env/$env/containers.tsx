@@ -1,9 +1,10 @@
 // SPDX-FileCopyrightText: 2026 The nerdui Authors
 // SPDX-License-Identifier: AGPL-3.0-only
 
-import { Alert, Group, Loader, Title } from "@mantine/core";
+import { Alert, Button, Group, Loader, Title } from "@mantine/core";
+import { IconPlus } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, getRouteApi } from "@tanstack/react-router";
+import { createFileRoute, getRouteApi, useNavigate } from "@tanstack/react-router";
 import { containersQuery, envStatusQuery } from "../../../../api/queries";
 import { useContainerActions } from "../../../../features/containers/actions";
 import { ContainersTable } from "../../../../features/containers/ContainersTable";
@@ -18,6 +19,7 @@ export const Route = createFileRoute("/_app/env/$env/containers")({
 function ContainersPage() {
   const { env } = Route.useParams();
   const { ns } = envRoute.useSearch();
+  const navigate = useNavigate();
   const status = useQuery(envStatusQuery(env));
   const namespace = ns ?? status.data?.defaultNamespace ?? "default";
   const list = useQuery(containersQuery(env, namespace));
@@ -29,8 +31,19 @@ function ContainersPage() {
   return (
     <>
       <Group justify="space-between" mb="md">
-        <Title order={2}>Containers</Title>
-        {list.isFetching && !list.isPending && <Loader size="xs" aria-label="Refreshing" />}
+        <Group gap="xs">
+          <Title order={2}>Containers</Title>
+          {list.isFetching && !list.isPending && <Loader size="xs" aria-label="Refreshing" />}
+        </Group>
+        <Button
+          onClick={() =>
+            void navigate({ to: "/env/$env/containers/new", params: { env }, search: { ns } })
+          }
+          leftSection={<IconPlus size={16} />}
+          disabled={readOnly}
+        >
+          New container
+        </Button>
       </Group>
       {list.isPending && <Loader aria-label="Loading" />}
       {list.isError && (

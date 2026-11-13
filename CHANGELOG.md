@@ -9,6 +9,10 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 
 ### Added
 
+- **New container:** a form for image, name, command, ports, environment (secret values masked),
+  volumes and mounts, network, limits, restart policy, labels and more; it shows the equivalent
+  `nerdctl run` command and creates the container with the host's nerdctl as a background job,
+  pulling the image first when needed (#17).
 - **Container stats:** a Stats tab with live CPU, memory (used / limit), network and block I/O
   rates and PIDs, sampled like `nerdctl stats` every 1–5 s while the tab is open, with charts of
   the last five minutes (#16).

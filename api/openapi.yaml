@@ -584,6 +584,62 @@ paths:
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
         "503": { $ref: "#/components/responses/Error" }
+    post:
+      tags: [containers]
+      operationId: createContainer
+      summary: Create (and start) a container (background job)
+      description: |
+        Requires `containers:write` and a compatible host nerdctl (#17, ADR-0003). The job pulls
+        the image when it is missing, runs the host's `nerdctl create` with arguments built from
+        the typed spec (no shell) and starts the container when `start` is set; its `result`
+        has `containerId`. Invalid specs answer 400 before a job starts.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateContainerRequest" }
+      responses:
+        "202":
+          description: Job started
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [job]
+                properties:
+                  job: { $ref: "#/components/schemas/Job" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/containers/command:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+    post:
+      tags: [containers]
+      operationId: containerCommand
+      summary: The nerdctl command equivalent to a create request
+      description: "Requires `containers:write`. `nerdctl run -d …`, or `nerdctl create …` without `start`."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateContainerRequest" }
+      responses:
+        "200":
+          description: Shell-quoted command
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [command]
+                properties:
+                  command: { type: string }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
   /api/v1/environments/{env}/images:
     parameters:
       - $ref: "#/components/parameters/Env"
@@ -1661,6 +1717,52 @@ components:
         objectId: { type: string }
         objectName: { type: string, description: Container name at the time of the event }
         attributes: { type: object, additionalProperties: { type: string } }
+    CreateContainerRequest:
+      type: object
+      required: [image]
+      additionalProperties: false
+      properties:
+        image: { type: string, examples: ["nginx:1.27"] }
+        name: { type: string }
+        entrypoint: { type: string }
+        command: { type: array, items: { type: string } }
+        ports:
+          type: array
+          items:
+            type: object
+            required: [containerPort]
+            properties:
+              hostIp: { type: string }
+              hostPort: { type: integer, description: 0 or absent = random }
+              containerPort: { type: integer }
+              protocol: { type: string, enum: [tcp, udp] }
+        env:
+          type: array
+          items:
+            type: object
+            required: [name, value]
+            properties:
+              name: { type: string }
+              value: { type: string }
+        mounts:
+          type: array
+          items:
+            type: object
+            required: [type, target]
+            properties:
+              type: { type: string, enum: [volume, bind, tmpfs] }
+              source: { type: string, description: "Volume name (empty = anonymous) or absolute host path" }
+              target: { type: string }
+              readOnly: { type: boolean }
+        network: { type: string, examples: ["bridge", "host", "none"] }
+        hostname: { type: string }
+        user: { type: string }
+        workdir: { type: string }
+        cpus: { type: number }
+        memoryBytes: { type: integer, format: int64 }
+        restart: { type: string, examples: ["no", "always", "unless-stopped", "on-failure:3"] }
+        labels: { type: object, additionalProperties: { type: string } }
+        start: { type: boolean, description: Start after creating (like nerdctl run -d) }
     Job:
       type: object
       required: [id, kind, title, environment, status, startedAt]
@@ -1676,6 +1778,10 @@ components:
         error: { type: string }
         startedAt: { type: string, format: date-time }
         finishedAt: { type: string, format: date-time }
+        result:
+          type: object
+          additionalProperties: { type: string }
+          description: Values the job set, e.g. containerId of a created container
     JobFrame:
       type: object
       properties:

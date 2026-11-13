@@ -12,6 +12,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"maps"
 	"slices"
 	"sync"
 	"time"
@@ -65,6 +66,8 @@ type Job struct {
 	Error       string     `json:"error,omitempty"`
 	StartedAt   time.Time  `json:"startedAt"`
 	FinishedAt  *time.Time `json:"finishedAt,omitempty"`
+	// Result holds values set by the job (Output.SetResult), available once it finished.
+	Result map[string]string `json:"result,omitempty"`
 }
 
 // Done reports whether the job has finished.
@@ -177,6 +180,9 @@ func (m *Manager) finish(ctx context.Context, e *entry, err error) {
 	defer m.mu.Unlock()
 	now := m.now().UTC()
 	e.job.FinishedAt = &now
+	if len(e.out.result) > 0 {
+		e.job.Result = maps.Clone(e.out.result)
+	}
 	switch {
 	case err == nil:
 		e.job.Status = StatusSucceeded

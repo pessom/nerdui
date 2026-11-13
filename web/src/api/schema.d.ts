@@ -473,7 +473,37 @@ export interface paths {
          */
         get: operations["listContainers"];
         put?: never;
-        post?: never;
+        /**
+         * Create (and start) a container (background job)
+         * @description Requires `containers:write` and a compatible host nerdctl (#17, ADR-0003). The job pulls
+         *     the image when it is missing, runs the host's `nerdctl create` with arguments built from
+         *     the typed spec (no shell) and starts the container when `start` is set; its `result`
+         *     has `containerId`. Invalid specs answer 400 before a job starts.
+         */
+        post: operations["createContainer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/environments/{env}/containers/command": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * The nerdctl command equivalent to a create request
+         * @description Requires `containers:write`. `nerdctl run -d …`, or `nerdctl create …` without `start`.
+         */
+        post: operations["containerCommand"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1374,6 +1404,57 @@ export interface components {
                 [key: string]: string;
             };
         };
+        CreateContainerRequest: {
+            /** @example nginx:1.27 */
+            image: string;
+            name?: string;
+            entrypoint?: string;
+            command?: string[];
+            ports?: {
+                hostIp?: string;
+                /** @description 0 or absent = random */
+                hostPort?: number;
+                containerPort: number;
+                /** @enum {string} */
+                protocol?: "tcp" | "udp";
+            }[];
+            env?: {
+                name: string;
+                value: string;
+            }[];
+            mounts?: {
+                /** @enum {string} */
+                type: "volume" | "bind" | "tmpfs";
+                /** @description Volume name (empty = anonymous) or absolute host path */
+                source?: string;
+                target: string;
+                readOnly?: boolean;
+            }[];
+            /**
+             * @example bridge
+             * @example host
+             * @example none
+             */
+            network?: string;
+            hostname?: string;
+            user?: string;
+            workdir?: string;
+            cpus?: number;
+            /** Format: int64 */
+            memoryBytes?: number;
+            /**
+             * @example no
+             * @example always
+             * @example unless-stopped
+             * @example on-failure:3
+             */
+            restart?: string;
+            labels?: {
+                [key: string]: string;
+            };
+            /** @description Start after creating (like nerdctl run -d) */
+            start?: boolean;
+        };
         Job: {
             id: string;
             /** @example image.pull */
@@ -1393,6 +1474,10 @@ export interface components {
             startedAt: string;
             /** Format: date-time */
             finishedAt?: string;
+            /** @description Values the job set, e.g. containerId of a created container */
+            result?: {
+                [key: string]: string;
+            };
         };
         JobFrame: {
             job?: components["schemas"]["Job"];
@@ -2191,6 +2276,76 @@ export interface operations {
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
             503: components["responses"]["Error"];
+        };
+    };
+    createContainer: {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateContainerRequest"];
+            };
+        };
+        responses: {
+            /** @description Job started */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        job: components["schemas"]["Job"];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    containerCommand: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateContainerRequest"];
+            };
+        };
+        responses: {
+            /** @description Shell-quoted command */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        command: string;
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
         };
     };
     listImages: {

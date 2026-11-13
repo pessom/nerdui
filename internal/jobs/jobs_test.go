@@ -66,12 +66,13 @@ func TestJobLifecycle(t *testing.T) {
 
 	ok, err := m.Start(Spec{Kind: "test", Title: "ok"}, func(_ context.Context, out *Output) error {
 		_, _ = out.Write([]byte("hello\n"))
+		out.SetResult("containerId", "abc")
 		return nil
 	})
 	if err != nil || ok.Status != StatusRunning || ok.ID == "" {
 		t.Fatalf("start: %+v %v", ok, err)
 	}
-	if j := wait(t, m, ok.ID); j.Status != StatusSucceeded || j.FinishedAt == nil {
+	if j := wait(t, m, ok.ID); j.Status != StatusSucceeded || j.FinishedAt == nil || j.Result["containerId"] != "abc" {
 		t.Errorf("succeeded job %+v", j)
 	}
 	_, out, ch, _, _ := m.Subscribe(ok.ID)

@@ -49,6 +49,8 @@ func (h *Handler) Routes(r chi.Router, g *authz.Guard) {
 		r.Method(http.MethodGet, "/events/stream", g.Protect(authz.SystemRead, h.eventsStream))
 		r.Method(http.MethodGet, "/events", g.Protect(authz.SystemRead, h.listEvents))
 		r.Method(http.MethodGet, "/containers", g.Protect(authz.ContainersRead, h.listContainers))
+		r.Method(http.MethodPost, "/containers", g.Protect(authz.ContainersWrite, h.createContainer))
+		r.Method(http.MethodPost, "/containers/command", g.Protect(authz.ContainersWrite, h.containerCommand))
 		r.Method(http.MethodGet, "/containers/{id}/inspect", g.Protect(authz.ContainersRead, h.inspectContainer))
 		r.Method(http.MethodGet, "/containers/{id}/logs", g.Protect(authz.ContainersRead, h.containerLogsDownload))
 		r.Method(http.MethodGet, "/containers/{id}/logs/stream", g.Protect(authz.ContainersRead, h.containerLogsStream))

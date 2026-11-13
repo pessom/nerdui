@@ -25,6 +25,7 @@ import {
   IconPlayerStop,
 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "@tanstack/react-router";
 import { Suspense, lazy, useCallback, useMemo, useState, type ReactNode } from "react";
 import { api, unwrap } from "../../api/client";
 import { jobsQuery, keys, type Job } from "../../api/queries";
@@ -124,6 +125,7 @@ function JobItem({
 }) {
   const queryClient = useQueryClient();
   const dark = useComputedColorScheme("light") === "dark";
+  const navigate = useNavigate();
   const cancel = useMutation({
     mutationFn: () =>
       unwrap(api.POST("/api/v1/jobs/{id}/cancel", { params: { path: { id: job.id } } })),
@@ -174,6 +176,21 @@ function JobItem({
               onClick={() => cancel.mutate()}
             >
               Cancel
+            </Button>
+          )}
+          {job.result?.containerId && (
+            <Button
+              size="compact-xs"
+              variant="light"
+              onClick={() =>
+                void navigate({
+                  to: "/env/$env/containers/$id",
+                  params: { env: job.environment, id: job.result?.containerId ?? "" },
+                  search: { ns: job.namespace },
+                })
+              }
+            >
+              Open container
             </Button>
           )}
         </Group>

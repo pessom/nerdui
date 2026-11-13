@@ -22,6 +22,7 @@ import { Route as AppEnvEnvEventsRouteImport } from './routes/_app/env/$env/even
 import { Route as AppEnvEnvImagesRouteImport } from './routes/_app/env/$env/images'
 import { Route as AppEnvEnvRegistriesRouteImport } from './routes/_app/env/$env/registries'
 import { Route as AppEnvEnvContainersIdRouteImport } from './routes/_app/env/$env/containers_.$id'
+import { Route as AppEnvEnvContainersNewRouteImport } from './routes/_app/env/$env/containers_.new'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -87,6 +88,11 @@ const AppEnvEnvContainersIdRoute = AppEnvEnvContainersIdRouteImport.update({
   path: '/containers/$id',
   getParentRoute: () => AppEnvEnvRoute,
 } as any)
+const AppEnvEnvContainersNewRoute = AppEnvEnvContainersNewRouteImport.update({
+  id: '/containers_/new',
+  path: '/containers/new',
+  getParentRoute: () => AppEnvEnvRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -101,6 +107,7 @@ export interface FileRoutesByFullPath {
   '/env/$env/registries': typeof AppEnvEnvRegistriesRoute
   '/env/$env/': typeof AppEnvEnvIndexRoute
   '/env/$env/containers/$id': typeof AppEnvEnvContainersIdRoute
+  '/env/$env/containers/new': typeof AppEnvEnvContainersNewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -114,6 +121,7 @@ export interface FileRoutesByTo {
   '/env/$env/registries': typeof AppEnvEnvRegistriesRoute
   '/env/$env': typeof AppEnvEnvIndexRoute
   '/env/$env/containers/$id': typeof AppEnvEnvContainersIdRoute
+  '/env/$env/containers/new': typeof AppEnvEnvContainersNewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -130,6 +138,7 @@ export interface FileRoutesById {
   '/_app/env/$env/registries': typeof AppEnvEnvRegistriesRoute
   '/_app/env/$env/': typeof AppEnvEnvIndexRoute
   '/_app/env/$env/containers_/$id': typeof AppEnvEnvContainersIdRoute
+  '/_app/env/$env/containers_/new': typeof AppEnvEnvContainersNewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -146,6 +155,7 @@ export interface FileRouteTypes {
     | '/env/$env/registries'
     | '/env/$env/'
     | '/env/$env/containers/$id'
+    | '/env/$env/containers/new'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -159,6 +169,7 @@ export interface FileRouteTypes {
     | '/env/$env/registries'
     | '/env/$env'
     | '/env/$env/containers/$id'
+    | '/env/$env/containers/new'
   id:
     | '__root__'
     | '/'
@@ -174,6 +185,7 @@ export interface FileRouteTypes {
     | '/_app/env/$env/registries'
     | '/_app/env/$env/'
     | '/_app/env/$env/containers_/$id'
+    | '/_app/env/$env/containers_/new'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -277,6 +289,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppEnvEnvContainersIdRouteImport
       parentRoute: typeof AppEnvEnvRoute
     }
+    '/_app/env/$env/containers_/new': {
+      id: '/_app/env/$env/containers_/new'
+      path: '/containers/new'
+      fullPath: '/env/$env/containers/new'
+      preLoaderRoute: typeof AppEnvEnvContainersNewRouteImport
+      parentRoute: typeof AppEnvEnvRoute
+    }
   }
 }
 
@@ -287,6 +306,7 @@ interface AppEnvEnvRouteChildren {
   AppEnvEnvRegistriesRoute: typeof AppEnvEnvRegistriesRoute
   AppEnvEnvIndexRoute: typeof AppEnvEnvIndexRoute
   AppEnvEnvContainersIdRoute: typeof AppEnvEnvContainersIdRoute
+  AppEnvEnvContainersNewRoute: typeof AppEnvEnvContainersNewRoute
 }
 
 const AppEnvEnvRouteChildren: AppEnvEnvRouteChildren = {
@@ -296,6 +316,7 @@ const AppEnvEnvRouteChildren: AppEnvEnvRouteChildren = {
   AppEnvEnvRegistriesRoute: AppEnvEnvRegistriesRoute,
   AppEnvEnvIndexRoute: AppEnvEnvIndexRoute,
   AppEnvEnvContainersIdRoute: AppEnvEnvContainersIdRoute,
+  AppEnvEnvContainersNewRoute: AppEnvEnvContainersNewRoute,
 }
 
 const AppEnvEnvRouteWithChildren = AppEnvEnvRoute._addFileChildren(
