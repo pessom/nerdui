@@ -25,6 +25,9 @@ type Registry struct {
 	// "registry.local:5000".
 	Server   string `json:"server"`
 	Username string `json:"username,omitempty"`
+	// Aliases are the other keys the same login is stored under: nerdctl saves logins on port
+	// 443 with and without the port, and logout removes all of them.
+	Aliases []string `json:"aliases,omitempty"`
 }
 
 // LoginResult reports a successful login.
@@ -58,19 +61,50 @@ func (cr clientRegistries) List(context.Context) ([]Registry, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read docker config: %w", err)
 	}
-	servers := store.ShellCompletion()
-	slices.Sort(servers)
-	out := make([]Registry, 0, len(servers))
-	for _, server := range servers {
-		r := Registry{Server: server}
+	return groupRegistries(store.ShellCompletion(), func(server string) string {
 		if u, err := dockerconfigresolver.Parse(server); err == nil {
 			if cred, err := store.Retrieve(u, true); err == nil {
-				r.Username = cred.Username
+				return cred.Username
+			}
+		}
+		return ""
+	}), nil
+}
+
+// groupRegistries shows keys that nerdctl treats as one registry (same canonical identifier,
+// e.g. "host" and "host:443") as one entry: the shortest key, the others as aliases.
+func groupRegistries(keys []string, username func(string) string) []Registry {
+	groups := map[string][]string{}
+	var order []string
+	for _, k := range keys {
+		id := k
+		if u, err := dockerconfigresolver.Parse(k); err == nil {
+			id = u.CanonicalIdentifier()
+		}
+		if _, ok := groups[id]; !ok {
+			order = append(order, id)
+		}
+		groups[id] = append(groups[id], k)
+	}
+	out := make([]Registry, 0, len(order))
+	for _, id := range order {
+		ks := groups[id]
+		slices.SortFunc(ks, func(a, b string) int {
+			if len(a) != len(b) {
+				return len(a) - len(b)
+			}
+			return strings.Compare(a, b)
+		})
+		r := Registry{Server: ks[0], Aliases: ks[1:]}
+		for _, k := range ks {
+			if r.Username = username(k); r.Username != "" {
+				break
 			}
 		}
 		out = append(out, r)
 	}
-	return out, nil
+	slices.SortFunc(out, func(a, b Registry) int { return strings.Compare(a.Server, b.Server) })
+	return out
 }
 
 func (cr clientRegistries) Login(ctx context.Context, server, username, password string) (LoginResult, error) {

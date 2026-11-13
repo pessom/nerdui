@@ -7,6 +7,12 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 
 ## [Unreleased]
 
+### Fixed
+
+- Registries: a login nerdctl stores under several keys (for port 443 with and without the
+  port) is shown as one registry with its aliases; logging out says that all of them are
+  removed, as `nerdctl logout` does.
+
 ## [0.1.0-alpha.2] - 2026-11-13
 
 Images, registries, background jobs, events, stats, terminal and creating containers.

@@ -64,83 +64,90 @@ describe("create container page", () => {
   beforeEach(() => vi.stubGlobal("WebSocket", SilentWebSocket));
   afterEach(() => vi.unstubAllGlobals());
 
-  it("previews the command, creates a job and opens the container from it", async () => {
-    const job: Job = {
-      id: "cj1",
-      kind: "container.create",
-      title: "Create container web",
-      environment: "local",
-      namespace: "default",
-      status: "running",
-      startedAt: "2027-03-01T10:00:00Z",
-    };
-    let jobs: Job[] = [];
-    const id = "e".repeat(64);
-    const { calls } = fakeApi({
-      ...signedIn,
-      "GET /api/v1/environments/local/containers": () =>
-        json(200, { namespace: "default", containers: [] }),
-      "POST /api/v1/environments/local/containers/command": (c) => {
-        const body = c.body as { image: string; env?: { value: string }[] };
-        if (body.image === "--bad")
-          return json(400, {
-            error: { code: "invalid_argument", message: "invalid image reference" },
+  // Long flow: debounced preview (400 ms) and job polling (2 s) included.
+  it(
+    "previews the command, creates a job and opens the container from it",
+    { timeout: 15_000 },
+    async () => {
+      const job: Job = {
+        id: "cj1",
+        kind: "container.create",
+        title: "Create container web",
+        environment: "local",
+        namespace: "default",
+        status: "running",
+        startedAt: "2027-03-01T10:00:00Z",
+      };
+      let jobs: Job[] = [];
+      const id = "e".repeat(64);
+      const { calls } = fakeApi({
+        ...signedIn,
+        "GET /api/v1/environments/local/containers": () =>
+          json(200, { namespace: "default", containers: [] }),
+        "POST /api/v1/environments/local/containers/command": (c) => {
+          const body = c.body as { image: string; env?: { value: string }[] };
+          if (body.image === "--bad")
+            return json(400, {
+              error: { code: "invalid_argument", message: "invalid image reference" },
+            });
+          return json(200, {
+            command: `nerdctl run -d --name=web --env=TOKEN=${body.env?.[0]?.value ?? ""} ${body.image}`,
           });
-        return json(200, {
-          command: `nerdctl run -d --name=web --env=TOKEN=${body.env?.[0]?.value ?? ""} ${body.image}`,
-        });
-      },
-      "POST /api/v1/environments/local/containers": () => {
-        jobs = [job];
-        return json(202, { job });
-      },
-      "GET /api/v1/jobs": () => json(200, { jobs }),
-      [`GET /api/v1/environments/local/containers/${id}/inspect`]: () =>
-        json(200, { Id: id, Name: "web", State: { Status: "running" } }),
-    });
-    const { router } = renderApp("/env/local/containers?ns=default");
-    fireEvent.click(await screen.findByRole("button", { name: "New container" }));
-    await waitFor(() => expect(router.state.location.pathname).toBe("/env/local/containers/new"));
+        },
+        "POST /api/v1/environments/local/containers": () => {
+          jobs = [job];
+          return json(202, { job });
+        },
+        "GET /api/v1/jobs": () => json(200, { jobs }),
+        [`GET /api/v1/environments/local/containers/${id}/inspect`]: () =>
+          json(200, { Id: id, Name: "web", State: { Status: "running" } }),
+      });
+      const { router } = renderApp("/env/local/containers?ns=default");
+      fireEvent.click(await screen.findByRole("button", { name: "New container" }));
+      await waitFor(() => expect(router.state.location.pathname).toBe("/env/local/containers/new"));
 
-    fireEvent.change(await screen.findByLabelText(/^Image/), { target: { value: "--bad" } });
-    expect(await screen.findByText("invalid image reference")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Create and start" })).toBeDisabled();
+      fireEvent.change(await screen.findByLabelText(/^Image/), { target: { value: "--bad" } });
+      expect(await screen.findByText("invalid image reference")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Create and start" })).toBeDisabled();
 
-    fireEvent.change(screen.getByLabelText(/^Image/), { target: { value: "nginx:1.27" } });
-    fireEvent.change(screen.getByRole("textbox", { name: "Name" }), { target: { value: "web" } });
-    fireEvent.click(screen.getByRole("button", { name: "Add environment variable" }));
-    fireEvent.change(screen.getByLabelText("Variable name 1"), { target: { value: "TOKEN" } });
-    fireEvent.change(screen.getByLabelText("Variable value 1"), { target: { value: "s3cret" } });
-    fireEvent.click(screen.getByLabelText("Secret"));
-    expect(await screen.findByText(/--env=TOKEN=•••••• nginx:1.27/)).toBeInTheDocument();
-    expect(screen.queryByText(/s3cret/)).not.toBeInTheDocument();
+      fireEvent.change(screen.getByLabelText(/^Image/), { target: { value: "nginx:1.27" } });
+      fireEvent.change(screen.getByRole("textbox", { name: "Name" }), { target: { value: "web" } });
+      fireEvent.click(screen.getByRole("button", { name: "Add environment variable" }));
+      fireEvent.change(screen.getByLabelText("Variable name 1"), { target: { value: "TOKEN" } });
+      fireEvent.change(screen.getByLabelText("Variable value 1"), { target: { value: "s3cret" } });
+      fireEvent.click(screen.getByLabelText("Secret"));
+      expect(await screen.findByText(/--env=TOKEN=•••••• nginx:1.27/)).toBeInTheDocument();
+      expect(screen.queryByText(/s3cret/)).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Create and start" }));
-    const panel = await screen.findByRole("dialog", { name: "Jobs" });
-    await waitFor(() => expect(router.state.location.pathname).toBe("/env/local/containers"));
-    const post = calls.find((c) => c.method === "POST" && c.path.endsWith("/containers"));
-    expect(post?.body).toMatchObject({
-      image: "nginx:1.27",
-      name: "web",
-      env: [{ name: "TOKEN", value: "s3cret" }],
-      restart: "unless-stopped",
-      start: true,
-    });
-    expect(post?.query.get("namespace")).toBe("default");
+      fireEvent.click(screen.getByRole("button", { name: "Create and start" }));
+      const panel = await screen.findByRole("dialog", { name: "Jobs" });
+      await waitFor(() => expect(router.state.location.pathname).toBe("/env/local/containers"));
+      const post = calls.find((c) => c.method === "POST" && c.path.endsWith("/containers"));
+      expect(post?.body).toMatchObject({
+        image: "nginx:1.27",
+        name: "web",
+        env: [{ name: "TOKEN", value: "s3cret" }],
+        restart: "unless-stopped",
+        start: true,
+      });
+      expect(post?.query.get("namespace")).toBe("default");
 
-    // When the job has finished, its result links to the new container.
-    jobs = [
-      {
-        ...job,
-        status: "succeeded",
-        finishedAt: "2027-03-01T10:00:05Z",
-        result: { containerId: id },
-      },
-    ];
-    const item = await within(panel).findByRole("region", { name: "Create container web" });
-    fireEvent.click(
-      await within(item).findByRole("button", { name: "Open container" }, { timeout: 5000 }),
-    );
-    await waitFor(() => expect(router.state.location.pathname).toBe(`/env/local/containers/${id}`));
-  });
+      // When the job has finished, its result links to the new container.
+      jobs = [
+        {
+          ...job,
+          status: "succeeded",
+          finishedAt: "2027-03-01T10:00:05Z",
+          result: { containerId: id },
+        },
+      ];
+      const item = await within(panel).findByRole("region", { name: "Create container web" });
+      fireEvent.click(
+        await within(item).findByRole("button", { name: "Open container" }, { timeout: 5000 }),
+      );
+      await waitFor(() =>
+        expect(router.state.location.pathname).toBe(`/env/local/containers/${id}`),
+      );
+    },
+  );
 });
