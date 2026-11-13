@@ -117,6 +117,8 @@ describe("nerdui app shell", () => {
     expect(await screen.findByRole("heading", { name: "Local host" })).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/env/local");
     expect(router.state.location.search).toEqual({ ns: "k8s.io" });
+    // The namespace in the URL does not switch off the Overview highlight.
+    expect(screen.getByRole("link", { name: "Overview" })).toHaveAttribute("data-active", "true");
   });
 
   it("renders the overview and signs out with the CSRF token", async () => {

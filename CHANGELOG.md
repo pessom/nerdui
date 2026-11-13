@@ -14,6 +14,7 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
   removed, as `nerdctl logout` does.
 - Jobs: the expanded job's output fills the free height of the panel instead of half of it, and
   can be opened full screen; Escape closes only the full-screen view, not the panel.
+- Navigation: Overview is highlighted in the menu when the URL carries a namespace (`?ns=`).
 
 ## [0.1.0-alpha.2] - 2026-11-13
 
