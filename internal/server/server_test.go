@@ -317,6 +317,8 @@ func TestRouteAuthorization(t *testing.T) {
 		"POST /api/v1/environments/{env}/containers/actions":          "containers:operate",
 		"GET /api/v1/environments/{env}/containers/{id}/stats/stream": "containers:read",
 		"GET /api/v1/environments/{env}/containers/{id}/exec":         "containers:exec",
+		"POST /api/v1/environments/{env}/containers":                  "containers:write",
+		"POST /api/v1/environments/{env}/containers/command":          "containers:write",
 	}
 	for k, v := range want {
 		if got[k] != v {

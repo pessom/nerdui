@@ -62,6 +62,10 @@ type fakeRuntime struct {
 	gotExec      runtime.ExecOptions
 	gotSizes     []runtime.TermSize
 	execErr      error
+	created      []runtime.CreateSpec
+	createStart  bool
+	createID     string
+	createErr    error
 }
 
 type actionCall struct {
@@ -121,6 +125,16 @@ func (f *fakeRuntime) Exec(ctx context.Context, _, _ string, opts runtime.ExecOp
 			_, _ = io.WriteString(out, "echo: "+l+"\r\n")
 		}
 	}
+}
+
+// Create records the spec and returns createID (or createErr).
+func (f *fakeRuntime) Create(_ context.Context, _ string, spec runtime.CreateSpec, start bool, out io.Writer) (string, error) {
+	f.mu.Lock()
+	f.created = append(f.created, spec)
+	f.createStart = start
+	f.mu.Unlock()
+	_, _ = io.WriteString(out, "Created\n")
+	return f.createID, f.createErr
 }
 
 func (f *fakeRuntime) Images() runtime.Images { return fakeImages{f} }

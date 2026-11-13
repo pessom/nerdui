@@ -84,6 +84,8 @@ type Containers interface {
 	Stats(ctx context.Context, namespace, id string, interval time.Duration, emit StatsEmitter) error
 	// Exec runs an interactive process with a terminal until it exits or ctx ends (#15).
 	Exec(ctx context.Context, namespace, id string, opts ExecOptions, stdin io.Reader, out io.Writer, resize <-chan TermSize) (int, error)
+	// Create pulls if needed, creates with `nerdctl create` and optionally starts (#17).
+	Create(ctx context.Context, namespace string, spec CreateSpec, start bool, out io.Writer) (string, error)
 }
 
 // Containers returns container operations of the local containerd.

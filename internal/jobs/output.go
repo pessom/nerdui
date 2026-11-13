@@ -24,6 +24,18 @@ type Output struct {
 	max       int
 	truncated bool
 	onWrite   func(p []byte) // called with the raw bytes under mu, in order
+	result    map[string]string
+}
+
+// SetResult records a value of the job's outcome, e.g. the ID of a created container; it
+// is part of the job once it finishes.
+func (o *Output) SetResult(key, value string) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	if o.result == nil {
+		o.result = map[string]string{}
+	}
+	o.result[key] = value
 }
 
 func newOutput(limit int) *Output { return &Output{max: limit} }
