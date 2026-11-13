@@ -7,6 +7,10 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 
 ## [Unreleased]
 
+## [0.1.0-alpha.2] - 2026-11-13
+
+Images, registries, background jobs, events, stats, terminal and creating containers.
+
 ### Added
 
 - **New container:** a form for image, name, command, ports, environment (secret values masked),
@@ -38,6 +42,19 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
   touched (#52, ADR-0020).
 - **Background jobs:** long operations run in the background; the header shows running jobs and
   the Jobs panel lists recent ones with their output and a Cancel button (#126, ADR-0018).
+
+### Fixed
+
+- A client subscribing while the containerd event subscription (re)connects no longer receives
+  the "connected" state twice.
+
+### Upgrade notes
+
+- The database gets migration 3 (event history); nerdui backs it up before migrating.
+- New settings: `--events-retention` (default `168h`, `0` disables the event history) and
+  `--disable-exec` (turns off the web terminal).
+- Every user can open a terminal in running containers until roles exist (#78); use
+  `--disable-exec` if that is not wanted.
 
 ## [0.1.0-alpha.1.1] - 2026-11-12
 
@@ -87,6 +104,7 @@ First preview release: manage containers on one Linux host with containerd and n
 - Every user is an administrator; roles are planned (#78).
 - The container image is experimental (#145); install the binary with systemd.
 
-[Unreleased]: https://github.com/pessom/nerdui/compare/v0.1.0-alpha.1.1...HEAD
+[Unreleased]: https://github.com/pessom/nerdui/compare/v0.1.0-alpha.2...HEAD
+[0.1.0-alpha.2]: https://github.com/pessom/nerdui/compare/v0.1.0-alpha.1.1...v0.1.0-alpha.2
 [0.1.0-alpha.1.1]: https://github.com/pessom/nerdui/compare/v0.1.0-alpha.1...v0.1.0-alpha.1.1
 [0.1.0-alpha.1]: https://github.com/pessom/nerdui/releases/tag/v0.1.0-alpha.1
