@@ -4,6 +4,7 @@
 import { useEffect, useRef } from "react";
 import uPlot, { type AlignedData, type Options } from "uplot";
 import "uplot/dist/uPlot.min.css";
+import { clock, timeWindow } from "./stats";
 
 export interface ChartSeries {
   label: string;
@@ -50,9 +51,20 @@ export default function StatsChart({
       height: 160,
       legend: { show: true },
       cursor: { drag: { x: false, y: false } },
-      scales: { x: { time: true }, y: { range: (_u, lo, hi) => [min ?? lo, Math.max(hi, 1)] } },
+      scales: {
+        // A fixed five-minute window ending at the latest sample.
+        x: { time: true, range: (_u, _lo, hi) => timeWindow(hi) },
+        y: { range: (_u, lo, hi) => [min ?? lo, Math.max(hi, 1)] },
+      },
       axes: [
-        { stroke: axis, grid: { stroke: grid }, ticks: { stroke: grid } },
+        {
+          stroke: axis,
+          grid: { stroke: grid },
+          ticks: { stroke: grid },
+          // Ticks on whole minutes, labelled as a 24-hour clock.
+          incrs: [60, 120, 300],
+          values: (_u, vals) => vals.map((v) => clock(v)),
+        },
         {
           stroke: axis,
           grid: { stroke: grid },
@@ -62,7 +74,7 @@ export default function StatsChart({
         },
       ],
       series: [
-        {},
+        { value: (_u, v) => (v == null ? "—" : clock(v, true)) },
         ...series.map((s) => ({
           label: s.label,
           stroke: s.color,

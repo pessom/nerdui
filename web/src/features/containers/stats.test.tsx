@@ -5,7 +5,7 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderApp, signedIn } from "../../test/render";
 import { RecordingWebSocket, fakeApi, json } from "../../test/server";
-import { HISTORY_SECONDS, addSample, rate, type StatsSample } from "./stats";
+import { HISTORY_SECONDS, addSample, clock, rate, timeWindow, type StatsSample } from "./stats";
 
 vi.mock("./StatsChart", () => ({
   default: ({ label, times }: { label: string; times: number[] }) => (
@@ -28,6 +28,15 @@ const sample = (sec: number, over: Partial<StatsSample> = {}): StatsSample => ({
 });
 
 describe("stats helpers", () => {
+  it("keeps a fixed five-minute window and a 24-hour clock", () => {
+    // Always five minutes wide, ending at the latest sample; now when there is no data yet.
+    expect(timeWindow(1000)).toEqual([1000 - HISTORY_SECONDS, 1000]);
+    expect(timeWindow(null, 2000)).toEqual([2000 - HISTORY_SECONDS, 2000]);
+    const t = new Date(2027, 2, 1, 14, 5, 9).getTime() / 1000;
+    expect(clock(t)).toBe("14:05");
+    expect(clock(t, true)).toBe("14:05:09");
+  });
+
   it("derives rates and keeps five minutes", () => {
     expect(rate(1000, 3000, 2)).toBe(1000);
     expect(rate(3000, 1000, 2)).toBe(0); // counter reset

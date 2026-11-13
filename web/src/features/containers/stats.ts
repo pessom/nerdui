@@ -10,6 +10,24 @@ export type StatsSample = components["schemas"]["StatsSample"];
 /** History kept in the browser (#16). */
 export const HISTORY_SECONDS = 5 * 60;
 
+/**
+ * The x range of the charts: always HISTORY_SECONDS wide and ending at the latest sample (or
+ * now), so the scale does not stretch while the history fills up.
+ */
+export function timeWindow(latest: number | null | undefined, now = Date.now() / 1000) {
+  const hi = latest != null && Number.isFinite(latest) ? latest : now;
+  return [hi - HISTORY_SECONDS, hi] as [number, number];
+}
+
+const pad = (n: number) => String(n).padStart(2, "0");
+
+/** Local 24-hour clock for unix seconds: HH:MM, or HH:MM:SS with seconds. */
+export function clock(t: number, seconds = false): string {
+  const d = new Date(t * 1000);
+  const hm = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  return seconds ? `${hm}:${pad(d.getSeconds())}` : hm;
+}
+
 /** One point of the charts: rates are derived from consecutive cumulative counters. */
 export interface StatsPoint {
   /** Unix seconds. */

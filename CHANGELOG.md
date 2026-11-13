@@ -15,6 +15,9 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 - Jobs: the expanded job's output fills the free height of the panel instead of half of it, and
   can be opened full screen; Escape closes only the full-screen view, not the panel.
 - Navigation: Overview is highlighted in the menu when the URL carries a namespace (`?ns=`).
+- Container stats: charts always show a five-minute window ending now instead of stretching
+  while the history fills up; the time axis is a 24-hour clock (HH:MM) with ticks on whole
+  minutes, and the legend shows the time of the point as HH:MM:SS.
 
 ## [0.1.0-alpha.2] - 2026-11-13
 
