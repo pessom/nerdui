@@ -94,7 +94,8 @@ function AppLayout() {
             <RouterNavLink
               to="/env/$env"
               params={{ env }}
-              activeOptions={{ exact: true }}
+              // The remembered namespace may be in the URL (?ns=); Overview ignores it.
+              activeOptions={{ exact: true, includeSearch: false }}
               label="Overview"
               leftSection={<IconLayoutDashboard size={18} stroke={1.5} />}
               onClick={close}
