@@ -90,6 +90,11 @@ function RegistriesPage() {
                   <Text size="sm" fw={500} title={r.server}>
                     {registryLabel(r.server)}
                   </Text>
+                  {r.aliases && r.aliases.length > 0 && (
+                    <Text size="xs" c="dimmed">
+                      also stored as {r.aliases.join(", ")}
+                    </Text>
+                  )}
                 </Table.Td>
                 <Table.Td>
                   <Text size="sm">{r.username || "—"}</Text>
@@ -233,6 +238,12 @@ function LogoutDialog({
       title={registry && `Log out of ${registryLabel(registry.server)}?`}
     >
       <Stack>
+        {registry?.aliases && registry.aliases.length > 0 && (
+          <Text size="sm">
+            The login is also stored as {registry.aliases.join(", ")}; all of them are removed, as
+            with <Code>nerdctl logout</Code>.
+          </Text>
+        )}
         <Text size="sm">
           The stored credentials are removed from the host; pulls and pushes of private images from
           this registry fail until you log in again, also for <Code>nerdctl</Code> on the host.

@@ -12,7 +12,10 @@ describe("registries page", () => {
   afterEach(() => vi.unstubAllGlobals());
 
   it("lists, logs in and logs out", async () => {
-    let registries: Registry[] = [{ server: "https://index.docker.io/v1/", username: "alice" }];
+    let registries: Registry[] = [
+      { server: "https://index.docker.io/v1/", username: "alice" },
+      { server: "gitlab.example", username: "ci", aliases: ["gitlab.example:443"] },
+    ];
     const { calls } = fakeApi({
       ...signedIn,
       "GET /api/v1/environments/local/registries": () => json(200, { registries }),
@@ -38,6 +41,13 @@ describe("registries page", () => {
 
     expect(await screen.findByText("Docker Hub")).toBeInTheDocument();
     expect(screen.getByText("alice")).toBeInTheDocument();
+    expect(screen.getByText("also stored as gitlab.example:443")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Log out of gitlab.example" }));
+    const both = await screen.findByRole("dialog", { name: "Log out of gitlab.example?" });
+    expect(
+      within(both).getByText(/also stored as gitlab.example:443; all of them are removed/),
+    ).toBeInTheDocument();
+    fireEvent.click(within(both).getByRole("button", { name: "Cancel" }));
     // Host-wide page: no namespace selector.
     expect(screen.queryByLabelText("Namespace", { selector: "input" })).not.toBeInTheDocument();
 

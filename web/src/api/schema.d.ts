@@ -1375,6 +1375,8 @@ export interface components {
             /** @description Key in the docker config, e.g. https://index.docker.io/v1/ */
             server: string;
             username?: string;
+            /** @description Other keys of the same login (nerdctl stores port 443 with and without the port); logout removes all */
+            aliases?: string[];
         };
         HistoryEvent: {
             /** Format: int64 */
