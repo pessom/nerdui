@@ -12,6 +12,8 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 - Registries: a login nerdctl stores under several keys (for port 443 with and without the
   port) is shown as one registry with its aliases; logging out says that all of them are
   removed, as `nerdctl logout` does.
+- Jobs: the expanded job's output fills the free height of the panel instead of half of it, and
+  can be opened full screen; Escape closes only the full-screen view, not the panel.
 
 ## [0.1.0-alpha.2] - 2026-11-13
 
