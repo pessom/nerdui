@@ -7,6 +7,10 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 
 ## [Unreleased]
 
+## [0.1.0-alpha.4] - 2026-11-16
+
+Volumes, networks and ports.
+
 ### Added
 
 - **Volumes:** a Volumes page lists nerdctl's volumes with the containers that use them, labels
@@ -21,6 +25,14 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 - **Ports:** a Ports page lists the published and exposed ports of the containers of all
   namespaces and highlights conflicts: a host port used by several containers (a stopped one
   cannot start) or already bound by a host process (#62).
+
+### Upgrade notes
+
+- No database migration.
+- Creating networks runs the host's `nerdctl network create`, like creating containers; the
+  environment must not be in read-only mode.
+- The Ports page compares host sockets only when nerdui runs as a binary on the host; in a
+  container it shows conflicts between containers only.
 
 ## [0.1.0-alpha.3] - 2026-11-15
 
@@ -149,7 +161,8 @@ First preview release: manage containers on one Linux host with containerd and n
 - Every user is an administrator; roles are planned (#78).
 - The container image is experimental (#145); install the binary with systemd.
 
-[Unreleased]: https://github.com/pessom/nerdui/compare/v0.1.0-alpha.3...HEAD
+[Unreleased]: https://github.com/pessom/nerdui/compare/v0.1.0-alpha.4...HEAD
+[0.1.0-alpha.4]: https://github.com/pessom/nerdui/compare/v0.1.0-alpha.3...v0.1.0-alpha.4
 [0.1.0-alpha.3]: https://github.com/pessom/nerdui/compare/v0.1.0-alpha.2...v0.1.0-alpha.3
 [0.1.0-alpha.2]: https://github.com/pessom/nerdui/compare/v0.1.0-alpha.1.1...v0.1.0-alpha.2
 [0.1.0-alpha.1.1]: https://github.com/pessom/nerdui/compare/v0.1.0-alpha.1...v0.1.0-alpha.1.1
