@@ -111,7 +111,9 @@ func toVolume(v native.Volume, size bool, mounters []VolumeMounter) Volume {
 }
 
 // volumeMounters returns, per volume name, the containers of the namespace (in ctx) that mount
-// it, from the mounts nerdctl records in container labels (as `nerdctl volume rm` checks).
+// it, from the mounts nerdctl records in container labels (as `nerdctl volume rm` checks). Mounts
+// are stored in "nerdctl/mounts" or, since nerdctl 2.3, split into "nerdctl/mounts.N" labels;
+// labels.GetMount reads both. Unreadable mounts are an error: removal must fail closed.
 func volumeMounters(ctx context.Context, cl *containerd.Client) (map[string][]VolumeMounter, error) {
 	containers, err := cl.Containers(ctx)
 	if err != nil {
@@ -123,27 +125,40 @@ func volumeMounters(ctx context.Context, cl *containerd.Client) (map[string][]Vo
 		if err != nil {
 			continue // removed while listing
 		}
-		raw := lbls[labels.Mounts]
-		if raw == "" {
-			continue
+		names, err := mountedVolumeNames(lbls)
+		if err != nil {
+			return nil, fmt.Errorf("mounts of container %s: %w", c.ID(), err)
 		}
-		var mounts []dockercompat.MountPoint
-		if err := json.Unmarshal([]byte(raw), &mounts); err != nil {
-			continue
-		}
-		seen := map[string]bool{}
-		for _, m := range mounts {
-			if m.Type != mountutil.Volume || seen[m.Name] {
-				continue
-			}
-			seen[m.Name] = true
-			out[m.Name] = append(out[m.Name], VolumeMounter{ID: c.ID(), Name: lbls[labels.Name]})
+		for _, name := range names {
+			out[name] = append(out[name], VolumeMounter{ID: c.ID(), Name: lbls[labels.Name]})
 		}
 	}
 	for _, list := range out {
 		sort.Slice(list, func(i, j int) bool { return list[i].Name < list[j].Name })
 	}
 	return out, nil
+}
+
+// mountedVolumeNames returns the distinct volumes a container mounts, from its labels.
+func mountedVolumeNames(lbls map[string]string) ([]string, error) {
+	raw := labels.GetMount(lbls)
+	if raw == "" {
+		return nil, nil
+	}
+	var mounts []dockercompat.MountPoint
+	if err := json.Unmarshal([]byte(raw), &mounts); err != nil {
+		return nil, err
+	}
+	var names []string
+	seen := map[string]bool{}
+	for _, m := range mounts {
+		if m.Type != mountutil.Volume || seen[m.Name] {
+			continue
+		}
+		seen[m.Name] = true
+		names = append(names, m.Name)
+	}
+	return names, nil
 }
 
 func validVolumeName(name string) error {
@@ -176,9 +191,13 @@ func (cv clientVolumes) Create(_ context.Context, namespace, name string, lbls m
 	} else if !errors.Is(err, store.ErrNotFound) {
 		return Volume{}, fmt.Errorf("volume %s: %w", name, err)
 	}
-	v, err := vs.Create(name, list)
-	if err != nil {
+	if _, err := vs.Create(name, list); err != nil {
 		return Volume{}, fmt.Errorf("create volume %s: %w", name, err)
+	}
+	// The value returned by Create has no labels; read the volume back as stored.
+	v, err := vs.Get(name, false)
+	if err != nil {
+		return Volume{}, fmt.Errorf("volume %s: %w", name, err)
 	}
 	return toVolume(*v, false, nil), nil
 }
