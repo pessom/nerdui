@@ -58,6 +58,8 @@ type fakeRuntime struct {
 	prunes       []runtime.PruneOptions
 	statsSamples []runtime.StatsSample
 	statsErr     error
+	volumes      []runtime.Volume
+	volumeSize   bool
 	gotInterval  time.Duration
 	gotExec      runtime.ExecOptions
 	gotSizes     []runtime.TermSize
@@ -171,6 +173,40 @@ func (f *fakeRuntime) Stats(_ context.Context, _, _ string, interval time.Durati
 	return nil
 }
 func (f *fakeRuntime) Registries() runtime.Registries { return fakeRegistries{f} }
+
+func (f *fakeRuntime) Volumes() runtime.Volumes { return fakeVolumes{f} }
+
+type fakeVolumes struct{ f *fakeRuntime }
+
+func (fv fakeVolumes) List(_ context.Context, ns string, size bool) ([]runtime.Volume, error) {
+	fv.f.gotNS, fv.f.volumeSize = ns, size
+	return fv.f.volumes, fv.f.err
+}
+
+func (fv fakeVolumes) Create(_ context.Context, _, name string, lbls map[string]string) (runtime.Volume, error) {
+	for _, v := range fv.f.volumes {
+		if v.Name == name {
+			return runtime.Volume{}, fmt.Errorf("%w: volume %q already exists", errdefs.ErrAlreadyExists, name)
+		}
+	}
+	v := runtime.Volume{Name: name, Labels: lbls, Containers: []runtime.VolumeMounter{}}
+	fv.f.volumes = append(fv.f.volumes, v)
+	return v, nil
+}
+
+func (fv fakeVolumes) Remove(_ context.Context, _, name string) error {
+	for i, v := range fv.f.volumes {
+		if v.Name != name {
+			continue
+		}
+		if len(v.Containers) > 0 {
+			return fmt.Errorf("%w: volume %q is in use", errdefs.ErrFailedPrecondition, name)
+		}
+		fv.f.volumes = append(fv.f.volumes[:i], fv.f.volumes[i+1:]...)
+		return nil
+	}
+	return fmt.Errorf("%w: volume %q not found", errdefs.ErrNotFound, name)
+}
 
 type fakeRegistries struct{ f *fakeRuntime }
 
