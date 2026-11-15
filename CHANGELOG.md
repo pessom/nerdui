@@ -7,6 +7,13 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 
 ## [Unreleased]
 
+### Added
+
+- **Volumes:** a Volumes page lists nerdctl's volumes with the containers that use them, labels
+  and creation time; sizes are calculated on request. Volumes can be created with labels and
+  removed when no container (running or stopped) uses them; removal asks to type the volume
+  name, because the data is deleted (#57).
+
 ## [0.1.0-alpha.3] - 2026-11-15
 
 Metrics history from Prometheus and fixes found on the first real host.

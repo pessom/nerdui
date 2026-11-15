@@ -682,6 +682,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/environments/{env}/volumes": {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Volumes of a namespace
+         * @description Requires `volumes:read` (#57). nerdctl's named volumes with the containers (running or
+         *     not) that mount them. `size=true` walks every volume on disk, like
+         *     `nerdctl volume ls --size`.
+         */
+        get: operations["listVolumes"];
+        put?: never;
+        /**
+         * Create a volume
+         * @description Requires `volumes:write`. Like `nerdctl volume create`; an existing name is 409.
+         */
+        post: operations["createVolume"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/environments/{env}/volumes/{name}": {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a volume and its data
+         * @description Requires `volumes:write`. Refused (409) while any container, running or stopped, mounts
+         *     the volume.
+         */
+        delete: operations["removeVolume"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/environments/{env}/registries": {
         parameters: {
             query?: never;
@@ -1605,6 +1665,29 @@ export interface components {
             blockWrite: number;
             /** Format: int64 */
             pids: number;
+        };
+        Volume: {
+            name: string;
+            mountpoint: string;
+            labels: {
+                [key: string]: string;
+            };
+            /** @description Created for a container without a name */
+            anonymous: boolean;
+            /**
+             * Format: date-time
+             * @description Modification time of the volume directory
+             */
+            createdAt?: string;
+            /**
+             * Format: int64
+             * @description Bytes; only with size=true
+             */
+            size?: number;
+            containers: {
+                id: string;
+                name?: string;
+            }[];
         };
         /** @description Points on a common time axis; null is a gap. */
         StatsHistory: {
@@ -2752,6 +2835,112 @@ export interface operations {
                 };
             };
             400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    listVolumes: {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+                size?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Volumes sorted by name */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        namespace: string;
+                        volumes: components["schemas"]["Volume"][];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    createVolume: {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    labels?: {
+                        [key: string]: string;
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Volume"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            415: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    removeVolume: {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
