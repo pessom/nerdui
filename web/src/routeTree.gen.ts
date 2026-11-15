@@ -21,6 +21,7 @@ import { Route as AppEnvEnvContainersRouteImport } from './routes/_app/env/$env/
 import { Route as AppEnvEnvEventsRouteImport } from './routes/_app/env/$env/events'
 import { Route as AppEnvEnvImagesRouteImport } from './routes/_app/env/$env/images'
 import { Route as AppEnvEnvNetworksRouteImport } from './routes/_app/env/$env/networks'
+import { Route as AppEnvEnvPortsRouteImport } from './routes/_app/env/$env/ports'
 import { Route as AppEnvEnvRegistriesRouteImport } from './routes/_app/env/$env/registries'
 import { Route as AppEnvEnvSettingsRouteImport } from './routes/_app/env/$env/settings'
 import { Route as AppEnvEnvVolumesRouteImport } from './routes/_app/env/$env/volumes'
@@ -86,6 +87,11 @@ const AppEnvEnvNetworksRoute = AppEnvEnvNetworksRouteImport.update({
   path: '/networks',
   getParentRoute: () => AppEnvEnvRoute,
 } as any)
+const AppEnvEnvPortsRoute = AppEnvEnvPortsRouteImport.update({
+  id: '/ports',
+  path: '/ports',
+  getParentRoute: () => AppEnvEnvRoute,
+} as any)
 const AppEnvEnvRegistriesRoute = AppEnvEnvRegistriesRouteImport.update({
   id: '/registries',
   path: '/registries',
@@ -123,6 +129,7 @@ export interface FileRoutesByFullPath {
   '/env/$env/events': typeof AppEnvEnvEventsRoute
   '/env/$env/images': typeof AppEnvEnvImagesRoute
   '/env/$env/networks': typeof AppEnvEnvNetworksRoute
+  '/env/$env/ports': typeof AppEnvEnvPortsRoute
   '/env/$env/registries': typeof AppEnvEnvRegistriesRoute
   '/env/$env/settings': typeof AppEnvEnvSettingsRoute
   '/env/$env/volumes': typeof AppEnvEnvVolumesRoute
@@ -140,6 +147,7 @@ export interface FileRoutesByTo {
   '/env/$env/events': typeof AppEnvEnvEventsRoute
   '/env/$env/images': typeof AppEnvEnvImagesRoute
   '/env/$env/networks': typeof AppEnvEnvNetworksRoute
+  '/env/$env/ports': typeof AppEnvEnvPortsRoute
   '/env/$env/registries': typeof AppEnvEnvRegistriesRoute
   '/env/$env/settings': typeof AppEnvEnvSettingsRoute
   '/env/$env/volumes': typeof AppEnvEnvVolumesRoute
@@ -160,6 +168,7 @@ export interface FileRoutesById {
   '/_app/env/$env/events': typeof AppEnvEnvEventsRoute
   '/_app/env/$env/images': typeof AppEnvEnvImagesRoute
   '/_app/env/$env/networks': typeof AppEnvEnvNetworksRoute
+  '/_app/env/$env/ports': typeof AppEnvEnvPortsRoute
   '/_app/env/$env/registries': typeof AppEnvEnvRegistriesRoute
   '/_app/env/$env/settings': typeof AppEnvEnvSettingsRoute
   '/_app/env/$env/volumes': typeof AppEnvEnvVolumesRoute
@@ -180,6 +189,7 @@ export interface FileRouteTypes {
     | '/env/$env/events'
     | '/env/$env/images'
     | '/env/$env/networks'
+    | '/env/$env/ports'
     | '/env/$env/registries'
     | '/env/$env/settings'
     | '/env/$env/volumes'
@@ -197,6 +207,7 @@ export interface FileRouteTypes {
     | '/env/$env/events'
     | '/env/$env/images'
     | '/env/$env/networks'
+    | '/env/$env/ports'
     | '/env/$env/registries'
     | '/env/$env/settings'
     | '/env/$env/volumes'
@@ -216,6 +227,7 @@ export interface FileRouteTypes {
     | '/_app/env/$env/events'
     | '/_app/env/$env/images'
     | '/_app/env/$env/networks'
+    | '/_app/env/$env/ports'
     | '/_app/env/$env/registries'
     | '/_app/env/$env/settings'
     | '/_app/env/$env/volumes'
@@ -318,6 +330,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppEnvEnvNetworksRouteImport
       parentRoute: typeof AppEnvEnvRoute
     }
+    '/_app/env/$env/ports': {
+      id: '/_app/env/$env/ports'
+      path: '/ports'
+      fullPath: '/env/$env/ports'
+      preLoaderRoute: typeof AppEnvEnvPortsRouteImport
+      parentRoute: typeof AppEnvEnvRoute
+    }
     '/_app/env/$env/registries': {
       id: '/_app/env/$env/registries'
       path: '/registries'
@@ -361,6 +380,7 @@ interface AppEnvEnvRouteChildren {
   AppEnvEnvEventsRoute: typeof AppEnvEnvEventsRoute
   AppEnvEnvImagesRoute: typeof AppEnvEnvImagesRoute
   AppEnvEnvNetworksRoute: typeof AppEnvEnvNetworksRoute
+  AppEnvEnvPortsRoute: typeof AppEnvEnvPortsRoute
   AppEnvEnvRegistriesRoute: typeof AppEnvEnvRegistriesRoute
   AppEnvEnvSettingsRoute: typeof AppEnvEnvSettingsRoute
   AppEnvEnvVolumesRoute: typeof AppEnvEnvVolumesRoute
@@ -374,6 +394,7 @@ const AppEnvEnvRouteChildren: AppEnvEnvRouteChildren = {
   AppEnvEnvEventsRoute: AppEnvEnvEventsRoute,
   AppEnvEnvImagesRoute: AppEnvEnvImagesRoute,
   AppEnvEnvNetworksRoute: AppEnvEnvNetworksRoute,
+  AppEnvEnvPortsRoute: AppEnvEnvPortsRoute,
   AppEnvEnvRegistriesRoute: AppEnvEnvRegistriesRoute,
   AppEnvEnvSettingsRoute: AppEnvEnvSettingsRoute,
   AppEnvEnvVolumesRoute: AppEnvEnvVolumesRoute,

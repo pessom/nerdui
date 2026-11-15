@@ -18,6 +18,9 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
   ipvlan networks are created with the host's `nerdctl network create` (subnet, gateway, IP range,
   parent interface, labels); a network is removed like `nerdctl network rm`, with a warning about
   stopped containers that use it (#60, ADR-0024).
+- **Ports:** a Ports page lists the published and exposed ports of the containers of all
+  namespaces and highlights conflicts: a host port used by several containers (a stopped one
+  cannot start) or already bound by a host process (#62).
 
 ## [0.1.0-alpha.3] - 2026-11-15
 

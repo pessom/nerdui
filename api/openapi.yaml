@@ -893,6 +893,32 @@ paths:
         "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
         "503": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/ports:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+    get:
+      tags: [containers]
+      operationId: listPorts
+      summary: Published and exposed ports of all containers
+      description: |
+        Requires `containers:read` (#62). Across all namespaces: ports published on the host and
+        ports only exposed by the image (EXPOSE). `conflicts` lists other containers using the
+        same host port and protocol, and host sockets bound to it (read from /proc/net when
+        nerdui runs on the host; `hostChecked` tells whether they were).
+      responses:
+        "200":
+          description: Published ports first, by host port
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ports, hostChecked]
+                properties:
+                  hostChecked: { type: boolean }
+                  ports: { type: array, items: { $ref: "#/components/schemas/PortEntry" } }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
   /api/v1/environments/{env}/networks:
     parameters:
       - $ref: "#/components/parameters/Env"
@@ -2083,6 +2109,20 @@ components:
         blockRead: { type: integer, format: int64, description: Cumulative bytes }
         blockWrite: { type: integer, format: int64 }
         pids: { type: integer, format: int64 }
+    PortEntry:
+      type: object
+      required: [namespace, containerId, state, containerPort, protocol, published]
+      properties:
+        namespace: { type: string }
+        containerId: { type: string }
+        containerName: { type: string }
+        state: { type: string }
+        hostIp: { type: string }
+        hostPort: { type: integer }
+        containerPort: { type: integer }
+        protocol: { type: string }
+        published: { type: boolean, description: False for ports only exposed by the image }
+        conflicts: { type: array, items: { type: string } }
     Network:
       type: object
       required: [name, driver, labels, ipam, internal, default, removable, containers]

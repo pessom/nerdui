@@ -7,6 +7,7 @@ import {
   IconActivity,
   IconDatabase,
   IconNetwork,
+  IconPlug,
   IconSettings,
   IconBox,
   IconKey,
@@ -133,6 +134,13 @@ function AppLayout() {
               search={(prev: { ns?: string }) => ({ ns: prev.ns })}
               label="Networks"
               leftSection={<IconNetwork size={18} stroke={1.5} />}
+              onClick={close}
+            />
+            <RouterNavLink
+              to="/env/$env/ports"
+              params={{ env }}
+              label="Ports"
+              leftSection={<IconPlug size={18} stroke={1.5} />}
               onClick={close}
             />
             <RouterNavLink
