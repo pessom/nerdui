@@ -7,6 +7,10 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 
 ## [Unreleased]
 
+## [0.1.0-alpha.3] - 2026-11-15
+
+Metrics history from Prometheus and fixes found on the first real host.
+
 ### Added
 
 - **Metrics history:** with a Prometheus server that scrapes containerd's built-in metrics, the
@@ -25,6 +29,13 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 - Container stats: charts always show a five-minute window ending now instead of stretching
   while the history fills up; the time axis is a 24-hour clock (HH:MM) with ticks on whole
   minutes, and the legend shows the time of the point as HH:MM:SS.
+
+### Upgrade notes
+
+- No database migration; the Prometheus connection is stored in the existing settings table.
+- The metrics history is optional: enable containerd's `[metrics]` endpoint, scrape it with
+  Prometheus and configure the connection on the environment's Settings page (see the
+  deployment guide).
 
 ## [0.1.0-alpha.2] - 2026-11-13
 
@@ -123,7 +134,8 @@ First preview release: manage containers on one Linux host with containerd and n
 - Every user is an administrator; roles are planned (#78).
 - The container image is experimental (#145); install the binary with systemd.
 
-[Unreleased]: https://github.com/pessom/nerdui/compare/v0.1.0-alpha.2...HEAD
+[Unreleased]: https://github.com/pessom/nerdui/compare/v0.1.0-alpha.3...HEAD
+[0.1.0-alpha.3]: https://github.com/pessom/nerdui/compare/v0.1.0-alpha.2...v0.1.0-alpha.3
 [0.1.0-alpha.2]: https://github.com/pessom/nerdui/compare/v0.1.0-alpha.1.1...v0.1.0-alpha.2
 [0.1.0-alpha.1.1]: https://github.com/pessom/nerdui/compare/v0.1.0-alpha.1...v0.1.0-alpha.1.1
 [0.1.0-alpha.1]: https://github.com/pessom/nerdui/releases/tag/v0.1.0-alpha.1
