@@ -34,7 +34,12 @@ type Handler struct {
 	EventHistory EventHistory
 	// ExecDisabled turns off the web terminal (--disable-exec, #15).
 	ExecDisabled bool
-	Logger       *slog.Logger
+	// Settings stores per-environment settings such as the Prometheus connection (#176);
+	// nil disables them.
+	Settings Settings
+	// PrometheusHTTP is the HTTP client for Prometheus; nil uses a default with a timeout.
+	PrometheusHTTP *http.Client
+	Logger         *slog.Logger
 }
 
 // Routes registers the environment endpoints under the API root.
@@ -42,32 +47,46 @@ func (h *Handler) Routes(r chi.Router, g *authz.Guard) {
 	r.Method(http.MethodGet, "/environments", g.Protect(authz.SystemRead, h.list))
 	h.jobRoutes(r, g)
 	r.Route("/environments/{env}", func(r chi.Router) {
-		r.Use(h.resolveEnv, h.requireWritable)
-		r.Method(http.MethodGet, "/", g.Protect(authz.SystemRead, h.get))
-		r.Method(http.MethodGet, "/info", g.Protect(authz.SystemRead, h.info))
-		r.Method(http.MethodGet, "/namespaces", g.Protect(authz.SystemRead, h.namespaces))
-		r.Method(http.MethodGet, "/events/stream", g.Protect(authz.SystemRead, h.eventsStream))
-		r.Method(http.MethodGet, "/events", g.Protect(authz.SystemRead, h.listEvents))
-		r.Method(http.MethodGet, "/containers", g.Protect(authz.ContainersRead, h.listContainers))
-		r.Method(http.MethodPost, "/containers", g.Protect(authz.ContainersWrite, h.createContainer))
-		r.Method(http.MethodPost, "/containers/command", g.Protect(authz.ContainersWrite, h.containerCommand))
-		r.Method(http.MethodGet, "/containers/{id}/inspect", g.Protect(authz.ContainersRead, h.inspectContainer))
-		r.Method(http.MethodGet, "/containers/{id}/logs", g.Protect(authz.ContainersRead, h.containerLogsDownload))
-		r.Method(http.MethodGet, "/containers/{id}/logs/stream", g.Protect(authz.ContainersRead, h.containerLogsStream))
-		r.Method(http.MethodGet, "/containers/{id}/stats/stream", g.Protect(authz.ContainersRead, h.containerStatsStream))
-		r.Method(http.MethodGet, "/containers/{id}/exec", g.Protect(authz.ContainersExec, h.containerExec))
-		h.containerActionRoutes(r, g)
-		r.Method(http.MethodGet, "/images", g.Protect(authz.ImagesRead, h.listImages))
-		r.Method(http.MethodPost, "/images/pull", g.Protect(authz.ImagesWrite, h.pullImage))
-		r.Method(http.MethodPost, "/images/push", g.Protect(authz.ImagesWrite, h.pushImage))
-		r.Method(http.MethodPost, "/images/tag", g.Protect(authz.ImagesWrite, h.tagImage))
-		r.Method(http.MethodPost, "/images/remove", g.Protect(authz.ImagesWrite, h.removeImages))
-		r.Method(http.MethodGet, "/system/prune", g.Protect(authz.SystemRead, h.prunePreview))
-		r.Method(http.MethodPost, "/system/prune", g.Protect(authz.SystemPrune, h.startPrune))
-		r.Method(http.MethodGet, "/registries", g.Protect(authz.RegistriesRead, h.listRegistries))
-		r.Method(http.MethodPost, "/registries", g.Protect(authz.RegistriesWrite, h.loginRegistry))
-		r.Method(http.MethodDelete, "/registries", g.Protect(authz.RegistriesWrite, h.logoutRegistry))
+		r.Use(h.resolveEnv)
+		// Settings live in nerdui's database and do not need a writable nerdctl.
+		r.Method(http.MethodGet, "/settings/prometheus", g.Protect(authz.SettingsRead, h.getPrometheusSettings))
+		r.Method(http.MethodPut, "/settings/prometheus", g.Protect(authz.SettingsWrite, h.putPrometheusSettings))
+		r.Method(http.MethodDelete, "/settings/prometheus", g.Protect(authz.SettingsWrite, h.deletePrometheusSettings))
+		r.Method(http.MethodPost, "/settings/prometheus/test", g.Protect(authz.SettingsWrite, h.testPrometheusSettings))
+		r.Group(func(r chi.Router) {
+			r.Use(h.requireWritable)
+			h.runtimeRoutes(r, g)
+		})
 	})
+}
+
+// runtimeRoutes are the endpoints backed by the environment's containerd and nerdctl.
+func (h *Handler) runtimeRoutes(r chi.Router, g *authz.Guard) {
+	r.Method(http.MethodGet, "/", g.Protect(authz.SystemRead, h.get))
+	r.Method(http.MethodGet, "/info", g.Protect(authz.SystemRead, h.info))
+	r.Method(http.MethodGet, "/namespaces", g.Protect(authz.SystemRead, h.namespaces))
+	r.Method(http.MethodGet, "/events/stream", g.Protect(authz.SystemRead, h.eventsStream))
+	r.Method(http.MethodGet, "/events", g.Protect(authz.SystemRead, h.listEvents))
+	r.Method(http.MethodGet, "/containers", g.Protect(authz.ContainersRead, h.listContainers))
+	r.Method(http.MethodPost, "/containers", g.Protect(authz.ContainersWrite, h.createContainer))
+	r.Method(http.MethodPost, "/containers/command", g.Protect(authz.ContainersWrite, h.containerCommand))
+	r.Method(http.MethodGet, "/containers/{id}/inspect", g.Protect(authz.ContainersRead, h.inspectContainer))
+	r.Method(http.MethodGet, "/containers/{id}/logs", g.Protect(authz.ContainersRead, h.containerLogsDownload))
+	r.Method(http.MethodGet, "/containers/{id}/logs/stream", g.Protect(authz.ContainersRead, h.containerLogsStream))
+	r.Method(http.MethodGet, "/containers/{id}/stats/stream", g.Protect(authz.ContainersRead, h.containerStatsStream))
+	r.Method(http.MethodGet, "/containers/{id}/stats/history", g.Protect(authz.ContainersRead, h.containerStatsHistory))
+	r.Method(http.MethodGet, "/containers/{id}/exec", g.Protect(authz.ContainersExec, h.containerExec))
+	h.containerActionRoutes(r, g)
+	r.Method(http.MethodGet, "/images", g.Protect(authz.ImagesRead, h.listImages))
+	r.Method(http.MethodPost, "/images/pull", g.Protect(authz.ImagesWrite, h.pullImage))
+	r.Method(http.MethodPost, "/images/push", g.Protect(authz.ImagesWrite, h.pushImage))
+	r.Method(http.MethodPost, "/images/tag", g.Protect(authz.ImagesWrite, h.tagImage))
+	r.Method(http.MethodPost, "/images/remove", g.Protect(authz.ImagesWrite, h.removeImages))
+	r.Method(http.MethodGet, "/system/prune", g.Protect(authz.SystemRead, h.prunePreview))
+	r.Method(http.MethodPost, "/system/prune", g.Protect(authz.SystemPrune, h.startPrune))
+	r.Method(http.MethodGet, "/registries", g.Protect(authz.RegistriesRead, h.listRegistries))
+	r.Method(http.MethodPost, "/registries", g.Protect(authz.RegistriesWrite, h.loginRegistry))
+	r.Method(http.MethodDelete, "/registries", g.Protect(authz.RegistriesWrite, h.logoutRegistry))
 }
 
 // Environment is the API representation. Keep in sync with api/openapi.yaml.
@@ -92,6 +111,8 @@ type EnvironmentStatus struct {
 type Features struct {
 	// Exec is false when the web terminal is disabled (--disable-exec).
 	Exec bool `json:"exec"`
+	// MetricsHistory is true when a Prometheus connection is configured (#176).
+	MetricsHistory bool `json:"metricsHistory"`
 }
 
 // Environment statuses.
@@ -117,7 +138,9 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
 	e := EnvFrom(r.Context())
 	ctx, cancel := context.WithTimeout(r.Context(), statusTimeout)
 	defer cancel()
-	resp := EnvironmentStatus{Environment: toAPI(e), Status: StatusConnected, Features: Features{Exec: !h.ExecDisabled}}
+	resp := EnvironmentStatus{Environment: toAPI(e), Status: StatusConnected, Features: Features{
+		Exec: !h.ExecDisabled, MetricsHistory: h.metricsHistoryConfigured(ctx, e.ID),
+	}}
 	v, err := e.Runtime.System().Versions(ctx)
 	if err != nil {
 		resp.Status = StatusUnavailable

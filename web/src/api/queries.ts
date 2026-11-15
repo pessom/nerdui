@@ -25,6 +25,9 @@ export const keys = {
   /** Under containers(env, ns), so container actions refresh it too. */
   images: (env: string, ns: string) => ["env", env, "images", ns] as const,
   registries: (env: string) => ["env", env, "registries"] as const,
+  prometheus: (env: string) => ["env", env, "settings", "prometheus"] as const,
+  statsHistory: (env: string, ns: string, id: string, range: string) =>
+    ["env", env, "containers", ns, "stats-history", id, range] as const,
   containerInspect: (env: string, ns: string, id: string, size: boolean) =>
     ["env", env, "containers", ns, "inspect", id, size] as const,
 };
@@ -149,4 +152,38 @@ export const containerInspectQuery = (env: string, namespace: string, id: string
           params: { path: { env, id }, query: { namespace, size } },
         }),
       ),
+  });
+
+export type PrometheusSettings = components["schemas"]["PrometheusSettings"];
+export type PrometheusSettingsInput = components["schemas"]["PrometheusSettingsInput"];
+
+/** The environment's Prometheus connection for the metrics history (#176). */
+export const prometheusSettingsQuery = (env: string) =>
+  queryOptions({
+    queryKey: keys.prometheus(env),
+    queryFn: () =>
+      unwrap(
+        api.GET("/api/v1/environments/{env}/settings/prometheus", { params: { path: { env } } }),
+      ),
+  });
+
+export type StatsHistory = components["schemas"]["StatsHistory"];
+
+/** Metrics history of a container from Prometheus (#176), refreshed every minute. */
+export const statsHistoryQuery = (
+  env: string,
+  ns: string,
+  id: string,
+  range: "1h" | "6h" | "24h" | "7d",
+) =>
+  queryOptions({
+    queryKey: keys.statsHistory(env, ns, id, range),
+    queryFn: () =>
+      unwrap(
+        api.GET("/api/v1/environments/{env}/containers/{id}/stats/history", {
+          params: { path: { env, id }, query: { namespace: ns, range } },
+        }),
+      ),
+    refetchInterval: 60_000,
+    retry: false,
   });

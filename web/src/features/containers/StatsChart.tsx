@@ -4,11 +4,12 @@
 import { useEffect, useRef } from "react";
 import uPlot, { type AlignedData, type Options } from "uplot";
 import "uplot/dist/uPlot.min.css";
-import { clock, timeWindow } from "./stats";
+import { timeWindow, type TimeAxis } from "./stats";
 
 export interface ChartSeries {
   label: string;
-  values: number[];
+  /** null is a gap. */
+  values: (number | null)[];
   color: string;
   dash?: boolean;
 }
@@ -24,6 +25,7 @@ export default function StatsChart({
   format,
   dark,
   min,
+  axis,
 }: {
   label: string;
   times: number[];
@@ -32,6 +34,7 @@ export default function StatsChart({
   dark: boolean;
   /** Fixed lower bound of the y axis (0 for most charts). */
   min?: number;
+  axis: TimeAxis;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const plot = useRef<uPlot>(null);
@@ -44,7 +47,7 @@ export default function StatsChart({
   useEffect(() => {
     const el = host.current;
     if (!el) return;
-    const axis = dark ? "#909296" : "#868e96";
+    const axisColor = dark ? "#909296" : "#868e96";
     const grid = dark ? "#373a40" : "#e9ecef";
     const opts: Options = {
       width: el.clientWidth || 300,
@@ -52,21 +55,20 @@ export default function StatsChart({
       legend: { show: true },
       cursor: { drag: { x: false, y: false } },
       scales: {
-        // A fixed five-minute window ending at the latest sample.
-        x: { time: true, range: (_u, _lo, hi) => timeWindow(hi) },
+        // A fixed window ending at the latest point.
+        x: { time: true, range: (_u, _lo, hi) => timeWindow(hi, undefined, axis.seconds) },
         y: { range: (_u, lo, hi) => [min ?? lo, Math.max(hi, 1)] },
       },
       axes: [
         {
-          stroke: axis,
+          stroke: axisColor,
           grid: { stroke: grid },
           ticks: { stroke: grid },
-          // Ticks on whole minutes, labelled as a 24-hour clock.
-          incrs: [60, 120, 300],
-          values: (_u, vals) => vals.map((v) => clock(v)),
+          incrs: axis.incrs,
+          values: (_u, vals) => vals.map((v) => axis.tick(v)),
         },
         {
-          stroke: axis,
+          stroke: axisColor,
           grid: { stroke: grid },
           ticks: { stroke: grid },
           size: 70,
@@ -74,7 +76,7 @@ export default function StatsChart({
         },
       ],
       series: [
-        { value: (_u, v) => (v == null ? "—" : clock(v, true)) },
+        { value: (_u, v) => (v == null ? "—" : axis.legend(v)) },
         ...series.map((s) => ({
           label: s.label,
           stroke: s.color,
@@ -93,9 +95,9 @@ export default function StatsChart({
       p.destroy();
       plot.current = null;
     };
-    // Recreated when the shape or theme changes; data goes through setData below.
+    // Recreated when the shape, theme or axis changes; data goes through setData below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shape, dark, min]);
+  }, [shape, dark, min, axis]);
 
   useEffect(() => {
     plot.current?.setData([times, ...series.map((s) => s.values)] as AlignedData);

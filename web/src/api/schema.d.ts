@@ -869,6 +869,92 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/environments/{env}/containers/{id}/stats/history": {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                /** @description Full container ID (the container may be stopped or removed) */
+                id: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * Resource usage history of a container from Prometheus
+         * @description Requires `containers:read` (#176, ADR-0023). Reads containerd's built-in metrics from the
+         *     environment's Prometheus server with fixed queries. 409 when no Prometheus is
+         *     configured, 503 when it is unreachable or rejects the query.
+         */
+        get: operations["getContainerStatsHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/environments/{env}/settings/prometheus": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Prometheus connection of the environment
+         * @description Requires `settings:read` (#176). The password or token is never returned.
+         */
+        get: operations["getPrometheusSettings"];
+        /**
+         * Set the Prometheus connection
+         * @description Requires `settings:write`. An empty secret keeps the stored one when the authentication
+         *     mode is unchanged. Stored in nerdui's database.
+         */
+        put: operations["putPrometheusSettings"];
+        post?: never;
+        /**
+         * Remove the Prometheus connection
+         * @description Requires `settings:write`.
+         */
+        delete: operations["deletePrometheusSettings"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/environments/{env}/settings/prometheus/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test a Prometheus connection without saving it
+         * @description Requires `settings:write`. Runs an instant query and reports how many containers have
+         *     containerd metrics in Prometheus (0 means containerd is not scraped yet).
+         */
+        post: operations["testPrometheusSettings"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/environments/{env}/containers/{id}/exec": {
         parameters: {
             query?: {
@@ -1048,6 +1134,8 @@ export interface components {
             features: {
                 /** @description False when the web terminal is disabled (--disable-exec) */
                 exec: boolean;
+                /** @description True when a Prometheus connection is configured (#176) */
+                metricsHistory: boolean;
             };
         };
         Container: {
@@ -1517,6 +1605,41 @@ export interface components {
             blockWrite: number;
             /** Format: int64 */
             pids: number;
+        };
+        /** @description Points on a common time axis; null is a gap. */
+        StatsHistory: {
+            range: string;
+            /** @description Seconds between points */
+            step: number;
+            /** @description Unix seconds */
+            times: number[];
+            /** @description Percent of one CPU */
+            cpu: (number | null)[];
+            /** @description Bytes without inactive file cache */
+            memory: (number | null)[];
+            /** @description Bytes; null when unlimited */
+            memoryLimit: (number | null)[];
+            /** @description Bytes per second */
+            blockRead: (number | null)[];
+            blockWrite: (number | null)[];
+            pids: (number | null)[];
+        };
+        PrometheusSettings: {
+            configured: boolean;
+            url?: string;
+            /** @enum {string} */
+            auth?: "none" | "basic" | "bearer";
+            username?: string;
+            hasSecret: boolean;
+        };
+        PrometheusSettingsInput: {
+            /** @description Base URL, e.g. http://127.0.0.1:9090 */
+            url: string;
+            /** @enum {string} */
+            auth: "none" | "basic" | "bearer";
+            username?: string;
+            /** @description Password or token; empty keeps the stored one */
+            secret?: string;
         };
         LogLine: {
             /** @enum {string} */
@@ -2914,6 +3037,159 @@ export interface operations {
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
+        };
+    };
+    getContainerStatsHistory: {
+        parameters: {
+            query: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+                range: "1h" | "6h" | "24h" | "7d";
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                /** @description Full container ID (the container may be stopped or removed) */
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description History on a common time axis */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StatsHistory"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    getPrometheusSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Settings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrometheusSettings"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    putPrometheusSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PrometheusSettingsInput"];
+            };
+        };
+        responses: {
+            /** @description Saved settings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrometheusSettings"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            415: components["responses"]["Error"];
+        };
+    };
+    deletePrometheusSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    testPrometheusSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PrometheusSettingsInput"];
+            };
+        };
+        responses: {
+            /** @description The server answered */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        version?: string;
+                        containers: number;
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            415: components["responses"]["Error"];
+            503: components["responses"]["Error"];
         };
     };
     execContainer: {

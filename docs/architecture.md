@@ -64,6 +64,7 @@ extension points reserved for v2. Decisions and their rationale are recorded as
 | `internal/stacks` | Stack directories, compose validation, adopt/discovery, composer integration |
 | `internal/events` | containerd event subscription and in-process fan-out |
 | `internal/jobs` | Long-running operations: registry, output buffers, status |
+| `internal/prometheus` | Read-only Prometheus client for the container metrics history (ADR-0023) |
 | `internal/tlsutil` | Self-signed certificate generation and rotation |
 | `internal/version` | Build metadata, source URL (AGPL §13), license |
 | `web/` | React SPA, embedded via `web/embed.go` |

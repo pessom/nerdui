@@ -178,15 +178,21 @@ jobs:
         run: |
           # Replace the runner's Docker-bundled containerd with the one installed above.
           sudo systemctl stop docker.socket docker.service || true
+          # containerd's built-in metrics, read by the metrics history test (#176).
+          if ! sudo grep -qs '^\[metrics\]' /etc/containerd/config.toml; then
+            printf '\n[metrics]\n  address = "127.0.0.1:1338"\n' | sudo tee -a /etc/containerd/config.toml >/dev/null
+          fi
           sudo systemctl daemon-reload
           sudo systemctl restart containerd
           sudo nerdctl version
+          curl -fsS http://127.0.0.1:1338/v1/metrics | grep -c '^container_' || true
       - name: Smoke test with nerdctl
         run: sudo nerdctl run --rm docker.io/library/alpine:3 echo ok
       - name: Run integration tests
         env:
           NERDUI_TEST_EXPECT_CONTAINERD: v${{ matrix.containerd.minor }}.
           NERDUI_TEST_RESTART_CONTAINERD: "1"
+          NERDUI_TEST_CONTAINERD_METRICS: http://127.0.0.1:1338/v1/metrics
         # Only TestIntegration* (unit tests run in the Go job), verbose to show measurements.
         # -p 1: the events test restarts containerd, packages must not run concurrently.
         # sudo drops the step environment on GitHub runners: pass test variables explicitly.
@@ -194,6 +200,7 @@ jobs:
           sudo env "PATH=$PATH" "HOME=$HOME"
           "NERDUI_TEST_EXPECT_CONTAINERD=$NERDUI_TEST_EXPECT_CONTAINERD"
           "NERDUI_TEST_RESTART_CONTAINERD=$NERDUI_TEST_RESTART_CONTAINERD"
+          "NERDUI_TEST_CONTAINERD_METRICS=$NERDUI_TEST_CONTAINERD_METRICS"
           "GOFLAGS=$GOFLAGS"
           go test -p 1 -race -tags integration -count=1 -run Integration -v ./...
       - name: systemd unit (deploy/systemd)

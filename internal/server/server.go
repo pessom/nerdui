@@ -43,7 +43,9 @@ type Config struct {
 	EventHistory api.EventHistory
 	// DisableExec turns off the web terminal (#15).
 	DisableExec bool
-	Logger      *slog.Logger
+	// Settings stores per-environment settings (#176); nil disables them.
+	Settings api.Settings
+	Logger   *slog.Logger
 }
 
 // VersionResponse is returned by GET /api/v1/version. Keep in sync with api/openapi.yaml.
@@ -89,7 +91,7 @@ func New(cfg Config) http.Handler {
 			r.Use(cfg.Auth.RequireSession, auth.CSRF, auth.PasswordChanged)
 			(&api.Handler{
 				Envs: cfg.Environments, Jobs: cfg.Jobs, EventHistory: cfg.EventHistory,
-				ExecDisabled: cfg.DisableExec, Logger: cfg.Logger,
+				ExecDisabled: cfg.DisableExec, Settings: cfg.Settings, Logger: cfg.Logger,
 			}).Routes(r, guard)
 		})
 	})

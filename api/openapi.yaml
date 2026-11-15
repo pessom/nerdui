@@ -30,6 +30,8 @@ tags:
     description: Background jobs for long operations (#126, ADR-0006, ADR-0018)
   - name: users
     description: Local users (#74, ADR-0016); every user is an administrator until roles (#78)
+  - name: settings
+    description: Per-environment settings such as the Prometheus connection (#176, ADR-0023)
 security:
   - session: []
 paths:
@@ -1125,6 +1127,122 @@ paths:
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/containers/{id}/stats/history:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - $ref: "#/components/parameters/Namespace"
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+        description: Full container ID (the container may be stopped or removed)
+    get:
+      tags: [containers]
+      operationId: getContainerStatsHistory
+      summary: Resource usage history of a container from Prometheus
+      description: |
+        Requires `containers:read` (#176, ADR-0023). Reads containerd's built-in metrics from the
+        environment's Prometheus server with fixed queries. 409 when no Prometheus is
+        configured, 503 when it is unreachable or rejects the query.
+      parameters:
+        - name: range
+          in: query
+          required: true
+          schema: { type: string, enum: ["1h", "6h", "24h", "7d"] }
+      responses:
+        "200":
+          description: History on a common time axis
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StatsHistory" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/settings/prometheus:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+    get:
+      tags: [settings]
+      operationId: getPrometheusSettings
+      summary: Prometheus connection of the environment
+      description: Requires `settings:read` (#176). The password or token is never returned.
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PrometheusSettings" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+    put:
+      tags: [settings]
+      operationId: putPrometheusSettings
+      summary: Set the Prometheus connection
+      description: |
+        Requires `settings:write`. An empty secret keeps the stored one when the authentication
+        mode is unchanged. Stored in nerdui's database.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PrometheusSettingsInput" }
+      responses:
+        "200":
+          description: Saved settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PrometheusSettings" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "415": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [settings]
+      operationId: deletePrometheusSettings
+      summary: Remove the Prometheus connection
+      description: Requires `settings:write`.
+      responses:
+        "204": { description: Removed }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/settings/prometheus/test:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+    post:
+      tags: [settings]
+      operationId: testPrometheusSettings
+      summary: Test a Prometheus connection without saving it
+      description: |
+        Requires `settings:write`. Runs an instant query and reports how many containers have
+        containerd metrics in Prometheus (0 means containerd is not scraped yet).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PrometheusSettingsInput" }
+      responses:
+        "200":
+          description: The server answered
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [containers]
+                properties:
+                  version: { type: string }
+                  containers: { type: integer }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "415": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
   /api/v1/environments/{env}/containers/{id}/exec:
     parameters:
       - $ref: "#/components/parameters/Env"
@@ -1384,9 +1502,10 @@ components:
             runtime: { $ref: "#/components/schemas/RuntimeVersions" }
             features:
               type: object
-              required: [exec]
+              required: [exec, metricsHistory]
               properties:
                 exec: { type: boolean, description: "False when the web terminal is disabled (--disable-exec)" }
+                metricsHistory: { type: boolean, description: "True when a Prometheus connection is configured (#176)" }
     Container:
       type: object
       required: [id, name, namespace, image, command, state, createdAt, ports, labels]
@@ -1806,6 +1925,38 @@ components:
         blockRead: { type: integer, format: int64, description: Cumulative bytes }
         blockWrite: { type: integer, format: int64 }
         pids: { type: integer, format: int64 }
+    StatsHistory:
+      type: object
+      description: Points on a common time axis; null is a gap.
+      required: [range, step, times, cpu, memory, memoryLimit, blockRead, blockWrite, pids]
+      properties:
+        range: { type: string }
+        step: { type: integer, description: Seconds between points }
+        times: { type: array, items: { type: integer, format: int64 }, description: Unix seconds }
+        cpu: { type: array, items: { type: [number, "null"] }, description: "Percent of one CPU" }
+        memory: { type: array, items: { type: [number, "null"] }, description: Bytes without inactive file cache }
+        memoryLimit: { type: array, items: { type: [number, "null"] }, description: "Bytes; null when unlimited" }
+        blockRead: { type: array, items: { type: [number, "null"] }, description: Bytes per second }
+        blockWrite: { type: array, items: { type: [number, "null"] } }
+        pids: { type: array, items: { type: [number, "null"] } }
+    PrometheusSettings:
+      type: object
+      required: [configured, hasSecret]
+      properties:
+        configured: { type: boolean }
+        url: { type: string }
+        auth: { type: string, enum: [none, basic, bearer] }
+        username: { type: string }
+        hasSecret: { type: boolean }
+    PrometheusSettingsInput:
+      type: object
+      required: [url, auth]
+      additionalProperties: false
+      properties:
+        url: { type: string, description: "Base URL, e.g. http://127.0.0.1:9090" }
+        auth: { type: string, enum: [none, basic, bearer] }
+        username: { type: string }
+        secret: { type: string, description: Password or token; empty keeps the stored one }
     LogLine:
       type: object
       required: [stream, line]

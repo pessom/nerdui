@@ -155,6 +155,37 @@ nerdui serves **HTTPS on port 9443** by default ([ADR-0005](adr/0005-authenticat
   user's sessions. For the container image:
   `sudo nerdctl exec -it nerdui nerdui admin reset-password admin`.
 
+## Metrics history (Prometheus, optional)
+
+The Stats tab of a container can show CPU, memory, block I/O and PIDs for the last hour up to a
+week when a Prometheus server scrapes containerd's built-in metrics (#176, ADR-0023). nerdui only
+reads from Prometheus; network traffic is not part of containerd's metrics.
+
+1. Enable the metrics endpoint in `/etc/containerd/config.toml` and restart containerd (running
+   containers keep running):
+
+   ```toml
+   [metrics]
+     address = "127.0.0.1:1338"
+   ```
+
+   Check: `curl -s 127.0.0.1:1338/v1/metrics | grep -c '^container_cpu_usage_usec'`.
+
+2. Add a scrape job to `prometheus.yml` and reload Prometheus:
+
+   ```yaml
+   scrape_configs:
+     - job_name: containerd
+       metrics_path: /v1/metrics
+       static_configs:
+         - targets: ["127.0.0.1:1338"]
+   ```
+
+3. In nerdui, open **Settings** of the environment, enter the Prometheus base URL (for example
+   `http://127.0.0.1:9090`) and, if the server requires it, basic authentication or a bearer
+   token. **Test connection** reports how many containers have metrics; **Save** turns on the
+   periods on the Stats tab.
+
 ## Health check
 
 - `GET /healthz` returns `200 {"status":"ok"}` without authentication. With the default TLS it is
