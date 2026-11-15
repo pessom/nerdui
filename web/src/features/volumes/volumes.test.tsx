@@ -5,7 +5,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { renderApp, signedIn } from "../../test/render";
 import { fakeApi, json } from "../../test/server";
-import { parseLabels } from "./labels";
+import { parseLabels } from "../../lib/labels";
 
 const base = "/api/v1/environments/local/volumes";
 

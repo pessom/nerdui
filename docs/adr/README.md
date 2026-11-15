@@ -32,3 +32,4 @@ We record significant architectural decisions as ADRs
 | 0021 | [Event history in SQLite](0021-event-history.md) | Accepted |
 | 0022 | [Web terminal: containerd exec over WebSocket](0022-web-terminal.md) | Accepted |
 | 0023 | [Metrics history from Prometheus](0023-metrics-history-prometheus.md) | Accepted |
+| 0024 | [Networks: host nerdctl for creation, nerdctl's rules for removal](0024-networks.md) | Accepted |

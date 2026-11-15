@@ -6,6 +6,7 @@ import { useDisclosure } from "@mantine/hooks";
 import {
   IconActivity,
   IconDatabase,
+  IconNetwork,
   IconSettings,
   IconBox,
   IconKey,
@@ -124,6 +125,14 @@ function AppLayout() {
               search={(prev: { ns?: string }) => ({ ns: prev.ns })}
               label="Volumes"
               leftSection={<IconDatabase size={18} stroke={1.5} />}
+              onClick={close}
+            />
+            <RouterNavLink
+              to="/env/$env/networks"
+              params={{ env }}
+              search={(prev: { ns?: string }) => ({ ns: prev.ns })}
+              label="Networks"
+              leftSection={<IconNetwork size={18} stroke={1.5} />}
               onClick={close}
             />
             <RouterNavLink

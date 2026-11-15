@@ -13,6 +13,11 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
   and creation time; sizes are calculated on request. Volumes can be created with labels and
   removed when no container (running or stopped) uses them; removal asks to type the volume
   name, because the data is deleted (#57).
+- **Networks:** a Networks page lists CNI networks with driver, subnet, gateway and the
+  containers attached to them with their addresses. Bridge (optionally internal), macvlan and
+  ipvlan networks are created with the host's `nerdctl network create` (subnet, gateway, IP range,
+  parent interface, labels); a network is removed like `nerdctl network rm`, with a warning about
+  stopped containers that use it (#60, ADR-0024).
 
 ## [0.1.0-alpha.3] - 2026-11-15
 

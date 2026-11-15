@@ -19,6 +19,7 @@ type Runtime interface {
 	Containers() Containers
 	Images() Images
 	Volumes() Volumes
+	Networks() Networks
 	Registries() Registries
 	Events() EventSource
 	Close() error

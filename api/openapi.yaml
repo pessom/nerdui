@@ -24,6 +24,8 @@ tags:
     description: Containers of an environment
   - name: images
     description: Images of an environment
+  - name: networks
+    description: CNI networks (#60, ADR-0024)
   - name: volumes
     description: Named volumes (#57)
   - name: registries
@@ -886,6 +888,78 @@ paths:
                 properties:
                   job: { $ref: "#/components/schemas/Job" }
         "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/networks:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - $ref: "#/components/parameters/Namespace"
+    get:
+      tags: [networks]
+      operationId: listNetworks
+      summary: CNI networks of a namespace
+      description: |
+        Requires `networks:read` (#60, ADR-0024). With the containers attached to each network;
+        addresses are reported for running containers.
+      responses:
+        "200":
+          description: Networks sorted by name
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [namespace, networks]
+                properties:
+                  namespace: { type: string }
+                  networks: { type: array, items: { $ref: "#/components/schemas/Network" } }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+    post:
+      tags: [networks]
+      operationId: createNetwork
+      summary: Create a bridge, macvlan or ipvlan network
+      description: |
+        Requires `networks:write`. Runs the host's `nerdctl network create` with validated
+        arguments (ADR-0024); an existing name is 409.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NetworkSpec" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Network" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "415": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/networks/{name}:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - $ref: "#/components/parameters/Namespace"
+      - name: name
+        in: path
+        required: true
+        schema: { type: string }
+    delete:
+      tags: [networks]
+      operationId: removeNetwork
+      summary: Remove a network
+      description: |
+        Requires `networks:write`. Like `nerdctl network rm`: refused (409) while a running
+        container uses it, and for default, pre-defined or externally managed networks.
+      responses:
+        "204": { description: Removed }
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
@@ -2009,6 +2083,52 @@ components:
         blockRead: { type: integer, format: int64, description: Cumulative bytes }
         blockWrite: { type: integer, format: int64 }
         pids: { type: integer, format: int64 }
+    Network:
+      type: object
+      required: [name, driver, labels, ipam, internal, default, removable, containers]
+      properties:
+        name: { type: string }
+        id: { type: string }
+        driver: { type: string, examples: [bridge, macvlan, ipvlan] }
+        labels: { type: object, additionalProperties: { type: string } }
+        ipam:
+          type: array
+          items:
+            type: object
+            properties:
+              subnet: { type: string }
+              gateway: { type: string }
+              rangeStart: { type: string }
+              rangeEnd: { type: string }
+        parent: { type: string, description: Host interface of a macvlan or ipvlan network }
+        internal: { type: boolean }
+        default: { type: boolean }
+        removable: { type: boolean }
+        file: { type: string }
+        containers:
+          type: array
+          items:
+            type: object
+            required: [id, running]
+            properties:
+              id: { type: string }
+              name: { type: string }
+              running: { type: boolean }
+              ips: { type: array, items: { type: string } }
+              mac: { type: string }
+    NetworkSpec:
+      type: object
+      required: [name]
+      additionalProperties: false
+      properties:
+        name: { type: string }
+        driver: { type: string, enum: [bridge, macvlan, ipvlan] }
+        subnet: { type: string, examples: ["10.20.0.0/24"] }
+        gateway: { type: string }
+        ipRange: { type: string, examples: ["10.20.0.128/25"] }
+        parent: { type: string, description: Required for macvlan and ipvlan }
+        internal: { type: boolean, description: Bridge only; no outside access }
+        labels: { type: object, additionalProperties: { type: string } }
     Volume:
       type: object
       required: [name, mountpoint, labels, anonymous, containers]
