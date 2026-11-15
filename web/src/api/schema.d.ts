@@ -682,6 +682,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/environments/{env}/networks": {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        /**
+         * CNI networks of a namespace
+         * @description Requires `networks:read` (#60, ADR-0024). With the containers attached to each network;
+         *     addresses are reported for running containers.
+         */
+        get: operations["listNetworks"];
+        put?: never;
+        /**
+         * Create a bridge, macvlan or ipvlan network
+         * @description Requires `networks:write`. Runs the host's `nerdctl network create` with validated
+         *     arguments (ADR-0024); an existing name is 409.
+         */
+        post: operations["createNetwork"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/environments/{env}/networks/{name}": {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a network
+         * @description Requires `networks:write`. Like `nerdctl network rm`: refused (409) while a running
+         *     container uses it, and for default, pre-defined or externally managed networks.
+         */
+        delete: operations["removeNetwork"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/environments/{env}/volumes": {
         parameters: {
             query?: {
@@ -1665,6 +1725,55 @@ export interface components {
             blockWrite: number;
             /** Format: int64 */
             pids: number;
+        };
+        Network: {
+            name: string;
+            id?: string;
+            /**
+             * @example bridge
+             * @example macvlan
+             * @example ipvlan
+             */
+            driver: string;
+            labels: {
+                [key: string]: string;
+            };
+            ipam: {
+                subnet?: string;
+                gateway?: string;
+                rangeStart?: string;
+                rangeEnd?: string;
+            }[];
+            /** @description Host interface of a macvlan or ipvlan network */
+            parent?: string;
+            internal: boolean;
+            default: boolean;
+            removable: boolean;
+            file?: string;
+            containers: {
+                id: string;
+                name?: string;
+                running: boolean;
+                ips?: string[];
+                mac?: string;
+            }[];
+        };
+        NetworkSpec: {
+            name: string;
+            /** @enum {string} */
+            driver?: "bridge" | "macvlan" | "ipvlan";
+            /** @example 10.20.0.0/24 */
+            subnet?: string;
+            gateway?: string;
+            /** @example 10.20.0.128/25 */
+            ipRange?: string;
+            /** @description Required for macvlan and ipvlan */
+            parent?: string;
+            /** @description Bridge only; no outside access */
+            internal?: boolean;
+            labels?: {
+                [key: string]: string;
+            };
         };
         Volume: {
             name: string;
@@ -2835,6 +2944,105 @@ export interface operations {
                 };
             };
             400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    listNetworks: {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Networks sorted by name */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        namespace: string;
+                        networks: components["schemas"]["Network"][];
+                    };
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    createNetwork: {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NetworkSpec"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Network"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            415: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    removeNetwork: {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];

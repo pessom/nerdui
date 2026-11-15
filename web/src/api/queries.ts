@@ -26,6 +26,7 @@ export const keys = {
   images: (env: string, ns: string) => ["env", env, "images", ns] as const,
   registries: (env: string) => ["env", env, "registries"] as const,
   volumes: (env: string, ns: string) => ["env", env, "volumes", ns] as const,
+  networks: (env: string, ns: string) => ["env", env, "networks", ns] as const,
   prometheus: (env: string) => ["env", env, "settings", "prometheus"] as const,
   statsHistory: (env: string, ns: string, id: string, range: string) =>
     ["env", env, "containers", ns, "stats-history", id, range] as const,
@@ -202,4 +203,19 @@ export const volumesQuery = (env: string, namespace: string, size = false) =>
         }),
       ),
     staleTime: size ? Infinity : 0,
+  });
+
+export type Network = components["schemas"]["Network"];
+export type NetworkSpec = components["schemas"]["NetworkSpec"];
+
+/** CNI networks of a namespace with their containers (#60). */
+export const networksQuery = (env: string, namespace: string) =>
+  queryOptions({
+    queryKey: keys.networks(env, namespace),
+    queryFn: () =>
+      unwrap(
+        api.GET("/api/v1/environments/{env}/networks", {
+          params: { path: { env }, query: { namespace } },
+        }),
+      ),
   });

@@ -7,7 +7,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { api, unwrap, unwrapEmpty } from "../../api/client";
 import { keys, type Volume } from "../../api/queries";
-import { parseLabels } from "./labels";
+import { parseLabels } from "../../lib/labels";
 
 export function CreateVolumeDialog({
   env,
