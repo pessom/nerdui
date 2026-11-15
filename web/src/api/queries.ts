@@ -25,6 +25,7 @@ export const keys = {
   /** Under containers(env, ns), so container actions refresh it too. */
   images: (env: string, ns: string) => ["env", env, "images", ns] as const,
   registries: (env: string) => ["env", env, "registries"] as const,
+  volumes: (env: string, ns: string) => ["env", env, "volumes", ns] as const,
   prometheus: (env: string) => ["env", env, "settings", "prometheus"] as const,
   statsHistory: (env: string, ns: string, id: string, range: string) =>
     ["env", env, "containers", ns, "stats-history", id, range] as const,
@@ -186,4 +187,19 @@ export const statsHistoryQuery = (
       ),
     refetchInterval: 60_000,
     retry: false,
+  });
+
+export type Volume = components["schemas"]["Volume"];
+
+/** Volumes of a namespace (#57); size walks every volume, so it is a separate, on-demand query. */
+export const volumesQuery = (env: string, namespace: string, size = false) =>
+  queryOptions({
+    queryKey: [...keys.volumes(env, namespace), { size }] as const,
+    queryFn: () =>
+      unwrap(
+        api.GET("/api/v1/environments/{env}/volumes", {
+          params: { path: { env }, query: { namespace, size } },
+        }),
+      ),
+    staleTime: size ? Infinity : 0,
   });

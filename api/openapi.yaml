@@ -24,6 +24,8 @@ tags:
     description: Containers of an environment
   - name: images
     description: Images of an environment
+  - name: volumes
+    description: Named volumes (#57)
   - name: registries
     description: Registry logins of a host (#51, ADR-0019), shared with `nerdctl login`
   - name: jobs
@@ -884,6 +886,88 @@ paths:
                 properties:
                   job: { $ref: "#/components/schemas/Job" }
         "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/volumes:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - $ref: "#/components/parameters/Namespace"
+    get:
+      tags: [volumes]
+      operationId: listVolumes
+      summary: Volumes of a namespace
+      description: |
+        Requires `volumes:read` (#57). nerdctl's named volumes with the containers (running or
+        not) that mount them. `size=true` walks every volume on disk, like
+        `nerdctl volume ls --size`.
+      parameters:
+        - name: size
+          in: query
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: Volumes sorted by name
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [namespace, volumes]
+                properties:
+                  namespace: { type: string }
+                  volumes: { type: array, items: { $ref: "#/components/schemas/Volume" } }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+    post:
+      tags: [volumes]
+      operationId: createVolume
+      summary: Create a volume
+      description: Requires `volumes:write`. Like `nerdctl volume create`; an existing name is 409.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              additionalProperties: false
+              properties:
+                name: { type: string }
+                labels: { type: object, additionalProperties: { type: string } }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Volume" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "415": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/volumes/{name}:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - $ref: "#/components/parameters/Namespace"
+      - name: name
+        in: path
+        required: true
+        schema: { type: string }
+    delete:
+      tags: [volumes]
+      operationId: removeVolume
+      summary: Remove a volume and its data
+      description: |
+        Requires `volumes:write`. Refused (409) while any container, running or stopped, mounts
+        the volume.
+      responses:
+        "204": { description: Removed }
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
@@ -1925,6 +2009,24 @@ components:
         blockRead: { type: integer, format: int64, description: Cumulative bytes }
         blockWrite: { type: integer, format: int64 }
         pids: { type: integer, format: int64 }
+    Volume:
+      type: object
+      required: [name, mountpoint, labels, anonymous, containers]
+      properties:
+        name: { type: string }
+        mountpoint: { type: string }
+        labels: { type: object, additionalProperties: { type: string } }
+        anonymous: { type: boolean, description: Created for a container without a name }
+        createdAt: { type: string, format: date-time, description: Modification time of the volume directory }
+        size: { type: integer, format: int64, description: Bytes; only with size=true }
+        containers:
+          type: array
+          items:
+            type: object
+            required: [id]
+            properties:
+              id: { type: string }
+              name: { type: string }
     StatsHistory:
       type: object
       description: Points on a common time axis; null is a gap.
