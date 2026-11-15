@@ -11,12 +11,16 @@ export type StatsSample = components["schemas"]["StatsSample"];
 export const HISTORY_SECONDS = 5 * 60;
 
 /**
- * The x range of the charts: always HISTORY_SECONDS wide and ending at the latest sample (or
- * now), so the scale does not stretch while the history fills up.
+ * The x range of the charts: always `seconds` wide (HISTORY_SECONDS when live) and ending at
+ * the latest sample (or now), so the scale does not stretch while the history fills up.
  */
-export function timeWindow(latest: number | null | undefined, now = Date.now() / 1000) {
+export function timeWindow(
+  latest: number | null | undefined,
+  now = Date.now() / 1000,
+  seconds = HISTORY_SECONDS,
+) {
   const hi = latest != null && Number.isFinite(latest) ? latest : now;
-  return [hi - HISTORY_SECONDS, hi] as [number, number];
+  return [hi - seconds, hi] as [number, number];
 }
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -26,6 +30,54 @@ export function clock(t: number, seconds = false): string {
   const d = new Date(t * 1000);
   const hm = `${pad(d.getHours())}:${pad(d.getMinutes())}`;
   return seconds ? `${hm}:${pad(d.getSeconds())}` : hm;
+}
+
+/** Local date for unix seconds: DD.MM. */
+export function day(t: number): string {
+  const d = new Date(t * 1000);
+  return `${pad(d.getDate())}.${pad(d.getMonth() + 1)}`;
+}
+
+/** The time axis of a chart: window width, tick steps and labels. */
+export interface TimeAxis {
+  key: string;
+  seconds: number;
+  /** Tick steps in seconds; uPlot picks the first that fits. */
+  incrs: number[];
+  tick: (t: number) => string;
+  legend: (t: number) => string;
+}
+
+/** The live charts: five minutes, ticks on whole minutes. */
+export const liveAxis: TimeAxis = {
+  key: "live",
+  seconds: HISTORY_SECONDS,
+  incrs: [60, 120, 300],
+  tick: (t) => clock(t),
+  legend: (t) => clock(t, true),
+};
+
+/** Periods of the metrics history from Prometheus (#176). */
+export const HISTORY_RANGES = ["1h", "6h", "24h", "7d"] as const;
+export type HistoryRange = (typeof HISTORY_RANGES)[number];
+
+const rangeAxis: Record<HistoryRange, { seconds: number; incrs: number[] }> = {
+  "1h": { seconds: 3600, incrs: [600, 900, 1800] },
+  "6h": { seconds: 6 * 3600, incrs: [3600, 7200] },
+  "24h": { seconds: 24 * 3600, incrs: [3 * 3600, 6 * 3600] },
+  "7d": { seconds: 7 * 86400, incrs: [86400] },
+};
+
+/** The axis of a history period: clock ticks, dates for a week. */
+export function historyAxis(range: HistoryRange): TimeAxis {
+  const { seconds, incrs } = rangeAxis[range];
+  return {
+    key: range,
+    seconds,
+    incrs,
+    tick: range === "7d" ? day : (t) => clock(t),
+    legend: (t) => `${day(t)} ${clock(t)}`,
+  };
 }
 
 /** One point of the charts: rates are derived from consecutive cumulative counters. */

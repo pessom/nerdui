@@ -5,6 +5,7 @@ import { AppShell, Burger, Group, ScrollArea, Text } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
   IconActivity,
+  IconSettings,
   IconBox,
   IconKey,
   IconLayoutDashboard,
@@ -130,6 +131,13 @@ function AppLayout() {
               search={(prev: { ns?: string }) => ({ ns: prev.ns })}
               label="Events"
               leftSection={<IconActivity size={18} stroke={1.5} />}
+              onClick={close}
+            />
+            <RouterNavLink
+              to="/env/$env/settings"
+              params={{ env }}
+              label="Settings"
+              leftSection={<IconSettings size={18} stroke={1.5} />}
               onClick={close}
             />
             <RouterNavLink

@@ -7,6 +7,13 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 
 ## [Unreleased]
 
+### Added
+
+- **Metrics history:** with a Prometheus server that scrapes containerd's built-in metrics, the
+  Stats tab shows CPU, memory, block I/O and PIDs for the last 1 h, 6 h, 24 h or 7 days, also
+  for stopped containers. The connection (URL, basic or bearer authentication, connection test)
+  is set per environment on the new Settings page; see the deployment guide (#176).
+
 ### Fixed
 
 - Registries: a login nerdctl stores under several keys (for port 443 with and without the

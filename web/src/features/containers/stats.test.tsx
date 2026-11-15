@@ -4,7 +4,7 @@
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { renderApp, signedIn } from "../../test/render";
-import { RecordingWebSocket, fakeApi, json } from "../../test/server";
+import { RecordingWebSocket, envStatus, fakeApi, json } from "../../test/server";
 import { HISTORY_SECONDS, addSample, clock, rate, timeWindow, type StatsSample } from "./stats";
 
 vi.mock("./StatsChart", () => ({
@@ -58,8 +58,8 @@ describe("stats helpers", () => {
 const id = "c".repeat(64);
 const base = "/api/v1/environments/local/containers";
 
-function setup(state: string) {
-  fakeApi({
+function setup(state: string, extra: Parameters<typeof fakeApi>[0] = {}) {
+  return fakeApi({
     ...signedIn,
     [`GET ${base}`]: () =>
       json(200, {
@@ -80,8 +80,27 @@ function setup(state: string) {
       }),
     [`GET ${base}/${id}/inspect`]: () =>
       json(200, { Id: id, Name: "db", State: { Status: state } }),
+    ...extra,
   });
 }
+
+/** An environment with a Prometheus connection and a two-point history. */
+const withHistory = {
+  "GET /api/v1/environments/local": () =>
+    json(200, { ...envStatus, features: { exec: true, metricsHistory: true } }),
+  [`GET ${base}/${id}/stats/history`]: () =>
+    json(200, {
+      range: "1h",
+      step: 15,
+      times: [1000, 1015, 1030],
+      cpu: [10, null, 30],
+      memory: [1, 2, 3],
+      memoryLimit: [null, null, null],
+      blockRead: [0, 0, 0],
+      blockWrite: [0, 0, 0],
+      pids: [3, 3, 4],
+    }),
+};
 
 const statsStreams = () => RecordingWebSocket.find("/stats/stream");
 
@@ -121,6 +140,46 @@ describe("stats tab", () => {
     expect(new URL(statsStreams()[1]!.url).searchParams.get("interval")).toBe("5s");
     // The history survives an interval change.
     expect(screen.getByRole("img", { name: "CPU chart" })).toHaveAttribute("data-points", "2");
+  });
+
+  it("shows the history from Prometheus, also for a stopped container", async () => {
+    const { calls } = setup("exited", withHistory);
+    renderApp(`/env/local/containers/${id}?tab=stats`);
+    // The live period needs a running container: the panel opens on the last hour.
+    expect(await screen.findByRole("img", { name: "PIDs chart" })).toHaveAttribute(
+      "data-points",
+      "3",
+    );
+    expect(screen.getByRole("radio", { name: "5m (live)" })).toBeDisabled();
+    expect(screen.getByRole("radio", { name: "1h" })).toBeChecked();
+    expect(screen.getByText(/Network traffic is not part/)).toBeInTheDocument();
+    expect(statsStreams()).toHaveLength(0);
+    const first = calls.find((c) => c.path.endsWith("/stats/history"));
+    expect(first?.query.get("range")).toBe("1h");
+    expect(first?.query.get("namespace")).toBe("default");
+
+    fireEvent.click(screen.getByRole("radio", { name: "7d" }));
+    await waitFor(() =>
+      expect(
+        calls.filter((c) => c.path.endsWith("/stats/history")).map((c) => c.query.get("range")),
+      ).toContain("7d"),
+    );
+  });
+
+  it("switches a running container between live stats and history", async () => {
+    setup("running", {
+      ...withHistory,
+      [`GET ${base}/${id}/stats/history`]: () =>
+        json(409, { error: { code: "conflict", message: "metrics history is not configured" } }),
+    });
+    renderApp(`/env/local/containers/${id}?tab=stats`);
+    await waitFor(() => expect(statsStreams()).toHaveLength(1));
+    expect(screen.getByRole("radio", { name: "5m (live)" })).toBeChecked();
+
+    fireEvent.click(screen.getByRole("radio", { name: "6h" }));
+    expect(await screen.findByText("metrics history is not configured")).toBeInTheDocument();
+    // The live stream stops while the history is shown.
+    await waitFor(() => expect(statsStreams()[0]!.closed).toBe(true));
   });
 
   it("does not stream a stopped container", async () => {
