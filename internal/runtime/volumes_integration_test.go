@@ -57,7 +57,9 @@ func TestIntegrationVolumes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("nerdctl run: %v: %s", err, out)
 	}
-	id := strings.TrimSpace(string(out))
+	// The ID is the last line; nerdctl may print warnings before it.
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	id := strings.TrimSpace(lines[len(lines)-1])
 
 	find := func(size bool) Volume {
 		t.Helper()
@@ -75,7 +77,7 @@ func TestIntegrationVolumes(t *testing.T) {
 	}
 	v := find(false)
 	if len(v.Containers) != 1 || v.Containers[0].ID != id || v.Containers[0].Name != ctr || v.Size != nil {
-		t.Errorf("listed %+v", v)
+		t.Errorf("listed %+v, want container %s (%s); nerdctl run printed %q", v, id, ctr, out)
 	}
 	deadline := time.Now().Add(20 * time.Second)
 	for {
