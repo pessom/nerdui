@@ -27,6 +27,7 @@ export const keys = {
   registries: (env: string) => ["env", env, "registries"] as const,
   volumes: (env: string, ns: string) => ["env", env, "volumes", ns] as const,
   networks: (env: string, ns: string) => ["env", env, "networks", ns] as const,
+  ports: (env: string) => ["env", env, "ports"] as const,
   prometheus: (env: string) => ["env", env, "settings", "prometheus"] as const,
   statsHistory: (env: string, ns: string, id: string, range: string) =>
     ["env", env, "containers", ns, "stats-history", id, range] as const,
@@ -218,4 +219,14 @@ export const networksQuery = (env: string, namespace: string) =>
           params: { path: { env }, query: { namespace } },
         }),
       ),
+  });
+
+export type PortEntry = components["schemas"]["PortEntry"];
+
+/** Published and exposed ports of all containers of the host, with conflicts (#62). */
+export const portsQuery = (env: string) =>
+  queryOptions({
+    queryKey: keys.ports(env),
+    queryFn: () =>
+      unwrap(api.GET("/api/v1/environments/{env}/ports", { params: { path: { env } } })),
   });

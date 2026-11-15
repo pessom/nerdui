@@ -46,6 +46,9 @@ func (f fakeRuntime) Nerdctl(context.Context) runtime.NerdctlStatus {
 	return runtime.NerdctlStatus{Compatible: true}
 }
 func (f fakeRuntime) Info(context.Context) (runtime.Info, error) { return runtime.Info{}, f.err }
+func (f fakeRuntime) Ports(context.Context) (runtime.PortsReport, error) {
+	return runtime.PortsReport{}, f.err
+}
 func (f fakeRuntime) PrunePreview(context.Context, string, bool) (runtime.PrunePreview, error) {
 	return runtime.PrunePreview{}, f.err
 }
@@ -298,6 +301,7 @@ func TestRouteAuthorization(t *testing.T) {
 		"POST /api/v1/environments/{env}/images/tag":                   "images:write",
 		"POST /api/v1/environments/{env}/images/remove":                "images:write",
 		"GET /api/v1/environments/{env}/registries":                    "registries:read",
+		"GET /api/v1/environments/{env}/ports":                         "containers:read",
 		"GET /api/v1/environments/{env}/networks":                      "networks:read",
 		"POST /api/v1/environments/{env}/networks":                     "networks:write",
 		"DELETE /api/v1/environments/{env}/networks/{name}":            "networks:write",

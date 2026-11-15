@@ -59,6 +59,7 @@ type fakeRuntime struct {
 	statsSamples []runtime.StatsSample
 	statsErr     error
 	volumes      []runtime.Volume
+	ports        runtime.PortsReport
 	networks     []runtime.Network
 	netSpecs     []runtime.NetworkSpec
 	volumeSize   bool
@@ -141,7 +142,9 @@ func (f *fakeRuntime) Create(_ context.Context, _ string, spec runtime.CreateSpe
 	return f.createID, f.createErr
 }
 
-func (f *fakeRuntime) Images() runtime.Images { return fakeImages{f} }
+func (f *fakeRuntime) Images() runtime.Images                             { return fakeImages{f} }
+func (f *fakeRuntime) Ports(context.Context) (runtime.PortsReport, error) { return f.ports, f.err }
+
 func (f *fakeRuntime) PrunePreview(_ context.Context, ns string, all bool) (runtime.PrunePreview, error) {
 	f.gotNS = ns
 	p := runtime.PrunePreview{Containers: []runtime.PrunedItem{{ID: "c1", Name: "old"}}, Images: []runtime.PrunedItem{}}

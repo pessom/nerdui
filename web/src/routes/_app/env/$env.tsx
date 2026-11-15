@@ -29,11 +29,14 @@ function EnvLayout() {
   const { ns } = Route.useSearch();
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  // Host-wide pages (overview, registries, settings) have no namespace selector.
+  // Host-wide pages (overview, registries, settings, ports) have no namespace selector.
   const envPath = `/env/${encodeURIComponent(env)}`;
   const page = pathname.replace(/\/$/, "");
   const overview =
-    page === envPath || page === `${envPath}/registries` || page === `${envPath}/settings`;
+    page === envPath ||
+    page === `${envPath}/registries` ||
+    page === `${envPath}/settings` ||
+    page === `${envPath}/ports`;
 
   const envs = useQuery(environmentsQuery);
   const status = useQuery(envStatusQuery(env));

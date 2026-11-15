@@ -38,6 +38,8 @@ type System interface {
 	// PrunePreview estimates what Prune removes; Prune runs nerdctl's prunes (#52).
 	PrunePreview(ctx context.Context, namespace string, allImages bool) (PrunePreview, error)
 	Prune(ctx context.Context, namespace string, opts PruneOptions, out io.Writer) error
+	// Ports lists published and exposed ports of all namespaces with conflicts (#62).
+	Ports(ctx context.Context) (PortsReport, error)
 }
 
 var _ Runtime = (*Client)(nil)

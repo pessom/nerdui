@@ -84,6 +84,7 @@ func (h *Handler) runtimeRoutes(r chi.Router, g *authz.Guard) {
 	r.Method(http.MethodPost, "/images/remove", g.Protect(authz.ImagesWrite, h.removeImages))
 	r.Method(http.MethodGet, "/system/prune", g.Protect(authz.SystemRead, h.prunePreview))
 	r.Method(http.MethodPost, "/system/prune", g.Protect(authz.SystemPrune, h.startPrune))
+	r.Method(http.MethodGet, "/ports", g.Protect(authz.ContainersRead, h.listPorts))
 	r.Method(http.MethodGet, "/networks", g.Protect(authz.NetworksRead, h.listNetworks))
 	r.Method(http.MethodPost, "/networks", g.Protect(authz.NetworksWrite, h.createNetwork))
 	r.Method(http.MethodDelete, "/networks/{name}", g.Protect(authz.NetworksWrite, h.removeNetwork))

@@ -682,6 +682,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/environments/{env}/ports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Published and exposed ports of all containers
+         * @description Requires `containers:read` (#62). Across all namespaces: ports published on the host and
+         *     ports only exposed by the image (EXPOSE). `conflicts` lists other containers using the
+         *     same host port and protocol, and host sockets bound to it (read from /proc/net when
+         *     nerdui runs on the host; `hostChecked` tells whether they were).
+         */
+        get: operations["listPorts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/environments/{env}/networks": {
         parameters: {
             query?: {
@@ -1725,6 +1751,19 @@ export interface components {
             blockWrite: number;
             /** Format: int64 */
             pids: number;
+        };
+        PortEntry: {
+            namespace: string;
+            containerId: string;
+            containerName?: string;
+            state: string;
+            hostIp?: string;
+            hostPort?: number;
+            containerPort: number;
+            protocol: string;
+            /** @description False for ports only exposed by the image */
+            published: boolean;
+            conflicts?: string[];
         };
         Network: {
             name: string;
@@ -2949,6 +2988,35 @@ export interface operations {
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
             503: components["responses"]["Error"];
+        };
+    };
+    listPorts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Published ports first, by host port */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        hostChecked: boolean;
+                        ports: components["schemas"]["PortEntry"][];
+                    };
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
         };
     };
     listNetworks: {
