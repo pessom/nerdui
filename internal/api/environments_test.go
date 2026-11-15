@@ -59,6 +59,8 @@ type fakeRuntime struct {
 	statsSamples []runtime.StatsSample
 	statsErr     error
 	volumes      []runtime.Volume
+	networks     []runtime.Network
+	netSpecs     []runtime.NetworkSpec
 	volumeSize   bool
 	gotInterval  time.Duration
 	gotExec      runtime.ExecOptions
@@ -175,6 +177,39 @@ func (f *fakeRuntime) Stats(_ context.Context, _, _ string, interval time.Durati
 func (f *fakeRuntime) Registries() runtime.Registries { return fakeRegistries{f} }
 
 func (f *fakeRuntime) Volumes() runtime.Volumes { return fakeVolumes{f} }
+
+func (f *fakeRuntime) Networks() runtime.Networks { return fakeNetworks{f} }
+
+type fakeNetworks struct{ f *fakeRuntime }
+
+func (fn fakeNetworks) List(_ context.Context, ns string) ([]runtime.Network, error) {
+	fn.f.gotNS = ns
+	return fn.f.networks, fn.f.err
+}
+
+func (fn fakeNetworks) Create(_ context.Context, _ string, spec runtime.NetworkSpec) (runtime.Network, error) {
+	if _, err := runtime.NetworkCreateArgs(spec); err != nil {
+		return runtime.Network{}, err
+	}
+	fn.f.netSpecs = append(fn.f.netSpecs, spec)
+	n := runtime.Network{Name: spec.Name, Driver: spec.Driver, Removable: true, Containers: []runtime.NetworkContainer{}}
+	fn.f.networks = append(fn.f.networks, n)
+	return n, nil
+}
+
+func (fn fakeNetworks) Remove(_ context.Context, _, name string) error {
+	for i, n := range fn.f.networks {
+		if n.Name != name {
+			continue
+		}
+		if !n.Removable {
+			return fmt.Errorf("%w: pre-defined", errdefs.ErrFailedPrecondition)
+		}
+		fn.f.networks = append(fn.f.networks[:i], fn.f.networks[i+1:]...)
+		return nil
+	}
+	return fmt.Errorf("%w: network %q not found", errdefs.ErrNotFound, name)
+}
 
 type fakeVolumes struct{ f *fakeRuntime }
 
