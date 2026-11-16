@@ -78,3 +78,85 @@ describe("stacks", () => {
     );
   });
 });
+
+describe("adopting stacks", () => {
+  it("adopts a discovered project in place and opens it; copy is blocked by local files", async () => {
+    const adopted = { ...app, name: "blog", mode: "external", path: "/srv/blog" };
+    const { calls } = fakeApi({
+      ...signedIn,
+      [`GET ${base}`]: () => json(200, { namespace: "default", stacks: [manual] }),
+      "GET /api/v1/environments/local/stack-candidates": () =>
+        json(200, {
+          scanDirs: ["/srv"],
+          candidates: [
+            {
+              name: "blog",
+              path: "/srv/blog",
+              composeFile: "compose.yaml",
+              services: ["web", "db"],
+              localPaths: ["/srv/blog/data"],
+              taken: false,
+            },
+            {
+              name: "app",
+              path: "/srv/app",
+              composeFile: "compose.yaml",
+              services: [],
+              taken: true,
+            },
+          ],
+        }),
+      [`POST ${base}/adopt`]: () => json(201, adopted),
+      [`GET ${base}/blog`]: () => json(200, adopted),
+    });
+    renderApp("/env/local/stacks");
+
+    fireEvent.click(await screen.findByRole("button", { name: "Adopt existing" }));
+    const dialog = await screen.findByRole("dialog", { name: "Adopt a compose project" });
+    const blog = await within(dialog).findByRole("region", { name: "/srv/blog" });
+    expect(within(blog).getByText("services: web, db")).toBeInTheDocument();
+    expect(within(blog).getByRole("button", { name: "Copy" })).toBeDisabled();
+    const taken = within(dialog).getByRole("region", { name: "/srv/app" });
+    expect(within(taken).getByText("name taken")).toBeInTheDocument();
+    expect(within(taken).getByRole("button", { name: "In place" })).toBeDisabled();
+
+    fireEvent.click(within(blog).getByRole("button", { name: "In place" }));
+    expect(await screen.findByRole("heading", { name: "blog" })).toBeInTheDocument();
+    const post = calls.find((c) => c.method === "POST");
+    expect(post?.body).toEqual({ name: "blog", path: "/srv/blog", mode: "in-place" });
+    expect(post?.query.get("namespace")).toBe("default");
+    expect(await screen.findByRole("button", { name: "Forget" })).toBeInTheDocument();
+  });
+
+  it("adopts an unmanaged project from its page by directory", async () => {
+    const { calls } = fakeApi({
+      ...signedIn,
+      [`GET ${base}/manual`]: () => json(200, manual),
+      "GET /api/v1/environments/local/stack-candidates": () =>
+        json(200, { scanDirs: null, candidates: [] }),
+      [`POST ${base}/adopt`]: () =>
+        json(409, {
+          error: { code: "conflict", message: "the project uses files of its directory" },
+        }),
+    });
+    renderApp("/env/local/stacks/manual");
+
+    fireEvent.click(await screen.findByRole("button", { name: "Adopt" }));
+    const dialog = await screen.findByRole("dialog", { name: "Adopt a compose project" });
+    expect(await within(dialog).findByText(/--stacks-scan-dirs/)).toBeInTheDocument();
+    expect(within(dialog).getByLabelText(/Stack name/)).toHaveValue("manual");
+    fireEvent.change(within(dialog).getByLabelText(/Directory/), {
+      target: { value: "/opt/manual" },
+    });
+    fireEvent.click(within(dialog).getByRole("radio", { name: "Copy files" }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Adopt" }));
+    expect(
+      await within(dialog).findByText("the project uses files of its directory"),
+    ).toBeInTheDocument();
+    expect(calls.find((c) => c.method === "POST")?.body).toEqual({
+      name: "manual",
+      path: "/opt/manual",
+      mode: "copy",
+    });
+  });
+});

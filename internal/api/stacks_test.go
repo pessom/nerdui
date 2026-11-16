@@ -4,6 +4,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"os"
@@ -17,6 +18,7 @@ import (
 	"github.com/pessom/nerdui/internal/jobs"
 	"github.com/pessom/nerdui/internal/runtime"
 	"github.com/pessom/nerdui/internal/stacks"
+	"github.com/pessom/nerdui/internal/store"
 )
 
 func TestStacks(t *testing.T) {
@@ -77,5 +79,63 @@ func TestStacks(t *testing.T) {
 	}
 	if rec := send(t, r, http.MethodGet, "/api/v1/environments/local/stacks/nope", ""); rec.Code != http.StatusNotFound {
 		t.Errorf("missing: %d", rec.Code)
+	}
+}
+
+func TestAdoptStack(t *testing.T) {
+	st, err := store.Open(context.Background(), t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	stacksDir, scan := t.TempDir(), t.TempDir()
+	media := filepath.Join(scan, "media")
+	if err := os.MkdirAll(media, 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(media, "compose.yaml"), []byte("services: {}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	rt := writable()
+	rt.services = map[string][]string{"media": {"web"}}
+	admin := func(*http.Request) (authz.Subject, bool) { return authz.Subject{Role: authz.RoleAdmin}, true }
+	r := chi.NewRouter()
+	r.Route("/api/v1", func(r chi.Router) {
+		h := &Handler{
+			Envs: environment.NewRegistry(environment.Local(rt, "default")), Jobs: jobs.NewManager(),
+			Stacks: &stacks.Service{Dir: stacksDir, Registry: st.Read(), Writer: st.Write(), ScanDirs: []string{scan}},
+		}
+		h.Routes(r, authz.NewGuard(authz.AdminOnly{}, admin, nil))
+	})
+	const base = "/api/v1/environments/local"
+
+	rec := send(t, r, http.MethodGet, base+"/stack-candidates", "")
+	var found struct {
+		ScanDirs   []string
+		Candidates []stacks.Candidate
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &found)
+	if rec.Code != http.StatusOK || len(found.Candidates) != 1 || found.Candidates[0].Path != media {
+		t.Fatalf("candidates: %d %s", rec.Code, rec.Body)
+	}
+
+	rec = send(t, r, http.MethodPost, base+"/stacks/adopt", `{"name":"media","path":"`+media+`","mode":"in-place"}`)
+	var adopted stacks.Stack
+	_ = json.Unmarshal(rec.Body.Bytes(), &adopted)
+	if rec.Code != http.StatusCreated || adopted.Mode != stacks.ModeExternal || adopted.Status != stacks.StatusStopped {
+		t.Fatalf("adopt: %d %s", rec.Code, rec.Body)
+	}
+	if rec := send(t, r, http.MethodPost, base+"/stacks/adopt", `{"name":"media","path":"`+media+`","mode":"in-place"}`); rec.Code != http.StatusConflict {
+		t.Errorf("adopt twice: %d %s", rec.Code, rec.Body)
+	}
+	if rec := send(t, r, http.MethodPost, base+"/stacks/adopt", `{"name":"x","path":"relative","mode":"copy"}`); rec.Code != http.StatusBadRequest {
+		t.Errorf("relative path: %d %s", rec.Code, rec.Body)
+	}
+	// Adoption does not need a compatible nerdctl: it touches files and the database only.
+	if rec := send(t, r, http.MethodDelete, base+"/stacks/media/registration", ""); rec.Code != http.StatusNoContent {
+		t.Errorf("forget: %d %s", rec.Code, rec.Body)
+	}
+	if rec := send(t, r, http.MethodDelete, base+"/stacks/media/registration", ""); rec.Code != http.StatusNotFound {
+		t.Errorf("forget again: %d %s", rec.Code, rec.Body)
 	}
 }

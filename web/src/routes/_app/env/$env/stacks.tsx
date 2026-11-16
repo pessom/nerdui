@@ -1,11 +1,24 @@
 // SPDX-FileCopyrightText: 2026 The nerdui Authors
 // SPDX-License-Identifier: AGPL-3.0-only
 
-import { Alert, Code, Group, Loader, Stack as MStack, Table, Text, Title } from "@mantine/core";
+import {
+  Alert,
+  Button,
+  Code,
+  Group,
+  Loader,
+  Stack as MStack,
+  Table,
+  Text,
+  Title,
+} from "@mantine/core";
+import { useDisclosure } from "@mantine/hooks";
+import { IconFolderPlus } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi } from "@tanstack/react-router";
 import { envStatusQuery, stacksQuery } from "../../../../api/queries";
 import { RouterAnchor } from "../../../../components/RouterAnchor";
+import { AdoptStackDialog } from "../../../../features/stacks/AdoptStackDialog";
 import { StackMode, StackStatus } from "../../../../features/stacks/StackStatus";
 
 const envRoute = getRouteApi("/_app/env/$env");
@@ -21,13 +34,20 @@ function StacksPage() {
   const status = useQuery(envStatusQuery(env));
   const namespace = ns ?? status.data?.defaultNamespace ?? "default";
   const list = useQuery(stacksQuery(env, namespace));
+  const [adopting, { open, close }] = useDisclosure();
 
   return (
     <MStack>
-      <Group gap="xs">
-        <Title order={2}>Stacks</Title>
-        {list.isFetching && !list.isPending && <Loader size="xs" aria-label="Refreshing" />}
+      <Group justify="space-between">
+        <Group gap="xs">
+          <Title order={2}>Stacks</Title>
+          {list.isFetching && !list.isPending && <Loader size="xs" aria-label="Refreshing" />}
+        </Group>
+        <Button variant="default" leftSection={<IconFolderPlus size={16} />} onClick={open}>
+          Adopt existing
+        </Button>
       </Group>
+      <AdoptStackDialog env={env} namespace={namespace} opened={adopting} onClose={close} />
       <Text size="sm" c="dimmed">
         Compose projects: directories with a compose file in nerdui&apos;s stacks directory, and
         projects started with <Code>nerdctl compose</Code> elsewhere.
