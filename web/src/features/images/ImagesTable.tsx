@@ -26,6 +26,7 @@ import {
 } from "@tabler/icons-react";
 import {
   columnFilteringFeature,
+  columnVisibilityFeature,
   createColumnHelper,
   createFilteredRowModel,
   createSortedRowModel,
@@ -40,12 +41,15 @@ import {
 } from "@tanstack/react-table";
 import { useMemo, useState } from "react";
 import type { Image } from "../../api/queries";
-import { timeAgo } from "../../lib/time";
+import { Time } from "../../components/Time";
+import { ColumnsMenu } from "../preferences/ColumnsMenu";
+import { useHiddenColumns } from "../preferences/useHiddenColumns";
 import { formatBytes } from "../system/info";
 import { displayName, matchesUsage, searchText, shortID, type UsageFilter } from "./format";
 import { ImageRowActions, type ImageActionHandlers } from "./ImageActions";
 
 const features = tableFeatures({
+  columnVisibilityFeature,
   rowSortingFeature,
   columnFilteringFeature,
   globalFilteringFeature,
@@ -56,10 +60,20 @@ const features = tableFeatures({
 
 const col = createColumnHelper<typeof features, Image>();
 
+/** Columns a user can hide (#90); the name always shows. */
+const hideable = [
+  { id: "id", label: "ID" },
+  { id: "containers", label: "Used by" },
+  { id: "platforms", label: "Platforms" },
+  { id: "size", label: "Size" },
+  { id: "createdAt", label: "Created" },
+];
+
 const columns = col.columns([
   col.accessor((i) => displayName(i), {
     id: "name",
     header: "Image",
+    enableHiding: false,
     sortFn: "alphanumeric",
     cell: ({ row }) => {
       const i = row.original;
@@ -131,11 +145,7 @@ const columns = col.columns([
     header: "Created",
     sortFn: "datetime",
     sortDescFirst: true,
-    cell: ({ getValue }) => (
-      <Text size="sm" c="dimmed" title={new Date(getValue()).toLocaleString()}>
-        {timeAgo(getValue())}
-      </Text>
-    ),
+    cell: ({ getValue }) => <Time value={getValue()} c="dimmed" />,
   }),
 ]);
 
@@ -156,12 +166,13 @@ export function ImagesTable({
     defaultValue: "all",
   });
   const data = useMemo(() => images.filter((i) => matchesUsage(i, usage)), [images, usage]);
+  const { columnVisibility } = useHiddenColumns("images");
   const table = useTable({
     features,
     columns,
     data,
     getRowId: (i) => i.name,
-    state: { sorting, globalFilter: search },
+    state: { sorting, globalFilter: search, columnVisibility },
     onSortingChange: setSorting,
     onGlobalFilterChange: setSearch,
     globalFilterFn: (row, _columnId, value: string) =>
@@ -210,9 +221,12 @@ export function ImagesTable({
             ]}
           />
         </Group>
-        <Text size="sm" c="dimmed">
-          {formatBytes(total)} unpacked in total
-        </Text>
+        <Group gap="sm" wrap="wrap">
+          <Text size="sm" c="dimmed">
+            {formatBytes(total)} unpacked in total
+          </Text>
+          <ColumnsMenu table="images" columns={hideable} />
+        </Group>
       </Group>
       {actions && selected.length > 0 && (
         <Paper withBorder p="xs" mb="sm">
@@ -303,7 +317,7 @@ export function ImagesTable({
           <Table.Tbody>
             {rows.length === 0 && (
               <Table.Tr>
-                <Table.Td colSpan={columns.length + extraCols}>
+                <Table.Td colSpan={table.getVisibleLeafColumns().length + extraCols}>
                   <Text c="dimmed" ta="center" py="md">
                     {images.length === 0
                       ? "No images in this namespace."
@@ -331,7 +345,7 @@ export function ImagesTable({
                     />
                   </Table.Td>
                 )}
-                {row.getAllCells().map((cell) => (
+                {row.getVisibleCells().map((cell) => (
                   <Table.Td key={cell.id}>
                     <table.FlexRender cell={cell} />
                   </Table.Td>

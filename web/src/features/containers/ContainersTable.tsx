@@ -26,6 +26,7 @@ import {
 } from "@tabler/icons-react";
 import {
   columnFilteringFeature,
+  columnVisibilityFeature,
   createColumnHelper,
   createFilteredRowModel,
   createSortedRowModel,
@@ -39,6 +40,9 @@ import {
 } from "@tanstack/react-table";
 import { Fragment, useMemo, useState } from "react";
 import { RouterAnchor } from "../../components/RouterAnchor";
+import { Time } from "../../components/Time";
+import { ColumnsMenu } from "../preferences/ColumnsMenu";
+import { useHiddenColumns } from "../preferences/useHiddenColumns";
 import { BulkActions, RowActions, type TableActions } from "./ContainerActions";
 import { useActionRequests } from "./useActionRequests";
 import {
@@ -53,6 +57,7 @@ import {
 } from "./format";
 
 const features = tableFeatures({
+  columnVisibilityFeature,
   rowSortingFeature,
   columnFilteringFeature,
   globalFilteringFeature,
@@ -63,10 +68,20 @@ const features = tableFeatures({
 
 const col = createColumnHelper<typeof features, Container>();
 
+/** Columns a user can hide (#90); the name always shows. */
+const hideable = [
+  { id: "state", label: "State" },
+  { id: "status", label: "Status" },
+  { id: "image", label: "Image" },
+  { id: "ports", label: "Ports" },
+  { id: "createdAt", label: "Created" },
+];
+
 const columns = col.columns([
   col.accessor((c) => displayName(c), {
     id: "name",
     header: "Name",
+    enableHiding: false,
     sortFn: "alphanumeric",
     cell: ({ row }) => {
       const c = row.original;
@@ -143,11 +158,7 @@ const columns = col.columns([
     header: "Created",
     sortFn: "datetime",
     sortDescFirst: true,
-    cell: ({ getValue }) => (
-      <Text size="sm" c="dimmed" title={getValue()}>
-        {new Date(getValue()).toLocaleString()}
-      </Text>
-    ),
+    cell: ({ getValue }) => <Time value={getValue()} c="dimmed" />,
   }),
 ]);
 
@@ -207,6 +218,7 @@ export function ContainersTable({
     defaultValue: true,
   });
 
+  const { columnVisibility } = useHiddenColumns("containers");
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<string>>(new Set());
   const { request, dialog } = useActionRequests(actions ?? noActions);
 
@@ -221,7 +233,7 @@ export function ContainersTable({
     columns,
     data,
     getRowId: (c) => c.id,
-    state: { sorting, globalFilter: search },
+    state: { sorting, globalFilter: search, columnVisibility },
     onSortingChange: setSorting,
     onGlobalFilterChange: setSearch,
     globalFilterFn: (row, _columnId, value: string) =>
@@ -272,11 +284,14 @@ export function ContainersTable({
             ]}
           />
         </Group>
-        <Switch
-          label="Group by compose project"
-          checked={grouped}
-          onChange={(e) => setGrouped(e.currentTarget.checked)}
-        />
+        <Group gap="sm" wrap="wrap">
+          <Switch
+            label="Group by compose project"
+            checked={grouped}
+            onChange={(e) => setGrouped(e.currentTarget.checked)}
+          />
+          <ColumnsMenu table="containers" columns={hideable} />
+        </Group>
       </Group>
 
       {actions && (
@@ -356,7 +371,7 @@ export function ContainersTable({
           <Table.Tbody>
             {rows.length === 0 && (
               <Table.Tr>
-                <Table.Td colSpan={columns.length + extraCols}>
+                <Table.Td colSpan={table.getVisibleLeafColumns().length + extraCols}>
                   <Text c="dimmed" ta="center" py="md">
                     {containers.length === 0
                       ? "No containers in this namespace."
@@ -370,7 +385,7 @@ export function ContainersTable({
                 {grouped && (g.project || groups.length > 1) && (
                   <Table.Tr>
                     <Table.Td
-                      colSpan={columns.length + extraCols}
+                      colSpan={table.getVisibleLeafColumns().length + extraCols}
                       bg="var(--mantine-color-default-hover)"
                     >
                       <Tooltip
@@ -406,7 +421,7 @@ export function ContainersTable({
                           />
                         </Table.Td>
                       )}
-                      {row.getAllCells().map((cell) => (
+                      {row.getVisibleCells().map((cell) => (
                         <Table.Td key={cell.id}>
                           <table.FlexRender cell={cell} />
                         </Table.Td>

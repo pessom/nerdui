@@ -23,7 +23,7 @@ import { envStatusQuery, volumesQuery, type Volume } from "../../../../api/queri
 import { RouterAnchor } from "../../../../components/RouterAnchor";
 import { formatBytes } from "../../../../features/system/info";
 import { CreateVolumeDialog, RemoveVolumeDialog } from "../../../../features/volumes/VolumeDialogs";
-import { timeAgo } from "../../../../lib/time";
+import { Time } from "../../../../components/Time";
 
 const envRoute = getRouteApi("/_app/env/$env");
 
@@ -156,7 +156,7 @@ function VolumesPage() {
                     <Text size="sm">{size != null ? formatBytes(size) : "—"}</Text>
                   </Table.Td>
                   <Table.Td>
-                    <Text size="sm">{v.createdAt ? timeAgo(v.createdAt) : "—"}</Text>
+                    {v.createdAt ? <Time value={v.createdAt} /> : <Text size="sm">—</Text>}
                   </Table.Td>
                   <Table.Td>
                     <Tooltip

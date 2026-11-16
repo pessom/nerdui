@@ -201,6 +201,39 @@ paths:
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
         "429": { $ref: "#/components/responses/Error" }
+  /api/v1/auth/preferences:
+    get:
+      tags: [auth]
+      operationId: getPreferences
+      summary: The caller's interface preferences
+      description: Requires `session:self` (#90). Defaults until the user saves their own.
+      responses:
+        "200":
+          description: Preferences
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Preferences" }
+        "401": { $ref: "#/components/responses/Error" }
+    put:
+      tags: [auth]
+      operationId: putPreferences
+      summary: Save the caller's interface preferences
+      description: Requires a password session (not an API key) (#90).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Preferences" }
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Preferences" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "415": { $ref: "#/components/responses/Error" }
   /api/v1/auth/api-keys:
     get:
       tags: [auth]
@@ -2639,6 +2672,18 @@ components:
         blockRead: { type: integer, format: int64, description: Cumulative bytes }
         blockWrite: { type: integer, format: int64 }
         pids: { type: integer, format: int64 }
+    Preferences:
+      type: object
+      required: [theme, dateFormat, refreshSeconds]
+      additionalProperties: false
+      properties:
+        theme: { type: string, enum: [auto, light, dark] }
+        dateFormat: { type: string, enum: [relative, local, iso] }
+        refreshSeconds: { type: integer, enum: [0, 5, 10, 30, 60], description: Poll lists in addition to live events; 0 is off }
+        hiddenColumns:
+          type: object
+          additionalProperties: { type: array, items: { type: string } }
+          description: Hidden columns per table
     APIKey:
       type: object
       required: [id, name, prefix, readOnly, createdAt]

@@ -21,7 +21,7 @@ import { useState, type ReactNode } from "react";
 import { api, unwrap, type components } from "../../api/client";
 import { keys } from "../../api/queries";
 import { RouterAnchor } from "../../components/RouterAnchor";
-import { timeAgo } from "../../lib/time";
+import { Time } from "../../components/Time";
 import { eventColor, eventLabel, eventObject } from "../events/format";
 import { formatBytes } from "../system/info";
 import { useTopStats } from "./topStats";
@@ -38,6 +38,8 @@ const summaryQuery = (env: string, volumeSizes: boolean) => ({
         params: { path: { env }, query: { volumeSizes } },
       }),
     ),
+  // Volume sizes walk every volume: never polled (#90).
+  ...(volumeSizes && { refetchInterval: false as const }),
 });
 
 function Counter({
@@ -328,9 +330,7 @@ export function Dashboard({ env }: { env: string }) {
               {events.data.events.map((e) => (
                 <Table.Tr key={e.id}>
                   <Table.Td w={110}>
-                    <Text size="xs" c="dimmed">
-                      {timeAgo(e.ts)}
-                    </Text>
+                    <Time value={e.ts} size="xs" c="dimmed" />
                   </Table.Td>
                   <Table.Td w={140}>
                     <Badge size="xs" variant="light" color={eventColor(e)}>

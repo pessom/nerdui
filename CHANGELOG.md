@@ -23,6 +23,16 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
   key is shown once and only its hash is stored. Keys cannot change the password or manage keys.
   Administrators see and revoke any user's keys on the Users page; a disabled user's keys stop
   working (#87, ADR-0028).
+- **Preferences:** each user's interface settings are saved to their account and follow them
+  across browsers: theme, date format (relative, local or ISO; the other forms show on hover),
+  auto-refresh of lists every 5–60 s in addition to live events, and the visible columns of the
+  containers and images tables (a Columns button above them). Open them from the user menu
+  (Preferences) (#90).
+
+### Changed
+
+- The theme switch saves the choice to the user's preferences instead of the browser. The
+  containers table shows creation times in the chosen date format (relative by default) (#90).
 
 ## [0.1.0-alpha.5] - 2026-11-16
 

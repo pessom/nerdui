@@ -23,7 +23,7 @@ import { IconCheck, IconCopy, IconTrash } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { api, unwrap, type components } from "../../api/client";
-import { timeAgo } from "../../lib/time";
+import { Time } from "../../components/Time";
 
 export type APIKey = components["schemas"]["APIKey"];
 
@@ -110,14 +110,16 @@ export function APIKeyTable({ keys, onRevoke }: { keys: APIKey[]; onRevoke: (k: 
                 </Badge>
               </Table.Td>
               <Table.Td>
-                <Text size="sm" title={k.createdAt}>
-                  {timeAgo(k.createdAt)}
-                </Text>
+                <Time value={k.createdAt} />
               </Table.Td>
               <Table.Td>
-                <Text size="sm" c={k.lastUsedAt ? undefined : "dimmed"} title={k.lastUsedAt}>
-                  {k.lastUsedAt ? timeAgo(k.lastUsedAt) : "never"}
-                </Text>
+                {k.lastUsedAt ? (
+                  <Time value={k.lastUsedAt} />
+                ) : (
+                  <Text size="sm" c="dimmed">
+                    never
+                  </Text>
+                )}
               </Table.Td>
               <Table.Td>
                 {k.expiresAt ? (

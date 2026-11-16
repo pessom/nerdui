@@ -3,6 +3,7 @@
 
 import { ActionIcon, Menu, useMantineColorScheme, type MantineColorScheme } from "@mantine/core";
 import { IconDeviceDesktop, IconMoon, IconSun } from "@tabler/icons-react";
+import { usePreferences } from "../features/preferences/context";
 
 const options: { value: MantineColorScheme; label: string; icon: typeof IconSun }[] = [
   { value: "light", label: "Light", icon: IconSun },
@@ -10,9 +11,10 @@ const options: { value: MantineColorScheme; label: string; icon: typeof IconSun 
   { value: "auto", label: "System", icon: IconDeviceDesktop },
 ];
 
-/** Color scheme switch; Mantine persists the choice in localStorage (#90). */
+/** Color scheme switch; the choice is saved to the user's preferences (#90). */
 export function ThemeToggle() {
   const { colorScheme, setColorScheme } = useMantineColorScheme();
+  const { update } = usePreferences();
   const Current = options.find((o) => o.value === colorScheme)?.icon ?? IconDeviceDesktop;
   return (
     <Menu position="bottom-end" withArrow>
@@ -26,7 +28,10 @@ export function ThemeToggle() {
           <Menu.Item
             key={value}
             leftSection={<Icon size={16} stroke={1.5} />}
-            onClick={() => setColorScheme(value)}
+            onClick={() => {
+              setColorScheme(value);
+              update({ theme: value });
+            }}
             fw={value === colorScheme ? 600 : undefined}
           >
             {label}
