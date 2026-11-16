@@ -59,10 +59,13 @@ func TestIntegrationCompose(t *testing.T) {
 	if err != nil || !slices.Equal(services, []string{"web", "worker"}) {
 		t.Fatalf("services: %v, %v", services, err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "bad.yaml"), []byte("services: [\n"), 0o600); err != nil {
+	// The project is loaded like `nerdctl compose` in its directory: a broken compose file there
+	// is an invalid argument.
+	bad := t.TempDir()
+	if err := os.WriteFile(filepath.Join(bad, "compose.yaml"), []byte("services: [\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := c.Compose().Services(ctx, DefaultNamespace, project, dir, filepath.Join(dir, "bad.yaml")); !errdefs.IsInvalidArgument(err) {
+	if _, err := c.Compose().Services(ctx, DefaultNamespace, project, bad, filepath.Join(bad, "compose.yaml")); !errdefs.IsInvalidArgument(err) {
 		t.Errorf("invalid file: %v", err)
 	}
 
