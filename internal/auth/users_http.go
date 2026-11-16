@@ -119,7 +119,10 @@ func (s *Service) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) handleChangePassword(w http.ResponseWriter, r *http.Request) {
-	p, _ := PrincipalFrom(r.Context())
+	p, ok := passwordSession(w, r)
+	if !ok {
+		return
+	}
 	var req struct {
 		CurrentPassword string `json:"currentPassword"`
 		NewPassword     string `json:"newPassword"`

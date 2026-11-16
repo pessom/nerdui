@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -43,14 +44,31 @@ func SubjectFromRequest(r *http.Request) (authz.Subject, bool) {
 	if !ok {
 		return authz.Subject{}, false
 	}
-	return authz.Subject{UserID: p.User.ID, Username: p.User.Username, Role: p.User.Role}, true
+	s := authz.Subject{UserID: p.User.ID, Username: p.User.Username, Role: p.User.Role}
+	if p.APIKey != nil {
+		s.APIKey, s.ReadOnly = true, p.APIKey.ReadOnly
+	}
+	return s, true
+}
+
+// bearer returns the token of an "Authorization: Bearer" header.
+func bearer(r *http.Request) (string, bool) {
+	h := r.Header.Get("Authorization")
+	if len(h) > 7 && strings.EqualFold(h[:7], "bearer ") {
+		return strings.TrimSpace(h[7:]), true
+	}
+	return "", false
 }
 
 // OptionalSession attaches the principal when a valid session cookie is present and
 // otherwise passes the request through unchanged.
 func (s *Service) OptionalSession(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if c, err := r.Cookie(CookieName); err == nil {
+		if token, ok := bearer(r); ok {
+			if p, err := s.AuthenticateKey(r.Context(), token); err == nil {
+				r = r.WithContext(WithPrincipal(r.Context(), p))
+			}
+		} else if c, err := r.Cookie(CookieName); err == nil {
 			if p, err := s.Authenticate(r.Context(), c.Value); err == nil {
 				r = r.WithContext(WithPrincipal(r.Context(), p))
 			}
@@ -59,9 +77,23 @@ func (s *Service) OptionalSession(next http.Handler) http.Handler {
 	})
 }
 
-// RequireSession rejects requests without a valid session with 401.
+// RequireSession rejects requests without a valid session or API key with 401. An
+// "Authorization: Bearer" header is an API key (#87); otherwise the session cookie is used.
 func (s *Service) RequireSession(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if token, ok := bearer(r); ok {
+			p, err := s.AuthenticateKey(r.Context(), token)
+			if errors.Is(err, ErrUnauthenticated) {
+				httpjson.WriteError(w, http.StatusUnauthorized, httpjson.CodeUnauthenticated, "invalid, expired or revoked API key")
+				return
+			}
+			if err != nil {
+				httpjson.WriteError(w, http.StatusInternalServerError, httpjson.CodeInternal, "authentication failed")
+				return
+			}
+			next.ServeHTTP(w, r.WithContext(WithPrincipal(r.Context(), p)))
+			return
+		}
 		c, err := r.Cookie(CookieName)
 		if err != nil {
 			httpjson.WriteError(w, http.StatusUnauthorized, httpjson.CodeUnauthenticated, "authentication required")
@@ -93,6 +125,11 @@ func CSRF(next http.Handler) http.Handler {
 		p, ok := PrincipalFrom(r.Context())
 		if !ok {
 			httpjson.WriteError(w, http.StatusUnauthorized, httpjson.CodeUnauthenticated, "authentication required")
+			return
+		}
+		// A bearer key is never sent by a browser on its own: there is nothing to forge.
+		if p.APIKey != nil {
+			next.ServeHTTP(w, r)
 			return
 		}
 		if !SameOrigin(r) {
@@ -149,6 +186,7 @@ func (s *Service) Routes(r chi.Router, g *authz.Guard) {
 		r.Group(func(r chi.Router) {
 			r.Use(PasswordChanged)
 			s.userRoutes(r, g)
+			s.apiKeyRoutes(r, g)
 		})
 	})
 }
@@ -211,7 +249,10 @@ func (s *Service) handleMe(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Service) handleLogout(w http.ResponseWriter, r *http.Request) {
-	p, _ := PrincipalFrom(r.Context())
+	p, ok := passwordSession(w, r)
+	if !ok {
+		return
+	}
 	if err := s.Logout(r.Context(), p); err != nil {
 		httpjson.WriteError(w, http.StatusInternalServerError, httpjson.CodeInternal, "logout failed")
 		return

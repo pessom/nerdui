@@ -65,6 +65,13 @@ func (p *Protected) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	res := ResourceFromRequest(r)
+	if s.ReadOnly && !p.Action.Read() {
+		p.guard.logger.Warn("authorization denied: read-only API key",
+			"user", s.Username, "action", string(p.Action), "method", r.Method, "path", r.URL.Path)
+		httpjson.WriteError(w, http.StatusForbidden, httpjson.CodeForbidden,
+			fmt.Sprintf("a read-only API key may not %s", p.Action))
+		return
+	}
 	if err := p.guard.authorizer.Authorize(r.Context(), s, p.Action, res); err != nil {
 		if !errors.Is(err, ErrForbidden) {
 			p.guard.logger.Error("authorization error", "error", err)

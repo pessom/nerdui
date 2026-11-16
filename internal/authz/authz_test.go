@@ -166,3 +166,17 @@ func TestInspect(t *testing.T) {
 		t.Errorf("undeclared routes not reported: %v", err)
 	}
 }
+
+func TestActionRead(t *testing.T) {
+	for _, a := range All() {
+		want := strings.HasSuffix(string(a), ":read") || a == SessionSelf
+		if a.Read() != want {
+			t.Errorf("%s.Read() = %v", a, a.Read())
+		}
+	}
+	for _, a := range []Action{ContainersExec, SystemPrune, StacksDeploy, UsersWrite} {
+		if a.Read() {
+			t.Errorf("%s must not be a read action", a)
+		}
+	}
+}

@@ -8,6 +8,18 @@ import (
 	"database/sql"
 )
 
+type ApiKey struct {
+	ID         int64
+	UserID     int64
+	Name       string
+	Prefix     string
+	TokenHash  []byte
+	ReadOnly   int64
+	CreatedAt  int64
+	ExpiresAt  sql.NullInt64
+	LastUsedAt sql.NullInt64
+}
+
 type Event struct {
 	ID          int64
 	Environment string
