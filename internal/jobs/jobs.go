@@ -234,6 +234,20 @@ func (m *Manager) Get(id string) (Job, bool) {
 	return e.job, true
 }
 
+// Running returns a running job whose resource matches, e.g. any namespace's job of a stack.
+func (m *Manager) Running(match func(resource string) bool) (Job, bool) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for res, id := range m.locks {
+		if match(res) {
+			if e, ok := m.jobs[id]; ok {
+				return e.job, true
+			}
+		}
+	}
+	return Job{}, false
+}
+
 // List returns recent jobs, newest first.
 func (m *Manager) List() []Job {
 	m.mu.Lock()

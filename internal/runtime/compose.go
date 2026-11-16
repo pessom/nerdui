@@ -31,6 +31,10 @@ type Compose interface {
 	// Describe loads a project found on disk under its own name (`name:` or the directory
 	// name) for discovery and adoption (#25).
 	Describe(ctx context.Context, dir, file string) (ComposeProject, error)
+	// Validate loads the project of dir with compose and env as the content of its compose and
+	// .env files (nil: the files on disk), without writing them. It returns the services or an
+	// invalid-argument error explaining the problem.
+	Validate(ctx context.Context, project, dir, composeName string, compose, env []byte) ([]string, error)
 	// Run runs a stack operation with the host's `nerdctl compose` in dir (ADR-0026), writing
 	// its output to out.
 	Run(ctx context.Context, namespace, project, dir, op string, opts ComposeOptions, out io.Writer) error
@@ -226,4 +230,84 @@ func (cc clientCompose) Run(ctx context.Context, namespace, project, dir, op str
 		return fmt.Errorf("nerdctl compose %s: %w", op, err)
 	}
 	return nil
+}
+
+// overrideFileNames are compose-go's override files (cli.DefaultOverrideFileNames).
+var overrideFileNames = []string{"compose.override.yml", "compose.override.yaml", "docker-compose.override.yml", "docker-compose.override.yaml"}
+
+func (clientCompose) Validate(ctx context.Context, project, dir, composeName string, compose, env []byte) ([]string, error) {
+	if err := identifiers.ValidateDockerCompat(project); err != nil {
+		return nil, fmt.Errorf("%w: project name: %w", errdefs.ErrInvalidArgument, err)
+	}
+	if composeName == "" || filepath.Base(composeName) != composeName {
+		return nil, fmt.Errorf("%w: compose file name %q", errdefs.ErrInvalidArgument, composeName)
+	}
+	main := filepath.Join(dir, composeName)
+	// Candidates are written next to the real files, so includes, extends and relative paths
+	// resolve the same way; they are hidden and removed afterwards.
+	var temps []string
+	defer func() {
+		for _, t := range temps {
+			_ = os.Remove(t)
+		}
+	}()
+	writeTemp := func(pattern string, b []byte) (string, error) {
+		f, err := os.CreateTemp(dir, pattern)
+		if err != nil {
+			return "", fmt.Errorf("validate: %w", err)
+		}
+		temps = append(temps, f.Name())
+		_, werr := f.Write(b)
+		if cerr := f.Close(); werr == nil {
+			werr = cerr
+		}
+		return f.Name(), werr
+	}
+	if compose != nil {
+		t, err := writeTemp(".nerdui-validate-*.yaml", compose)
+		if err != nil {
+			return nil, err
+		}
+		main = t
+	}
+	paths := []string{main}
+	for _, n := range overrideFileNames {
+		if fi, err := os.Stat(filepath.Join(dir, n)); err == nil && fi.Mode().IsRegular() {
+			paths = append(paths, filepath.Join(dir, n))
+			break
+		}
+	}
+	envFiles := composecli.WithEnvFiles()
+	if env != nil {
+		t, err := writeTemp(".nerdui-validate-*.env", env)
+		if err != nil {
+			return nil, err
+		}
+		envFiles = composecli.WithEnvFiles(t)
+	}
+	opts, err := composecli.NewProjectOptions(paths,
+		composecli.WithOsEnv,
+		composecli.WithWorkingDirectory(dir),
+		envFiles,
+		composecli.WithDotEnv,
+		composecli.WithName(project),
+		composecli.WithProfiles(nil),
+	)
+	if err == nil {
+		var p *types.Project
+		if p, err = opts.LoadProject(ctx); err == nil {
+			return p.ServiceNames(), nil
+		}
+	}
+	// Name the files as the user knows them, not the temporary copies.
+	msg := err.Error()
+	for _, t := range temps {
+		name := composeName
+		if strings.HasSuffix(t, ".env") {
+			name = ".env"
+		}
+		msg = strings.ReplaceAll(msg, t, name)
+		msg = strings.ReplaceAll(msg, filepath.Base(t), name)
+	}
+	return nil, fmt.Errorf("%w: %s", errdefs.ErrInvalidArgument, msg)
 }

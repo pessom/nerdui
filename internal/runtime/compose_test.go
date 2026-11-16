@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/containerd/errdefs"
@@ -112,5 +113,54 @@ func TestComposeArgs(t *testing.T) {
 		if _, err := ComposeArgs(b.project, b.dir, b.op, b.opts); !errdefs.IsInvalidArgument(err) {
 			t.Errorf("%+v: %v", b, err)
 		}
+	}
+}
+
+func TestComposeValidate(t *testing.T) {
+	dir := t.TempDir()
+	for n, c := range map[string]string{
+		"compose.yaml":          "services:\n  web:\n    image: nginx:${TAG}\n",
+		"compose.override.yaml": "services:\n  web:\n    environment: [A=1]\n",
+		".env":                  "TAG=1.27\n",
+	} {
+		if err := os.WriteFile(filepath.Join(dir, n), []byte(c), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cc := clientCompose{}
+	ctx := context.Background()
+
+	// The files on disk.
+	if svcs, err := cc.Validate(ctx, "app", dir, "compose.yaml", nil, nil); err != nil || !slices.Equal(svcs, []string{"web"}) {
+		t.Fatalf("disk: %v %v", svcs, err)
+	}
+	// New content is checked with the override and .env of the directory.
+	svcs, err := cc.Validate(ctx, "app", dir, "compose.yaml",
+		[]byte("services:\n  web:\n    image: nginx\n  db:\n    image: postgres:${PG:?PG is required}\n"), []byte("PG=16\n"))
+	slices.Sort(svcs)
+	if err != nil || !slices.Equal(svcs, []string{"db", "web"}) {
+		t.Errorf("candidate: %v %v", svcs, err)
+	}
+	// A required variable missing from the candidate .env.
+	if _, err := cc.Validate(ctx, "app", dir, "compose.yaml",
+		[]byte("services:\n  db:\n    image: postgres:${PG:?PG is required}\n"), []byte("")); !errdefs.IsInvalidArgument(err) || !strings.Contains(err.Error(), "PG is required") {
+		t.Errorf("missing variable: %v", err)
+	}
+	// Broken YAML: the error names compose.yaml, not the temporary file.
+	_, err = cc.Validate(ctx, "app", dir, "compose.yaml", []byte("services:\n  web: [\n"), nil)
+	if !errdefs.IsInvalidArgument(err) || strings.Contains(err.Error(), ".nerdui-validate") {
+		t.Errorf("broken yaml: %v", err)
+	}
+	// Unknown keys are rejected by the schema.
+	if _, err := cc.Validate(ctx, "app", dir, "compose.yaml", []byte("services:\n  web:\n    imagee: nginx\n"), nil); !errdefs.IsInvalidArgument(err) {
+		t.Errorf("schema: %v", err)
+	}
+	// Temporary files are removed.
+	entries, _ := os.ReadDir(dir)
+	if len(entries) != 3 {
+		t.Errorf("leftovers: %v", entries)
+	}
+	if _, err := cc.Validate(ctx, "app", dir, "../compose.yaml", nil, nil); !errdefs.IsInvalidArgument(err) {
+		t.Errorf("file name: %v", err)
 	}
 }
