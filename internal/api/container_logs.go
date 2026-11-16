@@ -47,7 +47,7 @@ func (h *Handler) containerLogsStream(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return // Accept already answered
 	}
-	b := &logBatcher{conn: conn}
+	b := &logBatcher[runtime.LogLine]{conn: conn}
 	err = EnvFrom(r.Context()).Runtime.Containers().Logs(conn.Context(), ns, chi.URLParam(r, "id"), opts, b.add)
 	if !b.flush() || errors.Is(err, errClientGone) {
 		return
@@ -61,15 +61,16 @@ func (h *Handler) containerLogsStream(w http.ResponseWriter, r *http.Request) {
 }
 
 // logBatcher groups lines into frames. SendDataWait paces the log reader to the client.
-type logBatcher struct {
+// add is safe for concurrent readers (stack logs, #30).
+type logBatcher[T any] struct {
 	conn  *ws.Conn
 	mu    sync.Mutex
-	lines []runtime.LogLine
+	lines []T
 	timer *time.Timer
 	gone  bool
 }
 
-func (b *logBatcher) add(l runtime.LogLine) error {
+func (b *logBatcher[T]) add(l T) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if b.gone {
@@ -89,14 +90,14 @@ func (b *logBatcher) add(l runtime.LogLine) error {
 }
 
 // flush sends pending lines; false when the client has gone.
-func (b *logBatcher) flush() bool {
+func (b *logBatcher[T]) flush() bool {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	b.sendLocked()
 	return !b.gone
 }
 
-func (b *logBatcher) sendLocked() {
+func (b *logBatcher[T]) sendLocked() {
 	if b.timer != nil {
 		b.timer.Stop()
 		b.timer = nil

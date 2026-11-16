@@ -310,6 +310,7 @@ func TestRouteAuthorization(t *testing.T) {
 		"DELETE /api/v1/environments/{env}/stacks/{name}/registration": "stacks:write",
 		"GET /api/v1/environments/{env}/stacks/{name}":                 "stacks:read",
 		"POST /api/v1/environments/{env}/stacks/{name}/{op}":           "stacks:deploy",
+		"GET /api/v1/environments/{env}/stacks/{name}/logs/stream":     "stacks:read",
 		"POST /api/v1/environments/{env}/stacks":                       "stacks:write",
 		"GET /api/v1/environments/{env}/stacks/{name}/files/{file}":    "stacks:read",
 		"PUT /api/v1/environments/{env}/stacks/{name}/files/{file}":    "stacks:write",
