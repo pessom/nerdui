@@ -120,3 +120,17 @@ func TestStackFilesAPI(t *testing.T) {
 		t.Errorf("invalid stack left behind: %v", err)
 	}
 }
+
+func TestComposeSchema(t *testing.T) {
+	rec := send(t, newRouter(&fakeRuntime{}), http.MethodGet, "/api/v1/compose-schema", "")
+	var schema struct {
+		ID         string         `json:"$id"`
+		Properties map[string]any `json:"properties"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &schema); err != nil || rec.Code != http.StatusOK {
+		t.Fatalf("%d %v", rec.Code, err)
+	}
+	if _, ok := schema.Properties["services"]; !ok || rec.Header().Get("Content-Type") != "application/schema+json" {
+		t.Errorf("schema %q %v", schema.ID, rec.Header())
+	}
+}

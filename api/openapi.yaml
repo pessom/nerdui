@@ -427,6 +427,20 @@ paths:
                     items: { $ref: "#/components/schemas/Environment" }
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
+  /api/v1/compose-schema:
+    get:
+      tags: [stacks]
+      operationId: getComposeSchema
+      summary: The Compose JSON schema of this build
+      description: Requires `stacks:read` (#26). The schema compose-go embeds, for editor completion.
+      responses:
+        "200":
+          description: JSON schema
+          content:
+            application/schema+json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
   /api/v1/environments/{env}:
     parameters:
       - $ref: "#/components/parameters/Env"
@@ -899,6 +913,37 @@ paths:
     parameters:
       - $ref: "#/components/parameters/Env"
       - $ref: "#/components/parameters/Namespace"
+    post:
+      tags: [stacks]
+      operationId: createStack
+      summary: Create a stack in the stacks directory
+      description: |
+        Requires `stacks:write` (#26). Creates `<stacks-dir>/<name>/compose.yaml` with `compose`
+        (a starter file when empty). Content that does not load is refused (400) and nothing is
+        left behind.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              additionalProperties: false
+              properties:
+                name: { type: string }
+                compose: { type: string }
+      responses:
+        "201":
+          description: The new stack
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Stack" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "415": { $ref: "#/components/responses/Error" }
     get:
       tags: [stacks]
       operationId: listStacks
@@ -1045,6 +1090,105 @@ paths:
         "409": { $ref: "#/components/responses/Error" }
         "415": { $ref: "#/components/responses/Error" }
         "503": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/stacks/{name}/files/{file}:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - name: name
+        in: path
+        required: true
+        schema: { type: string }
+      - name: file
+        in: path
+        required: true
+        schema: { type: string, enum: [compose, env] }
+    get:
+      tags: [stacks]
+      operationId: getStackFile
+      summary: Read the compose or .env file of a stack
+      description: Requires `stacks:read` (#26). A missing .env is returned empty with `exists` false.
+      responses:
+        "200":
+          description: File
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StackFile" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+    put:
+      tags: [stacks]
+      operationId: putStackFile
+      summary: Save the compose or .env file of a stack
+      description: |
+        Requires `stacks:write` (#26). The project must load with the new content (400). `version`
+        is the version that was read (empty for a new .env); a different version on disk, or a
+        running operation of the stack, is a conflict (409). The previous content is kept as
+        `<file>.bak`; the write is atomic.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content, version]
+              additionalProperties: false
+              properties:
+                content: { type: string }
+                version: { type: string }
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StackFile" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "415": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/stacks/{name}/validate:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - name: name
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      tags: [stacks]
+      operationId: validateStack
+      summary: Check compose and .env content without saving
+      description: |
+        Requires `stacks:write` (#26). Loads the project like `nerdctl compose` with the given
+        content (left out: the file on disk), in the stack directory.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                compose: { type: string }
+                env: { type: string }
+      responses:
+        "200":
+          description: Result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [valid, services]
+                properties:
+                  valid: { type: boolean }
+                  error: { type: string }
+                  line: { type: integer, description: Line of the error in the compose file, when known }
+                  services: { type: array, items: { type: string } }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "415": { $ref: "#/components/responses/Error" }
   /api/v1/environments/{env}/stacks/{name}/registration:
     parameters:
       - $ref: "#/components/parameters/Env"
@@ -2303,6 +2447,15 @@ components:
         blockRead: { type: integer, format: int64, description: Cumulative bytes }
         blockWrite: { type: integer, format: int64 }
         pids: { type: integer, format: int64 }
+    StackFile:
+      type: object
+      required: [kind, name, content, version, exists]
+      properties:
+        kind: { type: string, enum: [compose, env] }
+        name: { type: string, description: File name in the stack directory }
+        content: { type: string }
+        version: { type: string, description: SHA-256 of the content; empty when the file does not exist }
+        exists: { type: boolean }
     Stack:
       type: object
       required: [name, mode, status, services, containers, running]

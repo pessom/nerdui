@@ -35,3 +35,4 @@ We record significant architectural decisions as ADRs
 | 0024 | [Networks: host nerdctl for creation, nerdctl's rules for removal](0024-networks.md) | Accepted |
 | 0025 | [Stacks: loading projects with compose-go, adoption in place or by copy](0025-stack-adoption.md) | Accepted |
 | 0026 | [Stack operations with the host's nerdctl compose](0026-stack-operations.md) | Accepted |
+| 0027 | [Stack file editor: server validation, schema completion, versioned saves](0027-stack-file-editor.md) | Accepted |

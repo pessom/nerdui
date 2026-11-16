@@ -330,6 +330,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/compose-schema": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The Compose JSON schema of this build
+         * @description Requires `stacks:read` (#26). The schema compose-go embeds, for editor completion.
+         */
+        get: operations["getComposeSchema"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/environments/{env}": {
         parameters: {
             query?: never;
@@ -704,7 +724,13 @@ export interface paths {
          */
         get: operations["listStacks"];
         put?: never;
-        post?: never;
+        /**
+         * Create a stack in the stacks directory
+         * @description Requires `stacks:write` (#26). Creates `<stacks-dir>/<name>/compose.yaml` with `compose`
+         *     (a starter file when empty). Content that does not load is refused (400) and nothing is
+         *     left behind.
+         */
+        post: operations["createStack"];
         delete?: never;
         options?: never;
         head?: never;
@@ -789,6 +815,63 @@ export interface paths {
          *     to equal the stack name. Unmanaged projects must be adopted first (404).
          */
         post: operations["stackOperation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/environments/{env}/stacks/{name}/files/{file}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+                file: "compose" | "env";
+            };
+            cookie?: never;
+        };
+        /**
+         * Read the compose or .env file of a stack
+         * @description Requires `stacks:read` (#26). A missing .env is returned empty with `exists` false.
+         */
+        get: operations["getStackFile"];
+        /**
+         * Save the compose or .env file of a stack
+         * @description Requires `stacks:write` (#26). The project must load with the new content (400). `version`
+         *     is the version that was read (empty for a new .env); a different version on disk, or a
+         *     running operation of the stack, is a conflict (409). The previous content is kept as
+         *     `<file>.bak`; the write is atomic.
+         */
+        put: operations["putStackFile"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/environments/{env}/stacks/{name}/validate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check compose and .env content without saving
+         * @description Requires `stacks:write` (#26). Loads the project like `nerdctl compose` with the given
+         *     content (left out: the file on disk), in the stack directory.
+         */
+        post: operations["validateStack"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1917,6 +2000,16 @@ export interface components {
             /** Format: int64 */
             pids: number;
         };
+        StackFile: {
+            /** @enum {string} */
+            kind: "compose" | "env";
+            /** @description File name in the stack directory */
+            name: string;
+            content: string;
+            /** @description SHA-256 of the content; empty when the file does not exist */
+            version: string;
+            exists: boolean;
+        };
         Stack: {
             name: string;
             /** @enum {string} */
@@ -2635,6 +2728,28 @@ export interface operations {
             403: components["responses"]["Error"];
         };
     };
+    getComposeSchema: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description JSON schema */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/schema+json": Record<string, never>;
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
     getEnvironment: {
         parameters: {
             query?: never;
@@ -3211,6 +3326,45 @@ export interface operations {
             404: components["responses"]["Error"];
         };
     };
+    createStack: {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    compose?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The new stack */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Stack"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            415: components["responses"]["Error"];
+        };
+    };
     listStackCandidates: {
         parameters: {
             query?: never;
@@ -3339,6 +3493,114 @@ export interface operations {
             409: components["responses"]["Error"];
             415: components["responses"]["Error"];
             503: components["responses"]["Error"];
+        };
+    };
+    getStackFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+                file: "compose" | "env";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description File */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StackFile"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    putStackFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+                file: "compose" | "env";
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    content: string;
+                    version: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StackFile"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            415: components["responses"]["Error"];
+        };
+    };
+    validateStack: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    compose?: string;
+                    env?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        valid: boolean;
+                        error?: string;
+                        /** @description Line of the error in the compose file */
+                        line?: number;
+                        services: string[];
+                    };
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            415: components["responses"]["Error"];
         };
     };
     forgetStack: {

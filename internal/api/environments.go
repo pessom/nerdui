@@ -49,6 +49,7 @@ type Handler struct {
 func (h *Handler) Routes(r chi.Router, g *authz.Guard) {
 	r.Method(http.MethodGet, "/environments", g.Protect(authz.SystemRead, h.list))
 	h.jobRoutes(r, g)
+	r.Method(http.MethodGet, "/compose-schema", g.Protect(authz.StacksRead, h.composeSchema))
 	r.Route("/environments/{env}", func(r chi.Router) {
 		r.Use(h.resolveEnv)
 		// Settings live in nerdui's database and do not need a writable nerdctl.

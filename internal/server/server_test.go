@@ -290,6 +290,7 @@ func TestRouteAuthorization(t *testing.T) {
 		"DELETE /api/v1/users/{id}":        "users:write",
 
 		"GET /api/v1/environments":                                     "system:read",
+		"GET /api/v1/compose-schema":                                   "stacks:read",
 		"GET /api/v1/environments/{env}/":                              "system:read",
 		"GET /api/v1/environments/{env}/info":                          "system:read",
 		"GET /api/v1/environments/{env}/namespaces":                    "system:read",

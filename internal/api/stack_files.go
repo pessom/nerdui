@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 
+	composeschema "github.com/compose-spec/compose-go/v2/schema"
 	"github.com/containerd/errdefs"
 	"github.com/go-chi/chi/v5"
 
@@ -217,4 +218,14 @@ func removeNewStack(def stacks.Definition) error {
 		return err
 	}
 	return os.Remove(def.Dir)
+}
+
+// composeSchema serves the Compose JSON schema of the compose-go version this build uses, for
+// the editor's completion and checks (#26):
+//
+//	GET /api/v1/compose-schema
+func (h *Handler) composeSchema(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/schema+json")
+	w.Header().Set("Cache-Control", "private, max-age=86400")
+	_, _ = w.Write([]byte(composeschema.Schema))
 }
