@@ -7,6 +7,10 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 
 ## [Unreleased]
 
+## [0.1.0-alpha.5] - 2026-11-16
+
+Compose stacks: list, adopt, edit, deploy and logs.
+
 ### Added
 
 - **Stacks:** a Stacks page lists compose projects of the selected namespace with their status
@@ -35,6 +39,15 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
   colored service label per line; services can be hidden, lines filtered or searched (text or
   regular expression), with timestamps, stdout/stderr selection and live follow. Reconnecting
   resumes each container where it stopped; containers created by a deploy are picked up (#30).
+
+### Upgrade notes
+
+- No database migration.
+- Stack operations run the host's `nerdctl compose` (ADR-0026); the environment must not be in
+  read-only mode to deploy. Editing and adopting stacks only need the stacks directory
+  (`--stacks-dir`, default `<data-dir>/stacks`).
+- `--stacks-scan-dirs` (comma-separated) makes existing compose projects on the host appear in
+  the "Adopt existing" dialog.
 
 ## [0.1.0-alpha.4] - 2026-11-16
 
@@ -190,7 +203,8 @@ First preview release: manage containers on one Linux host with containerd and n
 - Every user is an administrator; roles are planned (#78).
 - The container image is experimental (#145); install the binary with systemd.
 
-[Unreleased]: https://github.com/pessom/nerdui/compare/v0.1.0-alpha.4...HEAD
+[Unreleased]: https://github.com/pessom/nerdui/compare/v0.1.0-alpha.5...HEAD
+[0.1.0-alpha.5]: https://github.com/pessom/nerdui/compare/v0.1.0-alpha.4...v0.1.0-alpha.5
 [0.1.0-alpha.4]: https://github.com/pessom/nerdui/compare/v0.1.0-alpha.3...v0.1.0-alpha.4
 [0.1.0-alpha.3]: https://github.com/pessom/nerdui/compare/v0.1.0-alpha.2...v0.1.0-alpha.3
 [0.1.0-alpha.2]: https://github.com/pessom/nerdui/compare/v0.1.0-alpha.1.1...v0.1.0-alpha.2
