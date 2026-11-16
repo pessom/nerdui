@@ -44,7 +44,9 @@ func TestIntegrationStackLogs(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "compose.yaml"), []byte(compose), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = exec.Command("nerdctl", "compose", "-p", project, "--project-directory", dir, "down").Run() })
+	t.Cleanup(func() {
+		_ = exec.Command("nerdctl", "compose", "-p", project, "--project-directory", dir, "down").Run()
+	})
 	if out, err := exec.Command("nerdctl", "compose", "-p", project, "--project-directory", dir, "up", "-d").CombinedOutput(); err != nil {
 		t.Fatalf("up: %v: %s", err, out)
 	}
