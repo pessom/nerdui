@@ -56,6 +56,10 @@ func (h *Handler) Routes(r chi.Router, g *authz.Guard) {
 		r.Method(http.MethodPut, "/settings/prometheus", g.Protect(authz.SettingsWrite, h.putPrometheusSettings))
 		r.Method(http.MethodDelete, "/settings/prometheus", g.Protect(authz.SettingsWrite, h.deletePrometheusSettings))
 		r.Method(http.MethodPost, "/settings/prometheus/test", g.Protect(authz.SettingsWrite, h.testPrometheusSettings))
+		// Adopting and forgetting stacks change files and the database, not containerd.
+		r.Method(http.MethodGet, "/stack-candidates", g.Protect(authz.StacksRead, h.stackCandidates))
+		r.Method(http.MethodPost, "/stacks/adopt", g.Protect(authz.StacksWrite, h.adoptStack))
+		r.Method(http.MethodDelete, "/stacks/{name}/registration", g.Protect(authz.StacksWrite, h.forgetStack))
 		r.Group(func(r chi.Router) {
 			r.Use(h.requireWritable)
 			h.runtimeRoutes(r, g)

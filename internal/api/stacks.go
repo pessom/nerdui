@@ -86,3 +86,74 @@ func (h *Handler) getStack(w http.ResponseWriter, r *http.Request) {
 	}
 	httpjson.WriteErr(w, r, h.Logger, fmt.Errorf("%w: stack %q not found in namespace %s", errdefs.ErrNotFound, name, ns))
 }
+
+// stackCandidates lists compose projects in --stacks-scan-dirs that are not stacks yet (#25):
+//
+//	GET /api/v1/environments/{env}/stack-candidates
+func (h *Handler) stackCandidates(w http.ResponseWriter, r *http.Request) {
+	if h.Stacks == nil {
+		httpjson.WriteErr(w, r, h.Logger, fmt.Errorf("%w: stacks are not available", errdefs.ErrNotImplemented))
+		return
+	}
+	list, err := h.Stacks.Discover(r.Context(), EnvFrom(r.Context()).Runtime.Compose())
+	if err != nil {
+		httpjson.WriteErr(w, r, h.Logger, err)
+		return
+	}
+	httpjson.Write(w, http.StatusOK, map[string]any{"scanDirs": h.Stacks.ScanDirs, "candidates": list})
+}
+
+// adoptStack makes an existing compose project a stack, in place or by copying its files (#25):
+//
+//	POST /api/v1/environments/{env}/stacks/adopt?namespace=  {"name", "path", "mode": "in-place"|"copy"}
+func (h *Handler) adoptStack(w http.ResponseWriter, r *http.Request) {
+	ns, err := Namespace(r)
+	if err != nil {
+		httpjson.WriteErr(w, r, h.Logger, err)
+		return
+	}
+	if h.Stacks == nil {
+		httpjson.WriteErr(w, r, h.Logger, fmt.Errorf("%w: stacks are not available", errdefs.ErrNotImplemented))
+		return
+	}
+	var req stacks.AdoptRequest
+	if !httpjson.Decode(w, r, &req) {
+		return
+	}
+	env := EnvFrom(r.Context())
+	def, err := h.Stacks.Adopt(r.Context(), env.Runtime.Compose(), req)
+	if err != nil {
+		h.writeActionErr(w, r, err)
+		return
+	}
+	h.log().Info("stack adopted", "environment", env.ID, "stack", def.Name, "path", def.Dir, "mode", req.Mode)
+	list, err := h.stackList(r.Context(), env, ns)
+	if err != nil {
+		httpjson.WriteErr(w, r, h.Logger, err)
+		return
+	}
+	for _, s := range list {
+		if s.Name == def.Name {
+			httpjson.Write(w, http.StatusCreated, s)
+			return
+		}
+	}
+	httpjson.Write(w, http.StatusCreated, stacks.Summarize(def, nil, nil, nil))
+}
+
+// forgetStack removes the registration of an external stack; files are kept (#25):
+//
+//	DELETE /api/v1/environments/{env}/stacks/{name}/registration
+func (h *Handler) forgetStack(w http.ResponseWriter, r *http.Request) {
+	if h.Stacks == nil {
+		httpjson.WriteErr(w, r, h.Logger, fmt.Errorf("%w: stacks are not available", errdefs.ErrNotImplemented))
+		return
+	}
+	name := chi.URLParam(r, "name")
+	if err := h.Stacks.Forget(r.Context(), name); err != nil {
+		h.writeActionErr(w, r, err)
+		return
+	}
+	h.log().Info("stack registration removed", "environment", EnvFrom(r.Context()).ID, "stack", name)
+	w.WriteHeader(http.StatusNoContent)
+}

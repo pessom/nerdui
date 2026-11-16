@@ -135,7 +135,10 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 		Handler: server.New(server.Config{
 			Auth: authSvc, Environments: envs, UI: web.Dist(), Jobs: jobManager,
 			EventHistory: eventHistory, DisableExec: cfg.DisableExec, Settings: st.Write(),
-			Stacks: &stacks.Service{Dir: cfg.EffectiveStacksDir(), Registry: st.Read()}, Logger: logger,
+			Stacks: &stacks.Service{
+				Dir: cfg.EffectiveStacksDir(), Registry: st.Read(), Writer: st.Write(), ScanDirs: cfg.StacksScanDirs,
+			},
+			Logger: logger,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
 		BaseContext:       func(net.Listener) context.Context { return streamsCtx },

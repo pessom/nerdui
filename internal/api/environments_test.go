@@ -12,6 +12,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -187,6 +188,10 @@ func (f *fakeRuntime) Networks() runtime.Networks { return fakeNetworks{f} }
 func (f *fakeRuntime) Compose() runtime.Compose { return fakeCompose{f} }
 
 type fakeCompose struct{ f *fakeRuntime }
+
+func (fc fakeCompose) Describe(_ context.Context, dir, file string) (runtime.ComposeProject, error) {
+	return runtime.ComposeProject{Name: filepath.Base(dir), Services: []string{"web"}, Files: []string{file}}, nil
+}
 
 func (fc fakeCompose) Services(_ context.Context, _, project, _, _ string) ([]string, error) {
 	svcs, ok := fc.f.services[project]

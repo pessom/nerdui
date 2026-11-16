@@ -60,6 +60,10 @@ type Service struct {
 	// Dir is --stacks-dir; each subdirectory with a compose file is a managed stack.
 	Dir      string
 	Registry Registry
+	// Writer registers external stacks (#25); nil makes adoption unavailable.
+	Writer Writer
+	// ScanDirs are searched for compose projects to adopt (--stacks-scan-dirs, #25).
+	ScanDirs []string
 }
 
 // ComposeFile returns the compose file of dir, or "" when it has none.
