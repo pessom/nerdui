@@ -1264,6 +1264,47 @@ paths:
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/summary:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+    get:
+      tags: [environments]
+      operationId: getSummary
+      summary: Resources and disk usage of a host
+      description: |
+        Requires `system:read` (#63). Across all namespaces: containers by state, images, volumes,
+        networks, stacks; the size of the images (and of the volumes with `volumeSizes=true`,
+        which walks every volume) and the filesystems of containerd's and nerdctl's data.
+      parameters:
+        - name: volumeSizes
+          in: query
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: Summary
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Summary" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/stats/stream:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+    get:
+      tags: [containers]
+      operationId: streamTopStats
+      summary: Containers using most CPU and memory (WebSocket)
+      description: |
+        Requires `containers:read` (#63). Every 5 s while connected: the five running containers
+        of all namespaces using most CPU and most memory (`TopStats` data messages). The first
+        message comes after two samples.
+      responses:
+        "101": { description: Switching protocols }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
   /api/v1/environments/{env}/ports:
     parameters:
       - $ref: "#/components/parameters/Env"
@@ -2519,6 +2560,64 @@ components:
                     id: { type: string }
                     name: { type: string }
                     state: { type: string }
+    ContainerCounts:
+      type: object
+      required: [total, running, paused, stopped, unhealthy]
+      properties:
+        total: { type: integer }
+        running: { type: integer }
+        paused: { type: integer }
+        stopped: { type: integer }
+        unhealthy: { type: integer }
+    Summary:
+      type: object
+      required: [containers, images, volumes, networks, stacks, namespaces, imagesSize, filesystems]
+      properties:
+        containers: { $ref: "#/components/schemas/ContainerCounts" }
+        images: { type: integer }
+        volumes: { type: integer }
+        networks: { type: integer }
+        stacks: { type: integer }
+        namespaces:
+          type: array
+          items:
+            type: object
+            required: [name, containers, images, volumes, networks]
+            properties:
+              name: { type: string }
+              containers: { $ref: "#/components/schemas/ContainerCounts" }
+              images: { type: integer }
+              volumes: { type: integer }
+              networks: { type: integer }
+        imagesSize: { type: integer, format: int64 }
+        volumesSize: { type: integer, format: int64, description: Only with volumeSizes=true }
+        filesystems:
+          type: array
+          items:
+            type: object
+            required: [paths, total, free]
+            properties:
+              paths: { type: array, items: { type: string } }
+              total: { type: integer, format: int64 }
+              free: { type: integer, format: int64 }
+    TopContainer:
+      type: object
+      required: [id, namespace, cpuPercent, memoryUsage, memoryPercent]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        namespace: { type: string }
+        cpuPercent: { type: number }
+        memoryUsage: { type: integer, format: int64 }
+        memoryPercent: { type: number }
+    TopStats:
+      type: object
+      required: [ts, running, cpu, memory]
+      properties:
+        ts: { type: string, format: date-time }
+        running: { type: integer }
+        cpu: { type: array, items: { $ref: "#/components/schemas/TopContainer" } }
+        memory: { type: array, items: { $ref: "#/components/schemas/TopContainer" } }
     PortEntry:
       type: object
       required: [namespace, containerId, state, containerPort, protocol, published]
