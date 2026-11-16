@@ -73,6 +73,8 @@ type Principal struct {
 	CSRFToken string
 	ExpiresAt time.Time
 	tokenHash []byte
+	// APIKey is set when the request authenticated with an API key instead of a session.
+	APIKey *KeyRef
 }
 
 // Issued is a newly created session; Token goes into the cookie and is never stored.

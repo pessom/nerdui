@@ -17,6 +17,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 )
 
 // Action is a permission name in the form "<area>:<verb>".
@@ -83,6 +84,15 @@ type Subject struct {
 	UserID   int64
 	Username string
 	Role     string
+	// APIKey is set when the caller authenticated with an API key (#87); ReadOnly keys may
+	// only perform read actions.
+	APIKey   bool
+	ReadOnly bool
+}
+
+// Read reports whether an action only reads: "<area>:read", or the caller's own session.
+func (a Action) Read() bool {
+	return strings.HasSuffix(string(a), ":read") || a == SessionSelf
 }
 
 // Resource identifies what an action applies to. Fields are empty when not applicable;

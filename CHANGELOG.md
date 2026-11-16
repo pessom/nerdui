@@ -14,6 +14,11 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
   per namespace), the size of the images (volume sizes on request) and the free space of the
   filesystems holding containerd's and nerdctl's data, the running containers using most CPU and
   memory (refreshed every 5 s while the page is open) and the recent events (#63).
+- **API keys:** scripts and integrations call the API with `Authorization: Bearer <key>`. Keys
+  are created from the user menu (API keys), act as their user, can be read-only and expire; the
+  key is shown once and only its hash is stored. Keys cannot change the password or manage keys.
+  Administrators see and revoke any user's keys on the Users page; a disabled user's keys stop
+  working (#87, ADR-0028).
 
 ## [0.1.0-alpha.5] - 2026-11-16
 
