@@ -9,6 +9,7 @@ import (
 	"context"
 	"os/exec"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -38,6 +39,14 @@ func TestIntegrationSummary(t *testing.T) {
 	}
 	if len(s.Filesystems) == 0 || s.Filesystems[0].Total == 0 || len(s.Filesystems[0].Paths) == 0 {
 		t.Errorf("filesystems %+v", s.Filesystems)
+	}
+	// containerd's root once, not each plugin's directory.
+	for _, f := range s.Filesystems {
+		for _, p := range f.Paths {
+			if strings.Contains(p, "io.containerd.") {
+				t.Errorf("plugin directory listed: %s", p)
+			}
+		}
 	}
 	var sum ContainerCounts
 	for _, n := range s.Namespaces {

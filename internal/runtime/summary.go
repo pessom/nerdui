@@ -5,6 +5,8 @@ package runtime
 
 import (
 	"context"
+	"path/filepath"
+	"slices"
 	"sort"
 
 	"github.com/containerd/containerd/v2/pkg/namespaces"
@@ -135,8 +137,9 @@ func (c *Client) dataFilesystems(ctx context.Context) []Filesystem {
 		filters := []string{`type=="io.containerd.content.v1"`, `type=="io.containerd.snapshotter.v1"`}
 		if plugins, err := cl.IntrospectionService().Plugins(namespaces.WithNamespace(ctx, c.namespace), filters...); err == nil {
 			for _, p := range plugins.Plugins {
-				if root := p.Exports["root"]; root != "" && p.InitErr == nil {
-					paths = append(paths, root)
+				// Plugin roots are "<containerd root>/<plugin id>": report the containerd root.
+				if root := p.Exports["root"]; root != "" && p.InitErr == nil && !slices.Contains(paths, filepath.Dir(root)) {
+					paths = append(paths, filepath.Dir(root))
 				}
 			}
 		}
