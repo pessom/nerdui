@@ -12,6 +12,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -219,6 +220,20 @@ func (fc fakeCompose) Run(ctx context.Context, _, project, dir, op string, opts 
 		}
 	}
 	return nil
+}
+
+func (fc fakeCompose) Validate(_ context.Context, _, dir, name string, compose, _ []byte) ([]string, error) {
+	if compose == nil {
+		b, err := os.ReadFile(filepath.Join(dir, name))
+		if err != nil {
+			return nil, err
+		}
+		compose = b
+	}
+	if strings.Contains(string(compose), "broken") {
+		return nil, fmt.Errorf("%w: yaml: line 2: did not find expected key", errdefs.ErrInvalidArgument)
+	}
+	return []string{"web"}, nil
 }
 
 func (fc fakeCompose) Describe(_ context.Context, dir, file string) (runtime.ComposeProject, error) {

@@ -25,6 +25,12 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
   background jobs; their output streams live in the Jobs panel and the job shows nerdctl's exit
   code. One operation per stack runs at a time. Down can also remove the stack's volumes after
   typing the stack name (#28, #31, ADR-0026).
+- **Stack editor:** the stack page has tabs for its compose file and `.env`, edited with YAML
+  highlighting, search, folding and completion of keys and values from the Compose schema of
+  this build. The project is checked as `nerdctl compose` loads it while typing, with the error at
+  its line; saving shows the diff, keeps the previous file as `.bak`, refuses to overwrite a file
+  changed on disk or to save during an operation, and can deploy right away. **New stack**
+  creates a stack in the stacks directory with a starter compose file (#26, ADR-0027).
 
 ## [0.1.0-alpha.4] - 2026-11-16
 

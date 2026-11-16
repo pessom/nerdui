@@ -49,6 +49,7 @@ type Handler struct {
 func (h *Handler) Routes(r chi.Router, g *authz.Guard) {
 	r.Method(http.MethodGet, "/environments", g.Protect(authz.SystemRead, h.list))
 	h.jobRoutes(r, g)
+	r.Method(http.MethodGet, "/compose-schema", g.Protect(authz.StacksRead, h.composeSchema))
 	r.Route("/environments/{env}", func(r chi.Router) {
 		r.Use(h.resolveEnv)
 		// Settings live in nerdui's database and do not need a writable nerdctl.
@@ -60,6 +61,11 @@ func (h *Handler) Routes(r chi.Router, g *authz.Guard) {
 		r.Method(http.MethodGet, "/stack-candidates", g.Protect(authz.StacksRead, h.stackCandidates))
 		r.Method(http.MethodPost, "/stacks/adopt", g.Protect(authz.StacksWrite, h.adoptStack))
 		r.Method(http.MethodDelete, "/stacks/{name}/registration", g.Protect(authz.StacksWrite, h.forgetStack))
+		// Editing stack files (#26) uses compose-go only.
+		r.Method(http.MethodPost, "/stacks", g.Protect(authz.StacksWrite, h.createStack))
+		r.Method(http.MethodGet, "/stacks/{name}/files/{file}", g.Protect(authz.StacksRead, h.getStackFile))
+		r.Method(http.MethodPut, "/stacks/{name}/files/{file}", g.Protect(authz.StacksWrite, h.putStackFile))
+		r.Method(http.MethodPost, "/stacks/{name}/validate", g.Protect(authz.StacksWrite, h.validateStack))
 		r.Group(func(r chi.Router) {
 			r.Use(h.requireWritable)
 			h.runtimeRoutes(r, g)

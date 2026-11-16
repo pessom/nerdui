@@ -11,6 +11,7 @@ import {
   Paper,
   Stack as MStack,
   Table,
+  Tabs,
   Text,
   Title,
 } from "@mantine/core";
@@ -23,17 +24,25 @@ import { envStatusQuery, keys, stackQuery } from "../../../../api/queries";
 import { RouterAnchor } from "../../../../components/RouterAnchor";
 import { AdoptStackDialog } from "../../../../features/stacks/AdoptStackDialog";
 import { StackActions } from "../../../../features/stacks/StackActions";
+import { StackFilePanel } from "../../../../features/stacks/StackFilePanel";
 import { StackMode, StackStatus } from "../../../../features/stacks/StackStatus";
 
 const envRoute = getRouteApi("/_app/env/$env");
 
-/** A stack: operations (#28), services and their containers (#24). */
+type Tab = "services" | "compose" | "env";
+const isTab = (t: unknown): t is Tab => t === "services" || t === "compose" || t === "env";
+
+/** A stack: operations (#28), services and containers (#24), its compose and .env files (#26). */
 export const Route = createFileRoute("/_app/env/$env/stacks_/$name")({
+  validateSearch: (search: Record<string, unknown>): { tab?: Tab } => ({
+    tab: isTab(search.tab) && search.tab !== "services" ? search.tab : undefined,
+  }),
   component: StackPage,
 });
 
 function StackPage() {
   const { env, name } = Route.useParams();
+  const { tab = "services" } = Route.useSearch();
   const { ns } = envRoute.useSearch();
   const status = useQuery(envStatusQuery(env));
   const namespace = ns ?? status.data?.defaultNamespace ?? "default";
@@ -125,55 +134,102 @@ function StackPage() {
               Adopt it to manage it here: give the directory with its compose file.
             </Alert>
           )}
-          {stack.data.services.map((svc) => (
-            <Paper key={svc.name} withBorder p="sm" component="section" aria-label={svc.name}>
-              <Group gap="xs" mb={4}>
-                <Text fw={600}>{svc.name}</Text>
-                <Badge
-                  size="sm"
-                  variant="light"
-                  color={svc.running > 0 ? "teal" : svc.containers.length > 0 ? "gray" : "yellow"}
-                >
-                  {svc.running > 0
-                    ? `${svc.running} running`
-                    : svc.containers.length > 0
-                      ? "stopped"
-                      : "not created"}
-                </Badge>
-                {!svc.defined && (
-                  <Badge size="sm" variant="outline" color="orange">
-                    not in compose file
-                  </Badge>
+          {stack.data.mode !== "unmanaged" && stack.data.composeFile ? (
+            <Tabs
+              value={tab}
+              onChange={(t) =>
+                void navigate({
+                  to: ".",
+                  search: (s) => ({ ...s, tab: isTab(t) && t !== "services" ? t : undefined }),
+                })
+              }
+            >
+              <Tabs.List mb="md">
+                <Tabs.Tab value="services">Services</Tabs.Tab>
+                <Tabs.Tab value="compose">{stack.data.composeFile}</Tabs.Tab>
+                <Tabs.Tab value="env">.env</Tabs.Tab>
+              </Tabs.List>
+              <Tabs.Panel value="services">
+                <MStack>{services(stack.data.services)}</MStack>
+              </Tabs.Panel>
+              <Tabs.Panel value="compose">
+                {tab === "compose" && (
+                  <StackFilePanel
+                    env={env}
+                    namespace={namespace}
+                    name={name}
+                    kind="compose"
+                    readOnly={readOnly}
+                  />
                 )}
-              </Group>
-              {svc.containers.length > 0 && (
-                <Table verticalSpacing={4}>
-                  <Table.Tbody>
-                    {svc.containers.map((c) => (
-                      <Table.Tr key={c.id}>
-                        <Table.Td>
-                          <RouterAnchor
-                            to="/env/$env/containers/$id"
-                            params={{ env, id: c.id }}
-                            search={{ ns: namespace }}
-                            size="sm"
-                            title={c.id}
-                          >
-                            {c.name || c.id.slice(0, 12)}
-                          </RouterAnchor>
-                        </Table.Td>
-                        <Table.Td>
-                          <Text size="sm">{c.state}</Text>
-                        </Table.Td>
-                      </Table.Tr>
-                    ))}
-                  </Table.Tbody>
-                </Table>
-              )}
-            </Paper>
-          ))}
+              </Tabs.Panel>
+              <Tabs.Panel value="env">
+                {tab === "env" && (
+                  <StackFilePanel
+                    env={env}
+                    namespace={namespace}
+                    name={name}
+                    kind="env"
+                    readOnly={readOnly}
+                  />
+                )}
+              </Tabs.Panel>
+            </Tabs>
+          ) : (
+            services(stack.data.services)
+          )}
         </>
       )}
     </MStack>
   );
+
+  function services(list: NonNullable<typeof stack.data>["services"]) {
+    return list.map((svc) => (
+      <Paper key={svc.name} withBorder p="sm" component="section" aria-label={svc.name}>
+        <Group gap="xs" mb={4}>
+          <Text fw={600}>{svc.name}</Text>
+          <Badge
+            size="sm"
+            variant="light"
+            color={svc.running > 0 ? "teal" : svc.containers.length > 0 ? "gray" : "yellow"}
+          >
+            {svc.running > 0
+              ? `${svc.running} running`
+              : svc.containers.length > 0
+                ? "stopped"
+                : "not created"}
+          </Badge>
+          {!svc.defined && (
+            <Badge size="sm" variant="outline" color="orange">
+              not in compose file
+            </Badge>
+          )}
+        </Group>
+        {svc.containers.length > 0 && (
+          <Table verticalSpacing={4}>
+            <Table.Tbody>
+              {svc.containers.map((c) => (
+                <Table.Tr key={c.id}>
+                  <Table.Td>
+                    <RouterAnchor
+                      to="/env/$env/containers/$id"
+                      params={{ env, id: c.id }}
+                      search={{ ns: namespace }}
+                      size="sm"
+                      title={c.id}
+                    >
+                      {c.name || c.id.slice(0, 12)}
+                    </RouterAnchor>
+                  </Table.Td>
+                  <Table.Td>
+                    <Text size="sm">{c.state}</Text>
+                  </Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        )}
+      </Paper>
+    ));
+  }
 }

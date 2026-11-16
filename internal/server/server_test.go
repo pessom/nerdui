@@ -290,6 +290,7 @@ func TestRouteAuthorization(t *testing.T) {
 		"DELETE /api/v1/users/{id}":        "users:write",
 
 		"GET /api/v1/environments":                                     "system:read",
+		"GET /api/v1/compose-schema":                                   "stacks:read",
 		"GET /api/v1/environments/{env}/":                              "system:read",
 		"GET /api/v1/environments/{env}/info":                          "system:read",
 		"GET /api/v1/environments/{env}/namespaces":                    "system:read",
@@ -309,6 +310,10 @@ func TestRouteAuthorization(t *testing.T) {
 		"DELETE /api/v1/environments/{env}/stacks/{name}/registration": "stacks:write",
 		"GET /api/v1/environments/{env}/stacks/{name}":                 "stacks:read",
 		"POST /api/v1/environments/{env}/stacks/{name}/{op}":           "stacks:deploy",
+		"POST /api/v1/environments/{env}/stacks":                       "stacks:write",
+		"GET /api/v1/environments/{env}/stacks/{name}/files/{file}":    "stacks:read",
+		"PUT /api/v1/environments/{env}/stacks/{name}/files/{file}":    "stacks:write",
+		"POST /api/v1/environments/{env}/stacks/{name}/validate":       "stacks:write",
 		"GET /api/v1/environments/{env}/networks":                      "networks:read",
 		"POST /api/v1/environments/{env}/networks":                     "networks:write",
 		"DELETE /api/v1/environments/{env}/networks/{name}":            "networks:write",

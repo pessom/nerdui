@@ -13,12 +13,13 @@ import {
   Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { IconFolderPlus } from "@tabler/icons-react";
+import { IconFolderPlus, IconPlus } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi } from "@tanstack/react-router";
 import { envStatusQuery, stacksQuery } from "../../../../api/queries";
 import { RouterAnchor } from "../../../../components/RouterAnchor";
 import { AdoptStackDialog } from "../../../../features/stacks/AdoptStackDialog";
+import { NewStackDialog } from "../../../../features/stacks/NewStackDialog";
 import { StackMode, StackStatus } from "../../../../features/stacks/StackStatus";
 
 const envRoute = getRouteApi("/_app/env/$env");
@@ -35,6 +36,7 @@ function StacksPage() {
   const namespace = ns ?? status.data?.defaultNamespace ?? "default";
   const list = useQuery(stacksQuery(env, namespace));
   const [adopting, { open, close }] = useDisclosure();
+  const [creating, newStack] = useDisclosure();
 
   return (
     <MStack>
@@ -43,10 +45,16 @@ function StacksPage() {
           <Title order={2}>Stacks</Title>
           {list.isFetching && !list.isPending && <Loader size="xs" aria-label="Refreshing" />}
         </Group>
-        <Button variant="default" leftSection={<IconFolderPlus size={16} />} onClick={open}>
-          Adopt existing
-        </Button>
+        <Group gap="xs">
+          <Button variant="default" leftSection={<IconFolderPlus size={16} />} onClick={open}>
+            Adopt existing
+          </Button>
+          <Button leftSection={<IconPlus size={16} />} onClick={newStack.open}>
+            New stack
+          </Button>
+        </Group>
       </Group>
+      <NewStackDialog env={env} namespace={namespace} opened={creating} onClose={newStack.close} />
       <AdoptStackDialog env={env} namespace={namespace} opened={adopting} onClose={close} />
       <Text size="sm" c="dimmed">
         Compose projects: directories with a compose file in nerdui&apos;s stacks directory, and

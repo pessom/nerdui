@@ -38,8 +38,8 @@ const (
 	StatusUnknown = "unknown" // no readable compose file
 )
 
-// ComposeFileNames are looked up in this order, as compose-go does.
-var ComposeFileNames = []string{"compose.yaml", "compose.yml", "docker-compose.yaml", "docker-compose.yml"}
+// ComposeFileNames are looked up in this order, as compose-go does (cli.DefaultFileNames).
+var ComposeFileNames = []string{"compose.yaml", "compose.yml", "docker-compose.yml", "docker-compose.yaml"}
 
 // Registry stores external stacks; *db.Queries implements it.
 type Registry interface {
