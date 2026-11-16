@@ -70,6 +70,9 @@ modfiles: ## Regenerate go.nerdctl-<minor>.mod/.sum from go.mod (after any go.mo
 		echo "$$mod: nerdctl $$ver"; \
 		cp go.mod $$mod && cp go.sum $${mod%.mod}.sum && \
 		GOFLAGS= go get -modfile=$$mod github.com/containerd/nerdctl/v2@$$ver || exit 1; \
+		cg=$$(GOFLAGS= go list -modfile=$$mod -m -f '{{.GoMod}}' github.com/containerd/nerdctl/v2 | xargs awk '$$1 == "github.com/compose-spec/compose-go/v2" { print $$2 }'); \
+		echo "  compose-go $$cg (as nerdctl $$ver)"; \
+		GOFLAGS= go get -modfile=$$mod github.com/compose-spec/compose-go/v2@$$cg || exit 1; \
 	done
 
 .PHONY: modfiles-check

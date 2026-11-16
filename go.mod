@@ -4,6 +4,7 @@ go 1.27.4
 
 require (
 	github.com/coder/websocket v1.8.15
+	github.com/compose-spec/compose-go/v2 v2.16.2
 	github.com/containerd/cgroups/v3 v3.1.3
 	github.com/containerd/containerd/api v1.12.0
 	github.com/containerd/containerd/v2 v2.4.2
@@ -44,7 +45,6 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cilium/ebpf v0.22.0 // indirect
 	github.com/cloudflare/circl v1.6.3 // indirect
-	github.com/compose-spec/compose-go/v2 v2.16.2 // indirect
 	github.com/containerd/accelerated-container-image v1.4.5 // indirect
 	github.com/containerd/console v1.0.5 // indirect
 	github.com/containerd/continuity v0.5.0 // indirect
@@ -69,7 +69,6 @@ require (
 	github.com/docker/go-connections v0.8.2 // indirect
 	github.com/dustin/go-humanize v1.1.0 // indirect
 	github.com/fahedouch/go-logrotate v0.3.0 // indirect
-	github.com/fatih/color v1.19.0 // indirect
 	github.com/felixge/httpsnoop v1.1.0 // indirect
 	github.com/fluent/fluent-logger-golang v1.10.2 // indirect
 	github.com/fsnotify/fsnotify v1.10.1 // indirect
@@ -83,7 +82,6 @@ require (
 	github.com/ipfs/go-cid v0.6.2 // indirect
 	github.com/klauspost/compress v1.20.4 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.8 // indirect
-	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.24 // indirect
 	github.com/mattn/go-shellwords v1.0.13 // indirect
 	github.com/mfridman/interpolate v0.0.2 // indirect
