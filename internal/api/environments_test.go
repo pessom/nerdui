@@ -125,6 +125,18 @@ func (f *fakeRuntime) Exec(ctx context.Context, _, _ string, opts runtime.ExecOp
 			f.gotSizes = append(f.gotSizes, s)
 			f.mu.Unlock()
 		case l, ok := <-lines:
+			// Sizes sent before this input come first, as the server queued them: select
+			// picks randomly among ready cases, which made the test flaky.
+			for drained := false; !drained; {
+				select {
+				case s := <-resize:
+					f.mu.Lock()
+					f.gotSizes = append(f.gotSizes, s)
+					f.mu.Unlock()
+				default:
+					drained = true
+				}
+			}
 			if !ok {
 				return -1, io.EOF
 			}
