@@ -25,12 +25,14 @@ import { RouterAnchor } from "../../../../components/RouterAnchor";
 import { AdoptStackDialog } from "../../../../features/stacks/AdoptStackDialog";
 import { StackActions } from "../../../../features/stacks/StackActions";
 import { StackFilePanel } from "../../../../features/stacks/StackFilePanel";
+import { StackLogsPanel } from "../../../../features/stacks/StackLogsPanel";
 import { StackMode, StackStatus } from "../../../../features/stacks/StackStatus";
 
 const envRoute = getRouteApi("/_app/env/$env");
 
-type Tab = "services" | "compose" | "env";
-const isTab = (t: unknown): t is Tab => t === "services" || t === "compose" || t === "env";
+type Tab = "services" | "logs" | "compose" | "env";
+const isTab = (t: unknown): t is Tab =>
+  t === "services" || t === "logs" || t === "compose" || t === "env";
 
 /** A stack: operations (#28), services and containers (#24), its compose and .env files (#26). */
 export const Route = createFileRoute("/_app/env/$env/stacks_/$name")({
@@ -134,50 +136,68 @@ function StackPage() {
               Adopt it to manage it here: give the directory with its compose file.
             </Alert>
           )}
-          {stack.data.mode !== "unmanaged" && stack.data.composeFile ? (
-            <Tabs
-              value={tab}
-              onChange={(t) =>
-                void navigate({
-                  to: ".",
-                  search: (s) => ({ ...s, tab: isTab(t) && t !== "services" ? t : undefined }),
-                })
-              }
-            >
-              <Tabs.List mb="md">
-                <Tabs.Tab value="services">Services</Tabs.Tab>
-                <Tabs.Tab value="compose">{stack.data.composeFile}</Tabs.Tab>
-                <Tabs.Tab value="env">.env</Tabs.Tab>
-              </Tabs.List>
-              <Tabs.Panel value="services">
-                <MStack>{services(stack.data.services)}</MStack>
-              </Tabs.Panel>
-              <Tabs.Panel value="compose">
-                {tab === "compose" && (
-                  <StackFilePanel
-                    env={env}
-                    namespace={namespace}
-                    name={name}
-                    kind="compose"
-                    readOnly={readOnly}
-                  />
-                )}
-              </Tabs.Panel>
-              <Tabs.Panel value="env">
-                {tab === "env" && (
-                  <StackFilePanel
-                    env={env}
-                    namespace={namespace}
-                    name={name}
-                    kind="env"
-                    readOnly={readOnly}
-                  />
-                )}
-              </Tabs.Panel>
-            </Tabs>
-          ) : (
-            services(stack.data.services)
-          )}
+          {(() => {
+            const editable = stack.data.mode !== "unmanaged" && !!stack.data.composeFile;
+            const shown = !editable && (tab === "compose" || tab === "env") ? "services" : tab;
+            const ids = stack.data.services
+              .flatMap((s) => s.containers.map((c) => c.id))
+              .sort()
+              .join(",");
+            return (
+              <Tabs
+                value={shown}
+                onChange={(t) =>
+                  void navigate({
+                    to: ".",
+                    search: (s) => ({ ...s, tab: isTab(t) && t !== "services" ? t : undefined }),
+                  })
+                }
+              >
+                <Tabs.List mb="md">
+                  <Tabs.Tab value="services">Services</Tabs.Tab>
+                  <Tabs.Tab value="logs">Logs</Tabs.Tab>
+                  {editable && <Tabs.Tab value="compose">{stack.data.composeFile}</Tabs.Tab>}
+                  {editable && <Tabs.Tab value="env">.env</Tabs.Tab>}
+                </Tabs.List>
+                <Tabs.Panel value="services">
+                  <MStack>{services(stack.data.services)}</MStack>
+                </Tabs.Panel>
+                <Tabs.Panel value="logs">
+                  {shown === "logs" && (
+                    <StackLogsPanel
+                      env={env}
+                      name={name}
+                      namespace={namespace}
+                      services={stack.data.services.map((s) => s.name)}
+                      containerIds={ids}
+                    />
+                  )}
+                </Tabs.Panel>
+                <Tabs.Panel value="compose">
+                  {shown === "compose" && (
+                    <StackFilePanel
+                      env={env}
+                      namespace={namespace}
+                      name={name}
+                      kind="compose"
+                      readOnly={readOnly}
+                    />
+                  )}
+                </Tabs.Panel>
+                <Tabs.Panel value="env">
+                  {shown === "env" && (
+                    <StackFilePanel
+                      env={env}
+                      namespace={namespace}
+                      name={name}
+                      kind="env"
+                      readOnly={readOnly}
+                    />
+                  )}
+                </Tabs.Panel>
+              </Tabs>
+            );
+          })()}
         </>
       )}
     </MStack>

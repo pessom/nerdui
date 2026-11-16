@@ -1189,6 +1189,39 @@ paths:
         "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
         "415": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/stacks/{name}/logs/stream:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - $ref: "#/components/parameters/Namespace"
+      - name: name
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      tags: [stacks]
+      operationId: streamStackLogs
+      summary: Merged logs of a stack's containers (WebSocket)
+      description: |
+        Requires `stacks:read` (#30). The last `tail` lines of each container of the compose
+        project (at most 5000, merged by time), then with `follow` the new lines of every
+        container until all stop. Data messages are arrays of `StackLogLine`. Containers created
+        later are not included; reconnect after a deploy.
+      parameters:
+        - name: tail
+          in: query
+          schema: { type: string, examples: ["200"] }
+        - name: since
+          in: query
+          schema: { type: string }
+        - name: follow
+          in: query
+          schema: { type: boolean }
+      responses:
+        "101": { description: Switching protocols }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
   /api/v1/environments/{env}/stacks/{name}/registration:
     parameters:
       - $ref: "#/components/parameters/Env"
@@ -2596,6 +2629,15 @@ components:
         auth: { type: string, enum: [none, basic, bearer] }
         username: { type: string }
         secret: { type: string, description: Password or token; empty keeps the stored one }
+    StackLogLine:
+      allOf:
+        - $ref: "#/components/schemas/LogLine"
+        - type: object
+          required: [service, containerId]
+          properties:
+            service: { type: string }
+            container: { type: string }
+            containerId: { type: string }
     LogLine:
       type: object
       required: [stream, line]

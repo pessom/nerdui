@@ -878,6 +878,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/environments/{env}/stacks/{name}/logs/stream": {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * Merged logs of a stack's containers (WebSocket)
+         * @description Requires `stacks:read` (#30). The last `tail` lines of each container of the compose
+         *     project (at most 5000, merged by time), then with `follow` the new lines of every
+         *     container until all stop. Data messages are arrays of `StackLogLine`. Containers created
+         *     later are not included; reconnect after a deploy.
+         */
+        get: operations["streamStackLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/environments/{env}/stacks/{name}/registration": {
         parameters: {
             query?: never;
@@ -2153,6 +2183,11 @@ export interface components {
             username?: string;
             /** @description Password or token; empty keeps the stored one */
             secret?: string;
+        };
+        StackLogLine: components["schemas"]["LogLine"] & {
+            service: string;
+            container?: string;
+            containerId: string;
         };
         LogLine: {
             /** @enum {string} */
@@ -3601,6 +3636,38 @@ export interface operations {
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
             415: components["responses"]["Error"];
+        };
+    };
+    streamStackLogs: {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+                tail?: string;
+                since?: string;
+                follow?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Switching protocols */
+            101: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
         };
     };
     forgetStack: {

@@ -31,6 +31,10 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
   its line; saving shows the diff, keeps the previous file as `.bak`, refuses to overwrite a file
   changed on disk or to save during an operation, and can deploy right away. **New stack**
   creates a stack in the stacks directory with a starter compose file (#26, ADR-0027).
+- **Stack logs:** a Logs tab on every stack merges the logs of its containers by time, with a
+  colored service label per line; services can be hidden, lines filtered or searched (text or
+  regular expression), with timestamps, stdout/stderr selection and live follow. Reconnecting
+  resumes each container where it stopped; containers created by a deploy are picked up (#30).
 
 ## [0.1.0-alpha.4] - 2026-11-16
 
