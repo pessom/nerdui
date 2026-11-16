@@ -94,6 +94,7 @@ func (h *Handler) runtimeRoutes(r chi.Router, g *authz.Guard) {
 	r.Method(http.MethodGet, "/ports", g.Protect(authz.ContainersRead, h.listPorts))
 	r.Method(http.MethodGet, "/stacks", g.Protect(authz.StacksRead, h.listStacks))
 	r.Method(http.MethodGet, "/stacks/{name}", g.Protect(authz.StacksRead, h.getStack))
+	r.Method(http.MethodPost, "/stacks/{name}/{op}", g.Protect(authz.StacksDeploy, h.stackOperation))
 	r.Method(http.MethodGet, "/networks", g.Protect(authz.NetworksRead, h.listNetworks))
 	r.Method(http.MethodPost, "/networks", g.Protect(authz.NetworksWrite, h.createNetwork))
 	r.Method(http.MethodDelete, "/networks/{name}", g.Protect(authz.NetworksWrite, h.removeNetwork))

@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -86,5 +87,97 @@ func TestIntegrationCompose(t *testing.T) {
 	}
 	if !slices.Equal(found, []string{"web:" + StateRunning}) {
 		t.Errorf("project containers %v", found)
+	}
+}
+
+// TestIntegrationComposeRun runs stack operations with the host's nerdctl compose (#28).
+func TestIntegrationComposeRun(t *testing.T) {
+	ncfg, _, err := LoadNerdctlConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := New(DefaultAddress, DefaultNamespace, WithNerdctlConfig(ncfg))
+	t.Cleanup(func() { _ = c.Close() })
+	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Minute)
+	defer cancel()
+
+	project := "it-run-" + strconv.FormatInt(time.Now().UnixNano()%1e6, 36)
+	dir := t.TempDir()
+	compose := `services:
+  web:
+    image: docker.io/library/alpine:3
+    command: ["sleep", "600"]
+    volumes: [data:/data]
+volumes:
+  data: {}
+`
+	if err := os.WriteFile(filepath.Join(dir, "compose.yaml"), []byte(compose), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = exec.Command("nerdctl", "compose", "-p", project, "--project-directory", dir, "down", "-v").Run()
+	})
+
+	states := func() []string {
+		t.Helper()
+		list, err := c.Containers().List(ctx, DefaultNamespace)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var out []string
+		for _, ct := range list {
+			if ct.Compose != nil && ct.Compose.Project == project {
+				out = append(out, ct.Compose.Service+":"+ct.State)
+			}
+		}
+		return out
+	}
+	volume := func() bool {
+		vols, err := c.Volumes().List(ctx, DefaultNamespace, false)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return slices.ContainsFunc(vols, func(v Volume) bool { return v.Name == project+"_data" })
+	}
+	run := func(op string, opts ComposeOptions) string {
+		t.Helper()
+		var out strings.Builder
+		if err := c.Compose().Run(ctx, DefaultNamespace, project, dir, op, opts, &out); err != nil {
+			t.Fatalf("%s: %v\n%s", op, err, out.String())
+		}
+		return out.String()
+	}
+
+	if out := run(ComposeUp, ComposeOptions{}); !strings.Contains(out, "nerdctl compose") {
+		t.Errorf("up output %q", out)
+	}
+	if got := states(); !slices.Equal(got, []string{"web:" + StateRunning}) || !volume() {
+		t.Fatalf("after up: %v, volume %v", got, volume())
+	}
+	run(ComposeStop, ComposeOptions{})
+	if got := states(); len(got) != 1 || got[0] == "web:"+StateRunning {
+		t.Errorf("after stop: %v", got)
+	}
+	run(ComposeStart, ComposeOptions{})
+	if got := states(); !slices.Equal(got, []string{"web:" + StateRunning}) {
+		t.Errorf("after start: %v", got)
+	}
+	run(ComposeDown, ComposeOptions{})
+	if got := states(); len(got) != 0 || !volume() {
+		t.Errorf("after down: %v, volume kept %v", got, volume())
+	}
+	run(ComposeUp, ComposeOptions{})
+	run(ComposeDown, ComposeOptions{Volumes: true})
+	if got := states(); len(got) != 0 || volume() {
+		t.Errorf("after down -v: %v, volume %v", got, volume())
+	}
+
+	// A failing operation reports nerdctl's exit code.
+	if err := os.WriteFile(filepath.Join(dir, "compose.yaml"), []byte("services:\n  web:\n    image: \"\"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var out strings.Builder
+	if err := c.Compose().Run(ctx, DefaultNamespace, project, dir, ComposeUp, ComposeOptions{}, &out); err == nil || !strings.Contains(err.Error(), "exit code") {
+		t.Errorf("failing up: %v\n%s", err, out.String())
 	}
 }

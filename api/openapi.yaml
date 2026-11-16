@@ -995,6 +995,56 @@ paths:
         "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
         "415": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/stacks/{name}/{op}:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - $ref: "#/components/parameters/Namespace"
+      - name: name
+        in: path
+        required: true
+        schema: { type: string }
+      - name: op
+        in: path
+        required: true
+        schema: { type: string, enum: [up, down, start, stop, restart, pull] }
+    post:
+      tags: [stacks]
+      operationId: stackOperation
+      summary: Run a stack operation as a job
+      description: |
+        Requires `stacks:deploy` (#28, #31, ADR-0026). Runs the host's `nerdctl compose <op>` in
+        the stack directory; the output streams over `/jobs/{id}/stream`. One job per stack at a
+        time (409). `volumes` (down only) deletes the project's volumes and requires `confirm`
+        to equal the stack name. Unmanaged projects must be adopted first (404).
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                pull: { type: boolean, description: "up: pull images first (--pull=always)" }
+                removeOrphans: { type: boolean, description: "up, down: remove containers of services no longer defined" }
+                volumes: { type: boolean, description: "down: remove the project's volumes" }
+                confirm: { type: string, description: The stack name, required with volumes }
+      responses:
+        "202":
+          description: Job started
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [job]
+                properties:
+                  job: { $ref: "#/components/schemas/Job" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "415": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
   /api/v1/environments/{env}/stacks/{name}/registration:
     parameters:
       - $ref: "#/components/parameters/Env"

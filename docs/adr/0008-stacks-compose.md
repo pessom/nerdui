@@ -1,6 +1,6 @@
 # 0008. Stacks: compose files on disk, nerdctl composer
 
-- **Status:** Accepted; loading and adoption refined by [0025](0025-stack-adoption.md)
+- **Status:** Accepted; loading and adoption refined by [0025](0025-stack-adoption.md) and [0026](0026-stack-operations.md)
 - **Date:** 2026-11-11
 
 ## Context
