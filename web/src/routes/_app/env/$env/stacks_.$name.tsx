@@ -4,6 +4,7 @@
 import {
   Alert,
   Badge,
+  Button,
   Code,
   Group,
   Loader,
@@ -13,10 +14,14 @@ import {
   Text,
   Title,
 } from "@mantine/core";
-import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, getRouteApi } from "@tanstack/react-router";
-import { envStatusQuery, stackQuery } from "../../../../api/queries";
+import { useDisclosure } from "@mantine/hooks";
+import { notifications } from "@mantine/notifications";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { createFileRoute, getRouteApi, useNavigate } from "@tanstack/react-router";
+import { api, unwrapEmpty } from "../../../../api/client";
+import { envStatusQuery, keys, stackQuery } from "../../../../api/queries";
 import { RouterAnchor } from "../../../../components/RouterAnchor";
+import { AdoptStackDialog } from "../../../../features/stacks/AdoptStackDialog";
 import { StackMode, StackStatus } from "../../../../features/stacks/StackStatus";
 
 const envRoute = getRouteApi("/_app/env/$env");
@@ -32,6 +37,24 @@ function StackPage() {
   const status = useQuery(envStatusQuery(env));
   const namespace = ns ?? status.data?.defaultNamespace ?? "default";
   const stack = useQuery(stackQuery(env, namespace, name));
+  const [adopting, adoptDialog] = useDisclosure();
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const forget = useMutation({
+    mutationFn: () =>
+      unwrapEmpty(
+        api.DELETE("/api/v1/environments/{env}/stacks/{name}/registration", {
+          params: { path: { env, name } },
+        }),
+      ),
+    onSuccess: () => {
+      notifications.show({ message: `Stack ${name} forgotten; its files and containers stay` });
+      void queryClient.invalidateQueries({ queryKey: keys.stacks(env, namespace) });
+      void navigate({ to: "/env/$env/stacks", params: { env }, search: { ns } });
+    },
+    onError: (e) =>
+      notifications.show({ color: "red", title: "Cannot forget the stack", message: e.message }),
+  });
 
   return (
     <MStack>
@@ -43,11 +66,26 @@ function StackPage() {
           /
         </Text>
       </Group>
-      <Group gap="xs">
-        <Title order={2}>{name}</Title>
-        {stack.data && <StackStatus stack={stack.data} />}
-        {stack.data && <StackMode mode={stack.data.mode} />}
+      <Group justify="space-between">
+        <Group gap="xs">
+          <Title order={2}>{name}</Title>
+          {stack.data && <StackStatus stack={stack.data} />}
+          {stack.data && <StackMode mode={stack.data.mode} />}
+        </Group>
+        {stack.data?.mode === "unmanaged" && <Button onClick={adoptDialog.open}>Adopt</Button>}
+        {stack.data?.mode === "external" && (
+          <Button variant="default" loading={forget.isPending} onClick={() => forget.mutate()}>
+            Forget
+          </Button>
+        )}
       </Group>
+      <AdoptStackDialog
+        env={env}
+        namespace={namespace}
+        opened={adopting}
+        onClose={adoptDialog.close}
+        initialName={name}
+      />
       {stack.isPending && <Loader aria-label="Loading" />}
       {stack.isError && (
         <Alert color="red" title="Cannot read the stack">
@@ -72,7 +110,7 @@ function StackPage() {
           {stack.data.mode === "unmanaged" && (
             <Alert color="orange" title="Compose file unknown">
               This project was started with nerdctl compose outside nerdui&apos;s stacks directory.
-              Adopting it (registering its directory) will be possible in the next version.
+              Adopt it to manage it here: give the directory with its compose file.
             </Alert>
           )}
           {stack.data.services.map((svc) => (

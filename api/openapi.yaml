@@ -922,6 +922,99 @@ paths:
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/stack-candidates:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+    get:
+      tags: [stacks]
+      operationId: listStackCandidates
+      summary: Compose projects in the scan directories that are not stacks yet
+      description: |
+        Requires `stacks:read` (#25). Scans `--stacks-scan-dirs` two levels deep. `localPaths`
+        lists files of the project directory the project uses (bind mounts, build contexts, env
+        files, configs, secrets): such a project can only be adopted in place.
+      responses:
+        "200":
+          description: Candidates sorted by path
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [candidates]
+                properties:
+                  scanDirs: { type: [array, "null"], items: { type: string } }
+                  candidates:
+                    type: array
+                    items:
+                      type: object
+                      required: [name, path, composeFile, services, taken]
+                      properties:
+                        name: { type: string }
+                        path: { type: string }
+                        composeFile: { type: string }
+                        services: { type: array, items: { type: string } }
+                        localPaths: { type: array, items: { type: string } }
+                        error: { type: string }
+                        taken: { type: boolean, description: A stack of that name exists }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/stacks/adopt:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - $ref: "#/components/parameters/Namespace"
+    post:
+      tags: [stacks]
+      operationId: adoptStack
+      summary: Adopt an existing compose project as a stack
+      description: |
+        Requires `stacks:write` (#25, ADR-0008). `in-place` registers the directory; `copy`
+        copies its compose and .env files into the stacks directory and is refused (409) when the
+        project uses other files of its directory. The containers keep running.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, path, mode]
+              additionalProperties: false
+              properties:
+                name: { type: string }
+                path: { type: string, description: Absolute directory with a compose file }
+                mode: { type: string, enum: [in-place, copy] }
+      responses:
+        "201":
+          description: The new stack
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Stack" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "415": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/stacks/{name}/registration:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - name: name
+        in: path
+        required: true
+        schema: { type: string }
+    delete:
+      tags: [stacks]
+      operationId: forgetStack
+      summary: Forget an adopted directory
+      description: |
+        Requires `stacks:write` (#25). Removes the registration of an external stack; its files
+        and containers stay. Stacks in the stacks directory are refused (409).
+      responses:
+        "204": { description: Forgotten }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
   /api/v1/environments/{env}/stacks/{name}:
     parameters:
       - $ref: "#/components/parameters/Env"

@@ -14,6 +14,12 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
   and projects started with `nerdctl compose` elsewhere (shown as unmanaged). A stack page shows
   its services and containers, including containers of services no longer in the compose file
   (#24).
+- **Adopt existing projects:** compose projects in `--stacks-scan-dirs` (two levels deep) are
+  offered for adoption, and any directory can be entered. A project is adopted in place (its
+  directory is registered; "Forget" removes the registration and keeps the files) or by copying
+  its compose and .env files into the stacks directory — refused when the project uses other
+  files of its directory, such as `./data` bind mounts. Projects are loaded like
+  `nerdctl compose` without `-f`, including `compose.override.yaml` (#25).
 
 ## [0.1.0-alpha.4] - 2026-11-16
 

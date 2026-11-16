@@ -258,3 +258,11 @@ export const stackQuery = (env: string, namespace: string, name: string) =>
         }),
       ),
   });
+
+/** Compose projects in --stacks-scan-dirs that can be adopted (#25). */
+export const stackCandidatesQuery = (env: string) =>
+  queryOptions({
+    queryKey: ["env", env, "stack-candidates"] as const,
+    queryFn: () =>
+      unwrap(api.GET("/api/v1/environments/{env}/stack-candidates", { params: { path: { env } } })),
+  });
