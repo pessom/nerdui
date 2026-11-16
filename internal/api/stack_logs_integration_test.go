@@ -7,6 +7,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -85,11 +86,15 @@ func TestIntegrationStackLogs(t *testing.T) {
 				return nil
 			})
 	}()
+	var streamErr error
 	select {
-	case <-done:
+	case streamErr = <-done:
 	case <-time.After(30 * time.Second):
 		stop()
-		<-done
+		streamErr = <-done
+	}
+	if streamErr != nil && !errors.Is(streamErr, context.Canceled) {
+		t.Errorf("stream: %v", streamErr)
 	}
 	mu.Lock()
 	defer mu.Unlock()
