@@ -24,6 +24,7 @@ import (
 	"github.com/pessom/nerdui/internal/httpjson"
 	"github.com/pessom/nerdui/internal/jobs"
 	"github.com/pessom/nerdui/internal/runtime"
+	"github.com/pessom/nerdui/internal/stacks"
 	"github.com/pessom/nerdui/internal/version"
 )
 
@@ -45,7 +46,9 @@ type Config struct {
 	DisableExec bool
 	// Settings stores per-environment settings (#176); nil disables them.
 	Settings api.Settings
-	Logger   *slog.Logger
+	// Stacks finds compose stacks (#24); nil disables them.
+	Stacks *stacks.Service
+	Logger *slog.Logger
 }
 
 // VersionResponse is returned by GET /api/v1/version. Keep in sync with api/openapi.yaml.
@@ -91,7 +94,7 @@ func New(cfg Config) http.Handler {
 			r.Use(cfg.Auth.RequireSession, auth.CSRF, auth.PasswordChanged)
 			(&api.Handler{
 				Envs: cfg.Environments, Jobs: cfg.Jobs, EventHistory: cfg.EventHistory,
-				ExecDisabled: cfg.DisableExec, Settings: cfg.Settings, Logger: cfg.Logger,
+				ExecDisabled: cfg.DisableExec, Settings: cfg.Settings, Stacks: cfg.Stacks, Logger: cfg.Logger,
 			}).Routes(r, guard)
 		})
 	})

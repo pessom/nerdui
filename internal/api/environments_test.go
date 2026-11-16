@@ -60,6 +60,7 @@ type fakeRuntime struct {
 	statsErr     error
 	volumes      []runtime.Volume
 	ports        runtime.PortsReport
+	services     map[string][]string // compose services by project
 	networks     []runtime.Network
 	netSpecs     []runtime.NetworkSpec
 	volumeSize   bool
@@ -182,6 +183,18 @@ func (f *fakeRuntime) Registries() runtime.Registries { return fakeRegistries{f}
 func (f *fakeRuntime) Volumes() runtime.Volumes { return fakeVolumes{f} }
 
 func (f *fakeRuntime) Networks() runtime.Networks { return fakeNetworks{f} }
+
+func (f *fakeRuntime) Compose() runtime.Compose { return fakeCompose{f} }
+
+type fakeCompose struct{ f *fakeRuntime }
+
+func (fc fakeCompose) Services(_ context.Context, _, project, _, _ string) ([]string, error) {
+	svcs, ok := fc.f.services[project]
+	if !ok {
+		return nil, fmt.Errorf("%w: services.web: invalid", errdefs.ErrInvalidArgument)
+	}
+	return svcs, nil
+}
 
 type fakeNetworks struct{ f *fakeRuntime }
 

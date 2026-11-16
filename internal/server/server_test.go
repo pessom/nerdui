@@ -40,6 +40,7 @@ func (f fakeRuntime) Images() runtime.Images                             { retur
 func (f fakeRuntime) Registries() runtime.Registries                     { return nil }
 func (f fakeRuntime) Volumes() runtime.Volumes                           { return nil }
 func (f fakeRuntime) Networks() runtime.Networks                         { return nil }
+func (f fakeRuntime) Compose() runtime.Compose                           { return nil }
 func (f fakeRuntime) Versions(context.Context) (runtime.Versions, error) { return f.v, f.err }
 func (f fakeRuntime) Namespaces(context.Context) ([]string, error)       { return []string{"default"}, f.err }
 func (f fakeRuntime) Nerdctl(context.Context) runtime.NerdctlStatus {
@@ -302,6 +303,8 @@ func TestRouteAuthorization(t *testing.T) {
 		"POST /api/v1/environments/{env}/images/remove":                "images:write",
 		"GET /api/v1/environments/{env}/registries":                    "registries:read",
 		"GET /api/v1/environments/{env}/ports":                         "containers:read",
+		"GET /api/v1/environments/{env}/stacks":                        "stacks:read",
+		"GET /api/v1/environments/{env}/stacks/{name}":                 "stacks:read",
 		"GET /api/v1/environments/{env}/networks":                      "networks:read",
 		"POST /api/v1/environments/{env}/networks":                     "networks:write",
 		"DELETE /api/v1/environments/{env}/networks/{name}":            "networks:write",
