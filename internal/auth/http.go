@@ -187,6 +187,7 @@ func (s *Service) Routes(r chi.Router, g *authz.Guard) {
 			r.Use(PasswordChanged)
 			s.userRoutes(r, g)
 			s.apiKeyRoutes(r, g)
+			s.preferenceRoutes(r, g)
 		})
 	})
 }

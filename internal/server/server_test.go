@@ -288,6 +288,8 @@ func TestRouteAuthorization(t *testing.T) {
 		"POST /api/v1/auth/logout":   "session:self",
 		"POST /api/v1/auth/password": "session:self",
 
+		"GET /api/v1/auth/preferences":             "session:self",
+		"PUT /api/v1/auth/preferences":             "session:self",
 		"GET /api/v1/auth/api-keys":                "session:self",
 		"POST /api/v1/auth/api-keys":               "session:self",
 		"DELETE /api/v1/auth/api-keys/{key}":       "session:self",

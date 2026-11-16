@@ -68,3 +68,9 @@ type User struct {
 	MustChangePassword int64
 	LastLoginAt        sql.NullInt64
 }
+
+type UserPreference struct {
+	UserID    int64
+	Data      string
+	UpdatedAt int64
+}
