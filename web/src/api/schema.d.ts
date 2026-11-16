@@ -960,6 +960,56 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/environments/{env}/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Resources and disk usage of a host
+         * @description Requires `system:read` (#63). Across all namespaces: containers by state, images, volumes,
+         *     networks, stacks; the size of the images (and of the volumes with `volumeSizes=true`,
+         *     which walks every volume) and the filesystems of containerd's and nerdctl's data.
+         */
+        get: operations["getSummary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/environments/{env}/stats/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Containers using most CPU and memory (WebSocket)
+         * @description Requires `containers:read` (#63). Every 5 s while connected: the five running containers
+         *     of all namespaces using most CPU and most memory (`TopStats` data messages). The first
+         *     message comes after two samples.
+         */
+        get: operations["streamTopStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/environments/{env}/ports": {
         parameters: {
             query?: never;
@@ -2063,6 +2113,57 @@ export interface components {
                     state: string;
                 }[];
             }[];
+        };
+        ContainerCounts: {
+            total: number;
+            running: number;
+            paused: number;
+            stopped: number;
+            unhealthy: number;
+        };
+        Summary: {
+            containers: components["schemas"]["ContainerCounts"];
+            images: number;
+            volumes: number;
+            networks: number;
+            stacks: number;
+            namespaces: {
+                name: string;
+                containers: components["schemas"]["ContainerCounts"];
+                images: number;
+                volumes: number;
+                networks: number;
+            }[];
+            /** Format: int64 */
+            imagesSize: number;
+            /**
+             * Format: int64
+             * @description Only with volumeSizes=true
+             */
+            volumesSize?: number;
+            filesystems: {
+                paths: string[];
+                /** Format: int64 */
+                total: number;
+                /** Format: int64 */
+                free: number;
+            }[];
+        };
+        TopContainer: {
+            id: string;
+            name?: string;
+            namespace: string;
+            cpuPercent: number;
+            /** Format: int64 */
+            memoryUsage: number;
+            memoryPercent: number;
+        };
+        TopStats: {
+            /** Format: date-time */
+            ts: string;
+            running: number;
+            cpu: components["schemas"]["TopContainer"][];
+            memory: components["schemas"]["TopContainer"][];
         };
         PortEntry: {
             namespace: string;
@@ -3720,6 +3821,59 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Stack"];
                 };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    getSummary: {
+        parameters: {
+            query?: {
+                volumeSizes?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Summary */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Summary"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    streamTopStats: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Switching protocols */
+            101: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];

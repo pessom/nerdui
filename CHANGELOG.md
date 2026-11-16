@@ -7,6 +7,14 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 
 ## [Unreleased]
 
+### Added
+
+- **Dashboard:** the Overview page shows the host's containers by state (running, paused,
+  stopped, unhealthy), stacks, images, volumes and networks across namespaces (with a breakdown
+  per namespace), the size of the images (volume sizes on request) and the free space of the
+  filesystems holding containerd's and nerdctl's data, the running containers using most CPU and
+  memory (refreshed every 5 s while the page is open) and the recent events (#63).
+
 ## [0.1.0-alpha.5] - 2026-11-16
 
 Compose stacks: list, adopt, edit, deploy and logs.

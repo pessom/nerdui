@@ -41,6 +41,8 @@ type System interface {
 	Prune(ctx context.Context, namespace string, opts PruneOptions, out io.Writer) error
 	// Ports lists published and exposed ports of all namespaces with conflicts (#62).
 	Ports(ctx context.Context) (PortsReport, error)
+	// Summary counts resources of all namespaces and reports disk usage (#63).
+	Summary(ctx context.Context, volumeSizes bool) (Summary, error)
 }
 
 var _ Runtime = (*Client)(nil)
