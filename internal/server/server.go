@@ -17,6 +17,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
+	apispec "github.com/pessom/nerdui/api"
 	"github.com/pessom/nerdui/internal/api"
 	"github.com/pessom/nerdui/internal/auth"
 	"github.com/pessom/nerdui/internal/authz"
@@ -87,9 +88,16 @@ func New(cfg Config) http.Handler {
 	})
 
 	guard := authz.NewGuard(cfg.Authorizer, auth.SubjectFromRequest, cfg.Logger)
+	// /api/docs leads to the documentation page of the UI (#87).
+	r.Method(http.MethodGet, "/api/docs", authz.Public(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/api-docs", http.StatusFound)
+	}))
 	r.Route("/api/v1", func(r chi.Router) {
 		cfg.Auth.Routes(r, guard)
 		r.With(cfg.Auth.OptionalSession).Method(http.MethodGet, "/version", authz.Public(versionHandler(cfg.Environments, guard)))
+		// The API specification is public, like the source code (#87).
+		r.Method(http.MethodGet, "/openapi.yaml", authz.Public(specHandler("application/yaml", func() ([]byte, error) { return apispec.OpenAPIYAML, nil })))
+		r.Method(http.MethodGet, "/openapi.json", authz.Public(specHandler("application/json", apispec.OpenAPIJSON)))
 		r.Group(func(r chi.Router) {
 			r.Use(cfg.Auth.RequireSession, auth.CSRF, auth.PasswordChanged)
 			(&api.Handler{
@@ -108,6 +116,20 @@ func New(cfg Config) http.Handler {
 		r.NotFound(spaHandler(cfg.UI))
 	}
 	return r
+}
+
+// specHandler serves the embedded API specification.
+func specHandler(contentType string, spec func() ([]byte, error)) http.HandlerFunc {
+	return func(w http.ResponseWriter, _ *http.Request) {
+		b, err := spec()
+		if err != nil {
+			httpjson.WriteError(w, http.StatusInternalServerError, httpjson.CodeInternal, "specification unavailable")
+			return
+		}
+		w.Header().Set("Content-Type", contentType)
+		w.Header().Set("Cache-Control", "public, max-age=3600")
+		_, _ = w.Write(b)
+	}
 }
 
 func versionHandler(envs *environment.Registry, guard *authz.Guard) http.HandlerFunc {

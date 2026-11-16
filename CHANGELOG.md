@@ -9,6 +9,10 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 
 ### Added
 
+- **API documentation:** an API page (also at `/api/docs`) documents every endpoint from the
+  server's own specification: grouped by area, with the permission it needs, parameters, body and
+  responses, and a curl example. The specification is served at `/api/v1/openapi.yaml` and
+  `/api/v1/openapi.json` for Postman, Insomnia or client generators (#87).
 - **Dashboard:** the Overview page shows the host's containers by state (running, paused,
   stopped, unhealthy), stacks, images, volumes and networks across namespaces (with a breakdown
   per namespace), the size of the images (volume sizes on request) and the free space of the
