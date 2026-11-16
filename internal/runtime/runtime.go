@@ -20,6 +20,7 @@ type Runtime interface {
 	Images() Images
 	Volumes() Volumes
 	Networks() Networks
+	Compose() Compose
 	Registries() Registries
 	Events() EventSource
 	Close() error

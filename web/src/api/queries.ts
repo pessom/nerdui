@@ -28,6 +28,8 @@ export const keys = {
   volumes: (env: string, ns: string) => ["env", env, "volumes", ns] as const,
   networks: (env: string, ns: string) => ["env", env, "networks", ns] as const,
   ports: (env: string) => ["env", env, "ports"] as const,
+  /** Under containers(env, ns): container events and actions refresh stacks too. */
+  stacks: (env: string, ns: string) => ["env", env, "containers", ns, "stacks"] as const,
   prometheus: (env: string) => ["env", env, "settings", "prometheus"] as const,
   statsHistory: (env: string, ns: string, id: string, range: string) =>
     ["env", env, "containers", ns, "stats-history", id, range] as const,
@@ -229,4 +231,30 @@ export const portsQuery = (env: string) =>
     queryKey: keys.ports(env),
     queryFn: () =>
       unwrap(api.GET("/api/v1/environments/{env}/ports", { params: { path: { env } } })),
+  });
+
+export type Stack = components["schemas"]["Stack"];
+
+/** Compose stacks of a namespace with their status (#24). */
+export const stacksQuery = (env: string, namespace: string) =>
+  queryOptions({
+    queryKey: keys.stacks(env, namespace),
+    queryFn: () =>
+      unwrap(
+        api.GET("/api/v1/environments/{env}/stacks", {
+          params: { path: { env }, query: { namespace } },
+        }),
+      ),
+  });
+
+/** One stack with its services and containers (#24). */
+export const stackQuery = (env: string, namespace: string, name: string) =>
+  queryOptions({
+    queryKey: [...keys.stacks(env, namespace), name] as const,
+    queryFn: () =>
+      unwrap(
+        api.GET("/api/v1/environments/{env}/stacks/{name}", {
+          params: { path: { env, name }, query: { namespace } },
+        }),
+      ),
   });

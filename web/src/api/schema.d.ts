@@ -682,6 +682,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/environments/{env}/stacks": {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Compose stacks with their status in a namespace
+         * @description Requires `stacks:read` (#24, ADR-0008). Stacks in --stacks-dir (`managed`), registered
+         *     external directories (`external`) and compose projects known only from container labels
+         *     (`unmanaged`). Status compares the services of the compose file (loaded like
+         *     `nerdctl compose`) with the running containers of the project.
+         */
+        get: operations["listStacks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/environments/{env}/stacks/{name}": {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * A stack with its services and containers
+         * @description Requires `stacks:read` (#24).
+         */
+        get: operations["getStack"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/environments/{env}/ports": {
         parameters: {
             query?: never;
@@ -1751,6 +1807,30 @@ export interface components {
             blockWrite: number;
             /** Format: int64 */
             pids: number;
+        };
+        Stack: {
+            name: string;
+            /** @enum {string} */
+            mode: "managed" | "external" | "unmanaged";
+            path?: string;
+            composeFile?: string;
+            /** @enum {string} */
+            status: "running" | "partial" | "stopped" | "unknown";
+            /** @description Why the compose file could not be read */
+            error?: string;
+            containers: number;
+            running: number;
+            services: {
+                name: string;
+                /** @description False when the service is not in the compose file */
+                defined: boolean;
+                running: number;
+                containers: {
+                    id: string;
+                    name?: string;
+                    state: string;
+                }[];
+            }[];
         };
         PortEntry: {
             namespace: string;
@@ -2988,6 +3068,68 @@ export interface operations {
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
             503: components["responses"]["Error"];
+        };
+    };
+    listStacks: {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Stacks sorted by name, unmanaged last */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        namespace: string;
+                        stacks: components["schemas"]["Stack"][];
+                    };
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    getStack: {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Stack */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Stack"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
         };
     };
     listPorts: {

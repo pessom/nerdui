@@ -24,9 +24,11 @@ import { Route as AppEnvEnvNetworksRouteImport } from './routes/_app/env/$env/ne
 import { Route as AppEnvEnvPortsRouteImport } from './routes/_app/env/$env/ports'
 import { Route as AppEnvEnvRegistriesRouteImport } from './routes/_app/env/$env/registries'
 import { Route as AppEnvEnvSettingsRouteImport } from './routes/_app/env/$env/settings'
+import { Route as AppEnvEnvStacksRouteImport } from './routes/_app/env/$env/stacks'
 import { Route as AppEnvEnvVolumesRouteImport } from './routes/_app/env/$env/volumes'
 import { Route as AppEnvEnvContainersIdRouteImport } from './routes/_app/env/$env/containers_.$id'
 import { Route as AppEnvEnvContainersNewRouteImport } from './routes/_app/env/$env/containers_.new'
+import { Route as AppEnvEnvStacksNameRouteImport } from './routes/_app/env/$env/stacks_.$name'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -102,6 +104,11 @@ const AppEnvEnvSettingsRoute = AppEnvEnvSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AppEnvEnvRoute,
 } as any)
+const AppEnvEnvStacksRoute = AppEnvEnvStacksRouteImport.update({
+  id: '/stacks',
+  path: '/stacks',
+  getParentRoute: () => AppEnvEnvRoute,
+} as any)
 const AppEnvEnvVolumesRoute = AppEnvEnvVolumesRouteImport.update({
   id: '/volumes',
   path: '/volumes',
@@ -115,6 +122,11 @@ const AppEnvEnvContainersIdRoute = AppEnvEnvContainersIdRouteImport.update({
 const AppEnvEnvContainersNewRoute = AppEnvEnvContainersNewRouteImport.update({
   id: '/containers_/new',
   path: '/containers/new',
+  getParentRoute: () => AppEnvEnvRoute,
+} as any)
+const AppEnvEnvStacksNameRoute = AppEnvEnvStacksNameRouteImport.update({
+  id: '/stacks_/$name',
+  path: '/stacks/$name',
   getParentRoute: () => AppEnvEnvRoute,
 } as any)
 
@@ -132,10 +144,12 @@ export interface FileRoutesByFullPath {
   '/env/$env/ports': typeof AppEnvEnvPortsRoute
   '/env/$env/registries': typeof AppEnvEnvRegistriesRoute
   '/env/$env/settings': typeof AppEnvEnvSettingsRoute
+  '/env/$env/stacks': typeof AppEnvEnvStacksRoute
   '/env/$env/volumes': typeof AppEnvEnvVolumesRoute
   '/env/$env/': typeof AppEnvEnvIndexRoute
   '/env/$env/containers/$id': typeof AppEnvEnvContainersIdRoute
   '/env/$env/containers/new': typeof AppEnvEnvContainersNewRoute
+  '/env/$env/stacks/$name': typeof AppEnvEnvStacksNameRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -150,10 +164,12 @@ export interface FileRoutesByTo {
   '/env/$env/ports': typeof AppEnvEnvPortsRoute
   '/env/$env/registries': typeof AppEnvEnvRegistriesRoute
   '/env/$env/settings': typeof AppEnvEnvSettingsRoute
+  '/env/$env/stacks': typeof AppEnvEnvStacksRoute
   '/env/$env/volumes': typeof AppEnvEnvVolumesRoute
   '/env/$env': typeof AppEnvEnvIndexRoute
   '/env/$env/containers/$id': typeof AppEnvEnvContainersIdRoute
   '/env/$env/containers/new': typeof AppEnvEnvContainersNewRoute
+  '/env/$env/stacks/$name': typeof AppEnvEnvStacksNameRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -171,10 +187,12 @@ export interface FileRoutesById {
   '/_app/env/$env/ports': typeof AppEnvEnvPortsRoute
   '/_app/env/$env/registries': typeof AppEnvEnvRegistriesRoute
   '/_app/env/$env/settings': typeof AppEnvEnvSettingsRoute
+  '/_app/env/$env/stacks': typeof AppEnvEnvStacksRoute
   '/_app/env/$env/volumes': typeof AppEnvEnvVolumesRoute
   '/_app/env/$env/': typeof AppEnvEnvIndexRoute
   '/_app/env/$env/containers_/$id': typeof AppEnvEnvContainersIdRoute
   '/_app/env/$env/containers_/new': typeof AppEnvEnvContainersNewRoute
+  '/_app/env/$env/stacks_/$name': typeof AppEnvEnvStacksNameRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -192,10 +210,12 @@ export interface FileRouteTypes {
     | '/env/$env/ports'
     | '/env/$env/registries'
     | '/env/$env/settings'
+    | '/env/$env/stacks'
     | '/env/$env/volumes'
     | '/env/$env/'
     | '/env/$env/containers/$id'
     | '/env/$env/containers/new'
+    | '/env/$env/stacks/$name'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -210,10 +230,12 @@ export interface FileRouteTypes {
     | '/env/$env/ports'
     | '/env/$env/registries'
     | '/env/$env/settings'
+    | '/env/$env/stacks'
     | '/env/$env/volumes'
     | '/env/$env'
     | '/env/$env/containers/$id'
     | '/env/$env/containers/new'
+    | '/env/$env/stacks/$name'
   id:
     | '__root__'
     | '/'
@@ -230,10 +252,12 @@ export interface FileRouteTypes {
     | '/_app/env/$env/ports'
     | '/_app/env/$env/registries'
     | '/_app/env/$env/settings'
+    | '/_app/env/$env/stacks'
     | '/_app/env/$env/volumes'
     | '/_app/env/$env/'
     | '/_app/env/$env/containers_/$id'
     | '/_app/env/$env/containers_/new'
+    | '/_app/env/$env/stacks_/$name'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -351,6 +375,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppEnvEnvSettingsRouteImport
       parentRoute: typeof AppEnvEnvRoute
     }
+    '/_app/env/$env/stacks': {
+      id: '/_app/env/$env/stacks'
+      path: '/stacks'
+      fullPath: '/env/$env/stacks'
+      preLoaderRoute: typeof AppEnvEnvStacksRouteImport
+      parentRoute: typeof AppEnvEnvRoute
+    }
     '/_app/env/$env/volumes': {
       id: '/_app/env/$env/volumes'
       path: '/volumes'
@@ -372,6 +403,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppEnvEnvContainersNewRouteImport
       parentRoute: typeof AppEnvEnvRoute
     }
+    '/_app/env/$env/stacks_/$name': {
+      id: '/_app/env/$env/stacks_/$name'
+      path: '/stacks/$name'
+      fullPath: '/env/$env/stacks/$name'
+      preLoaderRoute: typeof AppEnvEnvStacksNameRouteImport
+      parentRoute: typeof AppEnvEnvRoute
+    }
   }
 }
 
@@ -383,10 +421,12 @@ interface AppEnvEnvRouteChildren {
   AppEnvEnvPortsRoute: typeof AppEnvEnvPortsRoute
   AppEnvEnvRegistriesRoute: typeof AppEnvEnvRegistriesRoute
   AppEnvEnvSettingsRoute: typeof AppEnvEnvSettingsRoute
+  AppEnvEnvStacksRoute: typeof AppEnvEnvStacksRoute
   AppEnvEnvVolumesRoute: typeof AppEnvEnvVolumesRoute
   AppEnvEnvIndexRoute: typeof AppEnvEnvIndexRoute
   AppEnvEnvContainersIdRoute: typeof AppEnvEnvContainersIdRoute
   AppEnvEnvContainersNewRoute: typeof AppEnvEnvContainersNewRoute
+  AppEnvEnvStacksNameRoute: typeof AppEnvEnvStacksNameRoute
 }
 
 const AppEnvEnvRouteChildren: AppEnvEnvRouteChildren = {
@@ -397,10 +437,12 @@ const AppEnvEnvRouteChildren: AppEnvEnvRouteChildren = {
   AppEnvEnvPortsRoute: AppEnvEnvPortsRoute,
   AppEnvEnvRegistriesRoute: AppEnvEnvRegistriesRoute,
   AppEnvEnvSettingsRoute: AppEnvEnvSettingsRoute,
+  AppEnvEnvStacksRoute: AppEnvEnvStacksRoute,
   AppEnvEnvVolumesRoute: AppEnvEnvVolumesRoute,
   AppEnvEnvIndexRoute: AppEnvEnvIndexRoute,
   AppEnvEnvContainersIdRoute: AppEnvEnvContainersIdRoute,
   AppEnvEnvContainersNewRoute: AppEnvEnvContainersNewRoute,
+  AppEnvEnvStacksNameRoute: AppEnvEnvStacksNameRoute,
 }
 
 const AppEnvEnvRouteWithChildren = AppEnvEnvRoute._addFileChildren(

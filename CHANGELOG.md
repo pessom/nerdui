@@ -7,6 +7,14 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 
 ## [Unreleased]
 
+### Added
+
+- **Stacks:** a Stacks page lists compose projects of the selected namespace with their status
+  (running, partial, stopped, unknown): directories with a compose file in the stacks directory,
+  and projects started with `nerdctl compose` elsewhere (shown as unmanaged). A stack page shows
+  its services and containers, including containers of services no longer in the compose file
+  (#24).
+
 ## [0.1.0-alpha.4] - 2026-11-16
 
 Volumes, networks and ports.

@@ -9,6 +9,7 @@ import {
   IconNetwork,
   IconPlug,
   IconSettings,
+  IconStack2,
   IconBox,
   IconKey,
   IconLayoutDashboard,
@@ -110,6 +111,14 @@ function AppLayout() {
               search={(prev: { ns?: string }) => ({ ns: prev.ns })}
               label="Containers"
               leftSection={<IconBox size={18} stroke={1.5} />}
+              onClick={close}
+            />
+            <RouterNavLink
+              to="/env/$env/stacks"
+              params={{ env }}
+              search={(prev: { ns?: string }) => ({ ns: prev.ns })}
+              label="Stacks"
+              leftSection={<IconStack2 size={18} stroke={1.5} />}
               onClick={close}
             />
             <RouterNavLink

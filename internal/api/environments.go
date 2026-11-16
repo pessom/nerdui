@@ -21,6 +21,7 @@ import (
 	"github.com/pessom/nerdui/internal/httpjson"
 	"github.com/pessom/nerdui/internal/jobs"
 	"github.com/pessom/nerdui/internal/runtime"
+	"github.com/pessom/nerdui/internal/stacks"
 )
 
 // statusTimeout bounds runtime calls made to report an environment's status.
@@ -37,6 +38,8 @@ type Handler struct {
 	// Settings stores per-environment settings such as the Prometheus connection (#176);
 	// nil disables them.
 	Settings Settings
+	// Stacks finds compose stacks (#24, ADR-0008); nil disables them.
+	Stacks *stacks.Service
 	// PrometheusHTTP is the HTTP client for Prometheus; nil uses a default with a timeout.
 	PrometheusHTTP *http.Client
 	Logger         *slog.Logger
@@ -85,6 +88,8 @@ func (h *Handler) runtimeRoutes(r chi.Router, g *authz.Guard) {
 	r.Method(http.MethodGet, "/system/prune", g.Protect(authz.SystemRead, h.prunePreview))
 	r.Method(http.MethodPost, "/system/prune", g.Protect(authz.SystemPrune, h.startPrune))
 	r.Method(http.MethodGet, "/ports", g.Protect(authz.ContainersRead, h.listPorts))
+	r.Method(http.MethodGet, "/stacks", g.Protect(authz.StacksRead, h.listStacks))
+	r.Method(http.MethodGet, "/stacks/{name}", g.Protect(authz.StacksRead, h.getStack))
 	r.Method(http.MethodGet, "/networks", g.Protect(authz.NetworksRead, h.listNetworks))
 	r.Method(http.MethodPost, "/networks", g.Protect(authz.NetworksWrite, h.createNetwork))
 	r.Method(http.MethodDelete, "/networks/{name}", g.Protect(authz.NetworksWrite, h.removeNetwork))

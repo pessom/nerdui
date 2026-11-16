@@ -24,6 +24,8 @@ tags:
     description: Containers of an environment
   - name: images
     description: Images of an environment
+  - name: stacks
+    description: Compose stacks (#24–#31, ADR-0008)
   - name: networks
     description: CNI networks (#60, ADR-0024)
   - name: volumes
@@ -893,6 +895,55 @@ paths:
         "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
         "503": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/stacks:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - $ref: "#/components/parameters/Namespace"
+    get:
+      tags: [stacks]
+      operationId: listStacks
+      summary: Compose stacks with their status in a namespace
+      description: |
+        Requires `stacks:read` (#24, ADR-0008). Stacks in --stacks-dir (`managed`), registered
+        external directories (`external`) and compose projects known only from container labels
+        (`unmanaged`). Status compares the services of the compose file (loaded like
+        `nerdctl compose`) with the running containers of the project.
+      responses:
+        "200":
+          description: Stacks sorted by name, unmanaged last
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [namespace, stacks]
+                properties:
+                  namespace: { type: string }
+                  stacks: { type: array, items: { $ref: "#/components/schemas/Stack" } }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/stacks/{name}:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - $ref: "#/components/parameters/Namespace"
+      - name: name
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      tags: [stacks]
+      operationId: getStack
+      summary: A stack with its services and containers
+      description: Requires `stacks:read` (#24).
+      responses:
+        "200":
+          description: Stack
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Stack" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
   /api/v1/environments/{env}/ports:
     parameters:
       - $ref: "#/components/parameters/Env"
@@ -2109,6 +2160,36 @@ components:
         blockRead: { type: integer, format: int64, description: Cumulative bytes }
         blockWrite: { type: integer, format: int64 }
         pids: { type: integer, format: int64 }
+    Stack:
+      type: object
+      required: [name, mode, status, services, containers, running]
+      properties:
+        name: { type: string }
+        mode: { type: string, enum: [managed, external, unmanaged] }
+        path: { type: string }
+        composeFile: { type: string }
+        status: { type: string, enum: [running, partial, stopped, unknown] }
+        error: { type: string, description: Why the compose file could not be read }
+        containers: { type: integer }
+        running: { type: integer }
+        services:
+          type: array
+          items:
+            type: object
+            required: [name, defined, running, containers]
+            properties:
+              name: { type: string }
+              defined: { type: boolean, description: False when the service is not in the compose file }
+              running: { type: integer }
+              containers:
+                type: array
+                items:
+                  type: object
+                  required: [id, state]
+                  properties:
+                    id: { type: string }
+                    name: { type: string }
+                    state: { type: string }
     PortEntry:
       type: object
       required: [namespace, containerId, state, containerPort, protocol, published]

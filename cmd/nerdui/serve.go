@@ -24,6 +24,7 @@ import (
 	"github.com/pessom/nerdui/internal/jobs"
 	"github.com/pessom/nerdui/internal/runtime"
 	"github.com/pessom/nerdui/internal/server"
+	"github.com/pessom/nerdui/internal/stacks"
 	"github.com/pessom/nerdui/internal/store"
 	"github.com/pessom/nerdui/internal/tlsutil"
 	"github.com/pessom/nerdui/internal/version"
@@ -133,7 +134,8 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 	srv := &http.Server{
 		Handler: server.New(server.Config{
 			Auth: authSvc, Environments: envs, UI: web.Dist(), Jobs: jobManager,
-			EventHistory: eventHistory, DisableExec: cfg.DisableExec, Settings: st.Write(), Logger: logger,
+			EventHistory: eventHistory, DisableExec: cfg.DisableExec, Settings: st.Write(),
+			Stacks: &stacks.Service{Dir: cfg.EffectiveStacksDir(), Registry: st.Read()}, Logger: logger,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
 		BaseContext:       func(net.Listener) context.Context { return streamsCtx },
