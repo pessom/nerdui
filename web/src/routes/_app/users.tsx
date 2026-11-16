@@ -21,6 +21,7 @@ import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import {
   IconDots,
+  IconApi,
   IconKey,
   IconPlayerPlay,
   IconPlayerStop,
@@ -32,6 +33,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { api, unwrap, unwrapEmpty } from "../../api/client";
 import { keys, usersQuery, type UserDetail } from "../../api/queries";
+import { UserKeysModal } from "../../features/apikeys/UserKeysModal";
 import { CreateUserModal, ResetPasswordModal } from "../../features/users/PasswordDialogs";
 import { timeAgo } from "../../lib/time";
 
@@ -48,6 +50,7 @@ function UsersPage() {
   const queryClient = useQueryClient();
   const [creating, { open: openCreate, close: closeCreate }] = useDisclosure();
   const [resetting, setResetting] = useState<UserDetail>();
+  const [keysOf, setKeysOf] = useState<UserDetail>();
   const [pending, setPending] = useState<Pending>();
 
   const mutate = useMutation({
@@ -107,6 +110,7 @@ function UsersPage() {
                   user={u}
                   self={u.id === session.user.id}
                   onReset={() => setResetting(u)}
+                  onKeys={() => setKeysOf(u)}
                   onAction={(kind) => setPending({ kind, user: u })}
                 />
               ))}
@@ -117,6 +121,7 @@ function UsersPage() {
 
       <CreateUserModal opened={creating} onClose={closeCreate} />
       <ResetPasswordModal user={resetting} onClose={() => setResetting(undefined)} />
+      <UserKeysModal user={keysOf} onClose={() => setKeysOf(undefined)} />
       <Modal
         opened={!!pending}
         onClose={() => setPending(undefined)}
@@ -159,11 +164,13 @@ function UserRow({
   user: u,
   self,
   onReset,
+  onKeys,
   onAction,
 }: {
   user: UserDetail;
   self: boolean;
   onReset: () => void;
+  onKeys: () => void;
   onAction: (kind: Pending["kind"]) => void;
 }) {
   return (
@@ -224,6 +231,9 @@ function UserRow({
             <Menu.Dropdown>
               <Menu.Item leftSection={<IconKey size={16} />} onClick={onReset}>
                 Set temporary password
+              </Menu.Item>
+              <Menu.Item leftSection={<IconApi size={16} />} onClick={onKeys}>
+                API keys
               </Menu.Item>
               {u.disabled ? (
                 <Menu.Item

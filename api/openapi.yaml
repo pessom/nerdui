@@ -40,6 +40,7 @@ tags:
     description: Per-environment settings such as the Prometheus connection (#176, ADR-0023)
 security:
   - session: []
+  - apiKey: []
 paths:
   /healthz:
     get:
@@ -200,6 +201,116 @@ paths:
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
         "429": { $ref: "#/components/responses/Error" }
+  /api/v1/auth/api-keys:
+    get:
+      tags: [auth]
+      operationId: listOwnAPIKeys
+      summary: The caller's API keys
+      description: Requires a password session (not an API key) (#87). Keys are never returned.
+      responses:
+        "200":
+          description: Keys, newest first
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [keys]
+                properties:
+                  keys: { type: array, items: { $ref: "#/components/schemas/APIKey" } }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+    post:
+      tags: [auth]
+      operationId: createAPIKey
+      summary: Create an API key
+      description: |
+        Requires a password session (#87, ADR-0028). The response contains the key; it is not
+        shown again. At most 50 keys per user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              additionalProperties: false
+              properties:
+                name: { type: string, maxLength: 64 }
+                readOnly: { type: boolean }
+                expiresAt: { type: string, format: date-time }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/APIKey"
+                  - type: object
+                    required: [key]
+                    properties:
+                      key: { type: string, description: The secret key; shown once }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "415": { $ref: "#/components/responses/Error" }
+  /api/v1/auth/api-keys/{key}:
+    parameters:
+      - name: key
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    delete:
+      tags: [auth]
+      operationId: deleteOwnAPIKey
+      summary: Revoke one of the caller's API keys
+      description: Requires a password session (#87).
+      responses:
+        "204": { description: Revoked }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/v1/users/{id}/api-keys:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    get:
+      tags: [users]
+      operationId: listUserAPIKeys
+      summary: API keys of a user
+      description: Requires `users:read` (#87).
+      responses:
+        "200":
+          description: Keys, newest first
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [keys]
+                properties:
+                  keys: { type: array, items: { $ref: "#/components/schemas/APIKey" } }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/v1/users/{id}/api-keys/{key}:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+      - name: key
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    delete:
+      tags: [users]
+      operationId: deleteUserAPIKey
+      summary: Revoke an API key of a user
+      description: Requires `users:write` (#87).
+      responses:
+        "204": { description: Revoked }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
   /api/v1/users:
     get:
       tags: [users]
@@ -1957,6 +2068,13 @@ paths:
         "503": { $ref: "#/components/responses/Error" }
 components:
   securitySchemes:
+    apiKey:
+      type: http
+      scheme: bearer
+      description: |
+        API key (#87, ADR-0028): `Authorization: Bearer nerdui_…`. Acts as its user; a read-only
+        key may only read. No CSRF token is needed. Keys cannot log out, change the password or
+        manage keys.
     session:
       type: apiKey
       in: cookie
@@ -2521,6 +2639,17 @@ components:
         blockRead: { type: integer, format: int64, description: Cumulative bytes }
         blockWrite: { type: integer, format: int64 }
         pids: { type: integer, format: int64 }
+    APIKey:
+      type: object
+      required: [id, name, prefix, readOnly, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        prefix: { type: string, description: The start of the key, to tell keys apart }
+        readOnly: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
+        lastUsedAt: { type: string, format: date-time }
     StackFile:
       type: object
       required: [kind, name, content, version, exists]

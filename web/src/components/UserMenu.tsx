@@ -4,7 +4,7 @@
 import { Button, Menu, Modal } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import { IconKey, IconLogout, IconUser } from "@tabler/icons-react";
+import { IconApi, IconKey, IconLogout, IconUser } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { api, setCsrfToken, unwrapEmpty } from "../api/client";
@@ -34,6 +34,12 @@ export function UserMenu({ username }: { username: string }) {
         <Menu.Dropdown>
           <Menu.Item leftSection={<IconKey size={16} stroke={1.5} />} onClick={open}>
             Change password
+          </Menu.Item>
+          <Menu.Item
+            leftSection={<IconApi size={16} stroke={1.5} />}
+            onClick={() => void navigate({ to: "/api-keys" })}
+          >
+            API keys
           </Menu.Item>
           <Menu.Item
             leftSection={<IconLogout size={16} stroke={1.5} />}
