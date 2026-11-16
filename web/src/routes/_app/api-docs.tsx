@@ -19,6 +19,7 @@ import { IconSearch } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { useDeferredValue, useMemo, useState } from "react";
+import { RouterAnchor } from "../../components/RouterAnchor";
 import {
   curlExample,
   operations,
@@ -175,8 +176,11 @@ function APIDocsPage() {
       </Group>
       <Text size="sm">
         Every action of the UI is available over the REST API. Authenticate with an API key:{" "}
-        <Code>Authorization: Bearer &lt;key&gt;</Code> (create one from the user menu, API keys).
-        Errors are <Code>{'{"error": {"code", "message"}}'}</Code>; long operations return a job
+        <Code>Authorization: Bearer &lt;key&gt;</Code> (create one under{" "}
+        <RouterAnchor to="/api-keys" size="sm">
+          API keys
+        </RouterAnchor>
+        ). Errors are <Code>{'{"error": {"code", "message"}}'}</Code>; long operations return a job
         whose output streams over WebSocket. The specification can be imported into Postman,
         Insomnia or a client generator.
       </Text>
