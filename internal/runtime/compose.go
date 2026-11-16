@@ -242,6 +242,9 @@ func (clientCompose) Validate(ctx context.Context, project, dir, composeName str
 	if composeName == "" || filepath.Base(composeName) != composeName {
 		return nil, fmt.Errorf("%w: compose file name %q", errdefs.ErrInvalidArgument, composeName)
 	}
+	if !filepath.IsAbs(dir) || filepath.Clean(dir) != dir {
+		return nil, fmt.Errorf("%w: project directory must be a clean absolute path", errdefs.ErrInvalidArgument)
+	}
 	main := filepath.Join(dir, composeName)
 	// Candidates are written next to the real files, so includes, extends and relative paths
 	// resolve the same way; they are hidden and removed afterwards.

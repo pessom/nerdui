@@ -95,3 +95,18 @@ func TestCreateStack(t *testing.T) {
 		t.Errorf("find missing: %v", err)
 	}
 }
+
+func TestWithin(t *testing.T) {
+	for name, ok := range map[string]bool{
+		"compose.yaml": true, ".env": true, "": false, "..": false, "../x": false,
+		"a/b": false, "/etc/passwd": false, ".": false,
+	} {
+		p, err := within("/srv/stacks/app/", name)
+		if (err == nil) != ok {
+			t.Errorf("%q: %q %v", name, p, err)
+		}
+		if ok && p != "/srv/stacks/app/"+name {
+			t.Errorf("%q: path %q", name, p)
+		}
+	}
+}

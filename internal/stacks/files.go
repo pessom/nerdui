@@ -12,6 +12,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/containerd/errdefs"
 	"github.com/containerd/nerdctl/v2/pkg/identifiers"
@@ -42,6 +43,18 @@ func Version(content []byte) string {
 	return hex.EncodeToString(sum[:])
 }
 
+// within returns base/name, cleaned, when it is a direct child of base; name must be a single
+// path element. It guards every path built for a stack (defense in depth: names are validated
+// and definitions come from the stacks directory and the database).
+func within(base, name string) (string, error) {
+	base = filepath.Clean(base)
+	p := filepath.Clean(filepath.Join(base, name))
+	if name == "" || filepath.Base(name) != name || !strings.HasPrefix(p, base+string(os.PathSeparator)) {
+		return "", fmt.Errorf("%w: %q is not a file of %s", errdefs.ErrInvalidArgument, name, base)
+	}
+	return p, nil
+}
+
 // FilePath returns the name and path of an editable file of a stack.
 func FilePath(def Definition, kind string) (name, path string, err error) {
 	switch kind {
@@ -49,12 +62,16 @@ func FilePath(def Definition, kind string) (name, path string, err error) {
 		if def.File == "" {
 			return "", "", fmt.Errorf("%w: no compose file in %s", errdefs.ErrFailedPrecondition, def.Dir)
 		}
-		return def.File, filepath.Join(def.Dir, def.File), nil
+		name = def.File
 	case FileEnv:
-		return ".env", filepath.Join(def.Dir, ".env"), nil
+		name = ".env"
 	default:
 		return "", "", fmt.Errorf("%w: file must be %s or %s", errdefs.ErrNotFound, FileCompose, FileEnv)
 	}
+	if path, err = within(def.Dir, name); err != nil {
+		return "", "", err
+	}
+	return name, path, nil
 }
 
 // ReadFile reads an editable file; a missing .env is empty.
@@ -163,7 +180,10 @@ func (s *Service) Create(ctx context.Context, name string, compose []byte) (Defi
 	if err := os.MkdirAll(s.Dir, 0o700); err != nil {
 		return Definition{}, fmt.Errorf("create stacks directory: %w", err)
 	}
-	dir := filepath.Join(s.Dir, name)
+	dir, err := within(s.Dir, name)
+	if err != nil {
+		return Definition{}, err
+	}
 	if err := os.Mkdir(dir, 0o750); err != nil {
 		if errors.Is(err, fs.ErrExist) {
 			return Definition{}, fmt.Errorf("%w: %s exists already", errdefs.ErrAlreadyExists, dir)
