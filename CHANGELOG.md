@@ -7,6 +7,10 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 
 ## [Unreleased]
 
+## [0.1.0-beta.1] - 2026-11-16
+
+Overview dashboard, API keys with API documentation, and per-user preferences.
+
 ### Added
 
 - **API documentation:** an API page (also at `/api/docs`) documents every endpoint from the
@@ -33,6 +37,14 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 
 - The theme switch saves the choice to the user's preferences instead of the browser. The
   containers table shows creation times in the chosen date format (relative by default) (#90).
+
+### Upgrade notes
+
+- Two database migrations (API keys, user preferences) run automatically at start; back up the
+  data directory before upgrading, as usual.
+- The theme was kept in the browser; after the upgrade it starts at "System" until chosen again
+  (it is then saved to the account).
+- API keys travel as bearer tokens: call the API over HTTPS when using keys from other hosts.
 
 ## [0.1.0-alpha.5] - 2026-11-16
 
@@ -230,7 +242,8 @@ First preview release: manage containers on one Linux host with containerd and n
 - Every user is an administrator; roles are planned (#78).
 - The container image is experimental (#145); install the binary with systemd.
 
-[Unreleased]: https://github.com/pessom/nerdui/compare/v0.1.0-alpha.5...HEAD
+[Unreleased]: https://github.com/pessom/nerdui/compare/v0.1.0-beta.1...HEAD
+[0.1.0-beta.1]: https://github.com/pessom/nerdui/compare/v0.1.0-alpha.5...v0.1.0-beta.1
 [0.1.0-alpha.5]: https://github.com/pessom/nerdui/compare/v0.1.0-alpha.4...v0.1.0-alpha.5
 [0.1.0-alpha.4]: https://github.com/pessom/nerdui/compare/v0.1.0-alpha.3...v0.1.0-alpha.4
 [0.1.0-alpha.3]: https://github.com/pessom/nerdui/compare/v0.1.0-alpha.2...v0.1.0-alpha.3
