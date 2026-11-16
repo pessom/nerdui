@@ -62,6 +62,9 @@ type fakeRuntime struct {
 	statsErr     error
 	volumes      []runtime.Volume
 	ports        runtime.PortsReport
+	summary      runtime.Summary
+	statsHold    bool
+	gotVolSizes  bool
 	services     map[string][]string // compose services by project
 	composeRuns  []string            // "op project dir"
 	composeOpts  []runtime.ComposeOptions
@@ -163,6 +166,13 @@ func (f *fakeRuntime) Create(_ context.Context, _ string, spec runtime.CreateSpe
 func (f *fakeRuntime) Images() runtime.Images                             { return fakeImages{f} }
 func (f *fakeRuntime) Ports(context.Context) (runtime.PortsReport, error) { return f.ports, f.err }
 
+func (f *fakeRuntime) Summary(_ context.Context, sizes bool) (runtime.Summary, error) {
+	f.mu.Lock()
+	f.gotVolSizes = sizes
+	f.mu.Unlock()
+	return f.summary, f.err
+}
+
 func (f *fakeRuntime) PrunePreview(_ context.Context, ns string, all bool) (runtime.PrunePreview, error) {
 	f.gotNS = ns
 	p := runtime.PrunePreview{Containers: []runtime.PrunedItem{{ID: "c1", Name: "old"}}, Images: []runtime.PrunedItem{}}
@@ -181,7 +191,7 @@ func (f *fakeRuntime) Prune(_ context.Context, _ string, opts runtime.PruneOptio
 }
 
 // Stats emits statsSamples, then ends (container stopped) or returns statsErr.
-func (f *fakeRuntime) Stats(_ context.Context, _, _ string, interval time.Duration, emit runtime.StatsEmitter) error {
+func (f *fakeRuntime) Stats(ctx context.Context, _, _ string, interval time.Duration, emit runtime.StatsEmitter) error {
 	f.mu.Lock()
 	f.gotInterval = interval
 	f.mu.Unlock()
@@ -192,6 +202,9 @@ func (f *fakeRuntime) Stats(_ context.Context, _, _ string, interval time.Durati
 		if err := emit(s); err != nil {
 			return err
 		}
+	}
+	if f.statsHold {
+		<-ctx.Done() // a running container keeps its stream open
 	}
 	return nil
 }

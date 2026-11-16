@@ -98,6 +98,8 @@ func (h *Handler) runtimeRoutes(r chi.Router, g *authz.Guard) {
 	r.Method(http.MethodGet, "/system/prune", g.Protect(authz.SystemRead, h.prunePreview))
 	r.Method(http.MethodPost, "/system/prune", g.Protect(authz.SystemPrune, h.startPrune))
 	r.Method(http.MethodGet, "/ports", g.Protect(authz.ContainersRead, h.listPorts))
+	r.Method(http.MethodGet, "/summary", g.Protect(authz.SystemRead, h.summary))
+	r.Method(http.MethodGet, "/stats/stream", g.Protect(authz.ContainersRead, h.topStream))
 	r.Method(http.MethodGet, "/stacks", g.Protect(authz.StacksRead, h.listStacks))
 	r.Method(http.MethodGet, "/stacks/{name}", g.Protect(authz.StacksRead, h.getStack))
 	r.Method(http.MethodPost, "/stacks/{name}/{op}", g.Protect(authz.StacksDeploy, h.stackOperation))
