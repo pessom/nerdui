@@ -157,6 +157,8 @@ export const containerInspectQuery = (env: string, namespace: string, id: string
           params: { path: { env, id }, query: { namespace, size } },
         }),
       ),
+    // The size walks the container's filesystem: never polled (#90).
+    ...(size && { refetchInterval: false as const }),
   });
 
 export type PrometheusSettings = components["schemas"]["PrometheusSettings"];
@@ -206,6 +208,8 @@ export const volumesQuery = (env: string, namespace: string, size = false) =>
         }),
       ),
     staleTime: size ? Infinity : 0,
+    // Sizes walk every volume: never polled (#90).
+    ...(size && { refetchInterval: false as const }),
   });
 
 export type Network = components["schemas"]["Network"];

@@ -57,6 +57,7 @@ export function StackFilePanel({
       ),
     staleTime: Infinity,
     refetchOnWindowFocus: false,
+    refetchInterval: false, // never under the user's edits (#90)
   });
   const schema = useQuery({ ...schemaQuery, enabled: kind === "compose" });
   const [draft, setDraft] = useState<string>();

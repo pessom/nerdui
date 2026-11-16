@@ -137,6 +137,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The caller's interface preferences
+         * @description Requires `session:self` (#90). Defaults until the user saves their own.
+         */
+        get: operations["getPreferences"];
+        /**
+         * Save the caller's interface preferences
+         * @description Requires a password session (not an API key) (#90).
+         */
+        put: operations["putPreferences"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/api-keys": {
         parameters: {
             query?: never;
@@ -2174,6 +2198,21 @@ export interface components {
             /** Format: int64 */
             pids: number;
         };
+        Preferences: {
+            /** @enum {string} */
+            theme: "auto" | "light" | "dark";
+            /** @enum {string} */
+            dateFormat: "relative" | "local" | "iso";
+            /**
+             * @description Poll lists in addition to live events; 0 is off
+             * @enum {integer}
+             */
+            refreshSeconds: 0 | 5 | 10 | 30 | 60;
+            /** @description Hidden columns per table */
+            hiddenColumns?: {
+                [key: string]: string[];
+            };
+        };
         APIKey: {
             /** Format: int64 */
             id: number;
@@ -2670,6 +2709,55 @@ export interface operations {
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             429: components["responses"]["Error"];
+        };
+    };
+    getPreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Preferences */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Preferences"];
+                };
+            };
+            401: components["responses"]["Error"];
+        };
+    };
+    putPreferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Preferences"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Preferences"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            415: components["responses"]["Error"];
         };
     };
     listOwnAPIKeys: {

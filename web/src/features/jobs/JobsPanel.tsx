@@ -31,7 +31,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { Suspense, lazy, useCallback, useMemo, useState, type ReactNode } from "react";
 import { api, unwrap } from "../../api/client";
 import { jobsQuery, keys, type Job } from "../../api/queries";
-import { timeAgo } from "../../lib/time";
+import { Time } from "../../components/Time";
 import { JobsContext } from "./JobsContext";
 
 const JobTerminal = lazy(() => import("./JobTerminal"));
@@ -194,7 +194,7 @@ function JobItem({
               </Text>
               <Text size="xs" c="dimmed">
                 {job.environment}
-                {job.namespace && ` / ${job.namespace}`} · {timeAgo(job.startedAt)}
+                {job.namespace && ` / ${job.namespace}`} · <Time value={job.startedAt} size="xs" />
                 {job.user && ` · ${job.user}`}
               </Text>
             </Box>

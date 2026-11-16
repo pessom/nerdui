@@ -4,16 +4,18 @@
 import { Button, Menu, Modal } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import { IconApi, IconKey, IconLogout, IconUser } from "@tabler/icons-react";
+import { IconAdjustments, IconApi, IconKey, IconLogout, IconUser } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { api, setCsrfToken, unwrapEmpty } from "../api/client";
+import { PreferencesModal } from "../features/preferences/PreferencesModal";
 import { ChangePasswordForm } from "../features/users/ChangePasswordForm";
 
 export function UserMenu({ username }: { username: string }) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [changing, { open, close }] = useDisclosure();
+  const [prefsOpened, prefs] = useDisclosure();
   const logout = useMutation({
     mutationFn: () => unwrapEmpty(api.POST("/api/v1/auth/logout")),
     onSettled: async (_data, error) => {
@@ -32,6 +34,9 @@ export function UserMenu({ username }: { username: string }) {
           </Button>
         </Menu.Target>
         <Menu.Dropdown>
+          <Menu.Item leftSection={<IconAdjustments size={16} stroke={1.5} />} onClick={prefs.open}>
+            Preferences
+          </Menu.Item>
           <Menu.Item leftSection={<IconKey size={16} stroke={1.5} />} onClick={open}>
             Change password
           </Menu.Item>
@@ -49,6 +54,7 @@ export function UserMenu({ username }: { username: string }) {
           </Menu.Item>
         </Menu.Dropdown>
       </Menu>
+      <PreferencesModal opened={prefsOpened} onClose={prefs.close} />
       <Modal opened={changing} onClose={close} title="Change password">
         <ChangePasswordForm
           onDone={() => {

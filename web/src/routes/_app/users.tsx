@@ -35,7 +35,7 @@ import { api, unwrap, unwrapEmpty } from "../../api/client";
 import { keys, usersQuery, type UserDetail } from "../../api/queries";
 import { UserKeysModal } from "../../features/apikeys/UserKeysModal";
 import { CreateUserModal, ResetPasswordModal } from "../../features/users/PasswordDialogs";
-import { timeAgo } from "../../lib/time";
+import { Time } from "../../components/Time";
 
 /** Local users (#74, ADR-0016). */
 export const Route = createFileRoute("/_app/users")({
@@ -200,14 +200,16 @@ function UserRow({
         </Group>
       </Table.Td>
       <Table.Td>
-        <Text size="sm" title={u.createdAt}>
-          {timeAgo(u.createdAt)}
-        </Text>
+        <Time value={u.createdAt} />
       </Table.Td>
       <Table.Td>
-        <Text size="sm" c={u.lastLoginAt ? undefined : "dimmed"} title={u.lastLoginAt}>
-          {u.lastLoginAt ? timeAgo(u.lastLoginAt) : "never"}
-        </Text>
+        {u.lastLoginAt ? (
+          <Time value={u.lastLoginAt} />
+        ) : (
+          <Text size="sm" c="dimmed">
+            never
+          </Text>
+        )}
       </Table.Td>
       <Table.Td>
         {self ? (

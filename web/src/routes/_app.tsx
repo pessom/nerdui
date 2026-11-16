@@ -26,6 +26,7 @@ import { ThemeToggle } from "../components/ThemeToggle";
 import { UserMenu } from "../components/UserMenu";
 import { useJobsPanel } from "../features/jobs/JobsContext";
 import { JobsIndicator, JobsProvider } from "../features/jobs/JobsPanel";
+import { PreferencesProvider } from "../features/preferences/PreferencesProvider";
 
 /**
  * Pathless layout for everything behind authentication: resolves the session (ADR-0005)
@@ -58,150 +59,152 @@ function AppLayout() {
   const env = params.env ?? "local";
 
   return (
-    <JobsProvider>
-      <AppShell
-        header={{ height: 56 }}
-        navbar={{ width: 220, breakpoint: "sm", collapsed: { mobile: !opened } }}
-        footer={{ height: 32 }}
-        padding="md"
-      >
-        <AppShell.Header>
-          <Group h="100%" px="md" justify="space-between" wrap="nowrap">
-            <Group gap="sm" wrap="nowrap">
-              <Burger
-                opened={opened}
-                onClick={toggle}
-                hiddenFrom="sm"
-                size="sm"
-                aria-label="Toggle navigation"
+    <PreferencesProvider>
+      <JobsProvider>
+        <AppShell
+          header={{ height: 56 }}
+          navbar={{ width: 220, breakpoint: "sm", collapsed: { mobile: !opened } }}
+          footer={{ height: 32 }}
+          padding="md"
+        >
+          <AppShell.Header>
+            <Group h="100%" px="md" justify="space-between" wrap="nowrap">
+              <Group gap="sm" wrap="nowrap">
+                <Burger
+                  opened={opened}
+                  onClick={toggle}
+                  hiddenFrom="sm"
+                  size="sm"
+                  aria-label="Toggle navigation"
+                />
+                <Text
+                  fw={700}
+                  size="lg"
+                  component={Link}
+                  to="/"
+                  style={{ textDecoration: "none" }}
+                  c="inherit"
+                >
+                  nerdui
+                </Text>
+              </Group>
+              <Group gap="xs" wrap="nowrap">
+                <HeaderJobs />
+                <ThemeToggle />
+                <UserMenu username={session.user.username} />
+              </Group>
+            </Group>
+          </AppShell.Header>
+
+          <AppShell.Navbar p="xs" component="nav" aria-label="Main navigation">
+            <ScrollArea>
+              {/* Only implemented sections are listed; new features add their items here. */}
+              <RouterNavLink
+                to="/env/$env"
+                params={{ env }}
+                // The remembered namespace may be in the URL (?ns=); Overview ignores it.
+                activeOptions={{ exact: true, includeSearch: false }}
+                label="Overview"
+                leftSection={<IconLayoutDashboard size={18} stroke={1.5} />}
+                onClick={close}
               />
-              <Text
-                fw={700}
-                size="lg"
-                component={Link}
-                to="/"
-                style={{ textDecoration: "none" }}
-                c="inherit"
-              >
-                nerdui
-              </Text>
+              <RouterNavLink
+                to="/env/$env/containers"
+                params={{ env }}
+                search={(prev: { ns?: string }) => ({ ns: prev.ns })}
+                label="Containers"
+                leftSection={<IconBox size={18} stroke={1.5} />}
+                onClick={close}
+              />
+              <RouterNavLink
+                to="/env/$env/stacks"
+                params={{ env }}
+                search={(prev: { ns?: string }) => ({ ns: prev.ns })}
+                label="Stacks"
+                leftSection={<IconStack2 size={18} stroke={1.5} />}
+                onClick={close}
+              />
+              <RouterNavLink
+                to="/env/$env/images"
+                params={{ env }}
+                search={(prev: { ns?: string }) => ({ ns: prev.ns })}
+                label="Images"
+                leftSection={<IconStack3 size={18} stroke={1.5} />}
+                onClick={close}
+              />
+              <RouterNavLink
+                to="/env/$env/volumes"
+                params={{ env }}
+                search={(prev: { ns?: string }) => ({ ns: prev.ns })}
+                label="Volumes"
+                leftSection={<IconDatabase size={18} stroke={1.5} />}
+                onClick={close}
+              />
+              <RouterNavLink
+                to="/env/$env/networks"
+                params={{ env }}
+                search={(prev: { ns?: string }) => ({ ns: prev.ns })}
+                label="Networks"
+                leftSection={<IconNetwork size={18} stroke={1.5} />}
+                onClick={close}
+              />
+              <RouterNavLink
+                to="/env/$env/ports"
+                params={{ env }}
+                label="Ports"
+                leftSection={<IconPlug size={18} stroke={1.5} />}
+                onClick={close}
+              />
+              <RouterNavLink
+                to="/env/$env/registries"
+                params={{ env }}
+                search={(prev: { ns?: string }) => ({ ns: prev.ns })}
+                label="Registries"
+                leftSection={<IconKey size={18} stroke={1.5} />}
+                onClick={close}
+              />
+              <RouterNavLink
+                to="/env/$env/events"
+                params={{ env }}
+                search={(prev: { ns?: string }) => ({ ns: prev.ns })}
+                label="Events"
+                leftSection={<IconActivity size={18} stroke={1.5} />}
+                onClick={close}
+              />
+              <RouterNavLink
+                to="/env/$env/settings"
+                params={{ env }}
+                label="Settings"
+                leftSection={<IconSettings size={18} stroke={1.5} />}
+                onClick={close}
+              />
+              <RouterNavLink
+                to="/users"
+                label="Users"
+                leftSection={<IconUsers size={18} stroke={1.5} />}
+                onClick={close}
+              />
+              <RouterNavLink
+                to="/api-docs"
+                label="API"
+                leftSection={<IconApi size={18} stroke={1.5} />}
+                onClick={close}
+              />
+            </ScrollArea>
+          </AppShell.Navbar>
+
+          <AppShell.Main>
+            <Outlet />
+          </AppShell.Main>
+
+          <AppShell.Footer>
+            <Group h="100%" justify="center">
+              <Footer />
             </Group>
-            <Group gap="xs" wrap="nowrap">
-              <HeaderJobs />
-              <ThemeToggle />
-              <UserMenu username={session.user.username} />
-            </Group>
-          </Group>
-        </AppShell.Header>
-
-        <AppShell.Navbar p="xs" component="nav" aria-label="Main navigation">
-          <ScrollArea>
-            {/* Only implemented sections are listed; new features add their items here. */}
-            <RouterNavLink
-              to="/env/$env"
-              params={{ env }}
-              // The remembered namespace may be in the URL (?ns=); Overview ignores it.
-              activeOptions={{ exact: true, includeSearch: false }}
-              label="Overview"
-              leftSection={<IconLayoutDashboard size={18} stroke={1.5} />}
-              onClick={close}
-            />
-            <RouterNavLink
-              to="/env/$env/containers"
-              params={{ env }}
-              search={(prev: { ns?: string }) => ({ ns: prev.ns })}
-              label="Containers"
-              leftSection={<IconBox size={18} stroke={1.5} />}
-              onClick={close}
-            />
-            <RouterNavLink
-              to="/env/$env/stacks"
-              params={{ env }}
-              search={(prev: { ns?: string }) => ({ ns: prev.ns })}
-              label="Stacks"
-              leftSection={<IconStack2 size={18} stroke={1.5} />}
-              onClick={close}
-            />
-            <RouterNavLink
-              to="/env/$env/images"
-              params={{ env }}
-              search={(prev: { ns?: string }) => ({ ns: prev.ns })}
-              label="Images"
-              leftSection={<IconStack3 size={18} stroke={1.5} />}
-              onClick={close}
-            />
-            <RouterNavLink
-              to="/env/$env/volumes"
-              params={{ env }}
-              search={(prev: { ns?: string }) => ({ ns: prev.ns })}
-              label="Volumes"
-              leftSection={<IconDatabase size={18} stroke={1.5} />}
-              onClick={close}
-            />
-            <RouterNavLink
-              to="/env/$env/networks"
-              params={{ env }}
-              search={(prev: { ns?: string }) => ({ ns: prev.ns })}
-              label="Networks"
-              leftSection={<IconNetwork size={18} stroke={1.5} />}
-              onClick={close}
-            />
-            <RouterNavLink
-              to="/env/$env/ports"
-              params={{ env }}
-              label="Ports"
-              leftSection={<IconPlug size={18} stroke={1.5} />}
-              onClick={close}
-            />
-            <RouterNavLink
-              to="/env/$env/registries"
-              params={{ env }}
-              search={(prev: { ns?: string }) => ({ ns: prev.ns })}
-              label="Registries"
-              leftSection={<IconKey size={18} stroke={1.5} />}
-              onClick={close}
-            />
-            <RouterNavLink
-              to="/env/$env/events"
-              params={{ env }}
-              search={(prev: { ns?: string }) => ({ ns: prev.ns })}
-              label="Events"
-              leftSection={<IconActivity size={18} stroke={1.5} />}
-              onClick={close}
-            />
-            <RouterNavLink
-              to="/env/$env/settings"
-              params={{ env }}
-              label="Settings"
-              leftSection={<IconSettings size={18} stroke={1.5} />}
-              onClick={close}
-            />
-            <RouterNavLink
-              to="/users"
-              label="Users"
-              leftSection={<IconUsers size={18} stroke={1.5} />}
-              onClick={close}
-            />
-            <RouterNavLink
-              to="/api-docs"
-              label="API"
-              leftSection={<IconApi size={18} stroke={1.5} />}
-              onClick={close}
-            />
-          </ScrollArea>
-        </AppShell.Navbar>
-
-        <AppShell.Main>
-          <Outlet />
-        </AppShell.Main>
-
-        <AppShell.Footer>
-          <Group h="100%" justify="center">
-            <Footer />
-          </Group>
-        </AppShell.Footer>
-      </AppShell>
-    </JobsProvider>
+          </AppShell.Footer>
+        </AppShell>
+      </JobsProvider>
+    </PreferencesProvider>
   );
 }
 
