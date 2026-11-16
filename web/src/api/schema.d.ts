@@ -764,6 +764,37 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/environments/{env}/stacks/{name}/{op}": {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+                op: "up" | "down" | "start" | "stop" | "restart" | "pull";
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run a stack operation as a job
+         * @description Requires `stacks:deploy` (#28, #31, ADR-0026). Runs the host's `nerdctl compose <op>` in
+         *     the stack directory; the output streams over `/jobs/{id}/stream`. One job per stack at a
+         *     time (409). `volumes` (down only) deletes the project's volumes and requires `confirm`
+         *     to equal the stack name. Unmanaged projects must be adopted first (404).
+         */
+        post: operations["stackOperation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/environments/{env}/stacks/{name}/registration": {
         parameters: {
             query?: never;
@@ -3258,6 +3289,56 @@ export interface operations {
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
             415: components["responses"]["Error"];
+        };
+    };
+    stackOperation: {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+                op: "up" | "down" | "start" | "stop" | "restart" | "pull";
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @description up: pull images first (--pull=always) */
+                    pull?: boolean;
+                    /** @description up, down: remove containers of services no longer defined */
+                    removeOrphans?: boolean;
+                    /** @description down: remove the project's volumes */
+                    volumes?: boolean;
+                    /** @description The stack name */
+                    confirm?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Job started */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        job: components["schemas"]["Job"];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            415: components["responses"]["Error"];
+            503: components["responses"]["Error"];
         };
     };
     forgetStack: {

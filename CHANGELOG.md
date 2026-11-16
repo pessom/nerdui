@@ -20,6 +20,11 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
   its compose and .env files into the stacks directory — refused when the project uses other
   files of its directory, such as `./data` bind mounts. Projects are loaded like
   `nerdctl compose` without `-f`, including `compose.override.yaml` (#25).
+- **Stack operations:** Deploy (optionally pulling images first or removing orphan containers),
+  Stop, Start, Restart, Pull and Down run the host's `nerdctl compose` in the stack directory as
+  background jobs; their output streams live in the Jobs panel and the job shows nerdctl's exit
+  code. One operation per stack runs at a time. Down can also remove the stack's volumes after
+  typing the stack name (#28, #31, ADR-0026).
 
 ## [0.1.0-alpha.4] - 2026-11-16
 

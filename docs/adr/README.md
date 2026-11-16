@@ -34,3 +34,4 @@ We record significant architectural decisions as ADRs
 | 0023 | [Metrics history from Prometheus](0023-metrics-history-prometheus.md) | Accepted |
 | 0024 | [Networks: host nerdctl for creation, nerdctl's rules for removal](0024-networks.md) | Accepted |
 | 0025 | [Stacks: loading projects with compose-go, adoption in place or by copy](0025-stack-adoption.md) | Accepted |
+| 0026 | [Stack operations with the host's nerdctl compose](0026-stack-operations.md) | Accepted |

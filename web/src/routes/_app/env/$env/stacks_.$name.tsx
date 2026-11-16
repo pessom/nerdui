@@ -22,11 +22,12 @@ import { api, unwrapEmpty } from "../../../../api/client";
 import { envStatusQuery, keys, stackQuery } from "../../../../api/queries";
 import { RouterAnchor } from "../../../../components/RouterAnchor";
 import { AdoptStackDialog } from "../../../../features/stacks/AdoptStackDialog";
+import { StackActions } from "../../../../features/stacks/StackActions";
 import { StackMode, StackStatus } from "../../../../features/stacks/StackStatus";
 
 const envRoute = getRouteApi("/_app/env/$env");
 
-/** A stack: services and their containers (#24); deploy and editing follow (#26, #28). */
+/** A stack: operations (#28), services and their containers (#24). */
 export const Route = createFileRoute("/_app/env/$env/stacks_/$name")({
   component: StackPage,
 });
@@ -36,6 +37,8 @@ function StackPage() {
   const { ns } = envRoute.useSearch();
   const status = useQuery(envStatusQuery(env));
   const namespace = ns ?? status.data?.defaultNamespace ?? "default";
+  const nerdctl = status.data?.runtime?.nerdctl;
+  const readOnly = !!nerdctl && !nerdctl.compatible && !nerdctl.checkSkipped;
   const stack = useQuery(stackQuery(env, namespace, name));
   const [adopting, adoptDialog] = useDisclosure();
   const queryClient = useQueryClient();
@@ -94,6 +97,15 @@ function StackPage() {
       )}
       {stack.data && (
         <>
+          {stack.data.mode !== "unmanaged" && stack.data.composeFile && (
+            <StackActions
+              env={env}
+              namespace={namespace}
+              name={name}
+              running={stack.data.running > 0}
+              readOnly={readOnly}
+            />
+          )}
           {stack.data.path && (
             <Text size="sm">
               Compose file:{" "}
