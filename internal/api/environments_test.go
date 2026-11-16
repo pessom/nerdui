@@ -62,6 +62,9 @@ type fakeRuntime struct {
 	volumes      []runtime.Volume
 	ports        runtime.PortsReport
 	services     map[string][]string // compose services by project
+	composeRuns  []string            // "op project dir"
+	composeOpts  []runtime.ComposeOptions
+	composeHold  chan struct{} // when set, Run blocks until it is closed
 	networks     []runtime.Network
 	netSpecs     []runtime.NetworkSpec
 	volumeSize   bool
@@ -188,6 +191,23 @@ func (f *fakeRuntime) Networks() runtime.Networks { return fakeNetworks{f} }
 func (f *fakeRuntime) Compose() runtime.Compose { return fakeCompose{f} }
 
 type fakeCompose struct{ f *fakeRuntime }
+
+func (fc fakeCompose) Run(ctx context.Context, _, project, dir, op string, opts runtime.ComposeOptions, out io.Writer) error {
+	fc.f.mu.Lock()
+	fc.f.composeRuns = append(fc.f.composeRuns, op+" "+project+" "+dir)
+	fc.f.composeOpts = append(fc.f.composeOpts, opts)
+	hold := fc.f.composeHold
+	fc.f.mu.Unlock()
+	_, _ = fmt.Fprintf(out, "compose %s %s\r\n", op, project)
+	if hold != nil {
+		select {
+		case <-hold:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	return nil
+}
 
 func (fc fakeCompose) Describe(_ context.Context, dir, file string) (runtime.ComposeProject, error) {
 	return runtime.ComposeProject{Name: filepath.Base(dir), Services: []string{"web"}, Files: []string{file}}, nil

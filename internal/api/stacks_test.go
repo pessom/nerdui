@@ -7,9 +7,11 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -137,5 +139,112 @@ func TestAdoptStack(t *testing.T) {
 	}
 	if rec := send(t, r, http.MethodDelete, base+"/stacks/media/registration", ""); rec.Code != http.StatusNotFound {
 		t.Errorf("forget again: %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestStackOperations(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "app"), 0o750); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "app", "compose.yaml"), []byte("services: {}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	rt := writable()
+	m := jobs.NewManager()
+	t.Cleanup(m.Close)
+	admin := func(*http.Request) (authz.Subject, bool) { return authz.Subject{Role: authz.RoleAdmin}, true }
+	r := chi.NewRouter()
+	r.Route("/api/v1", func(r chi.Router) {
+		h := &Handler{
+			Envs: environment.NewRegistry(environment.Local(rt, "default")), Jobs: m,
+			Stacks: &stacks.Service{Dir: dir},
+		}
+		h.Routes(r, authz.NewGuard(authz.AdminOnly{}, admin, nil))
+	})
+	const base = "/api/v1/environments/local/stacks"
+	wait := func(rec *httptest.ResponseRecorder) jobs.Job {
+		t.Helper()
+		var resp struct{ Job jobs.Job }
+		_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+		deadline := time.Now().Add(5 * time.Second)
+		for j, _ := m.Get(resp.Job.ID); ; j, _ = m.Get(resp.Job.ID) {
+			if j.Done() {
+				return j
+			}
+			if time.Now().After(deadline) {
+				t.Fatalf("job %s not done", resp.Job.ID)
+			}
+			time.Sleep(5 * time.Millisecond)
+		}
+	}
+
+	rec := send(t, r, http.MethodPost, base+"/app/up?namespace=k8s.io", `{"pull":true}`)
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("up: %d %s", rec.Code, rec.Body)
+	}
+	if j := wait(rec); j.Status != jobs.StatusSucceeded || j.Title != "Deploy stack app" || j.Namespace != "k8s.io" || j.Action != string(authz.StacksDeploy) {
+		t.Errorf("up job %+v", j)
+	}
+	if rt.composeRuns[0] != "up app "+filepath.Join(dir, "app") || !rt.composeOpts[0].Pull {
+		t.Errorf("run %v %+v", rt.composeRuns, rt.composeOpts)
+	}
+	// A stop without a body.
+	if rec := send(t, r, http.MethodPost, base+"/app/stop", ""); rec.Code != http.StatusAccepted {
+		t.Errorf("stop: %d %s", rec.Code, rec.Body)
+	} else {
+		wait(rec)
+	}
+
+	// down -v needs the stack name as confirmation.
+	if rec := send(t, r, http.MethodPost, base+"/app/down", `{"volumes":true}`); rec.Code != http.StatusBadRequest {
+		t.Errorf("down -v unconfirmed: %d %s", rec.Code, rec.Body)
+	}
+	rec = send(t, r, http.MethodPost, base+"/app/down", `{"volumes":true,"confirm":"app"}`)
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("down -v: %d %s", rec.Code, rec.Body)
+	}
+	if j := wait(rec); j.Title != "Down (removing volumes) stack app" || !rt.composeOpts[2].Volumes {
+		t.Errorf("down -v job %+v %+v", j, rt.composeOpts)
+	}
+
+	for path, code := range map[string]int{
+		base + "/app/explode":  http.StatusNotFound, // unknown operation
+		base + "/ghost/up":     http.StatusNotFound, // no such stack
+		base + "/app/restart?": http.StatusAccepted, // ok
+		base + "/app/pull":     http.StatusAccepted, // ok
+		base + "/app/start":    http.StatusAccepted, // ok
+	} {
+		rec := send(t, r, http.MethodPost, path, "")
+		if rec.Code != code {
+			t.Errorf("%s: %d %s", path, rec.Code, rec.Body)
+		}
+		if rec.Code == http.StatusAccepted {
+			wait(rec)
+		}
+	}
+	if rec := send(t, r, http.MethodPost, base+"/app/start", `{"pull":true}`); rec.Code != http.StatusBadRequest {
+		t.Errorf("pull option on start: %d %s", rec.Code, rec.Body)
+	}
+
+	// One job per stack at a time.
+	rt.mu.Lock()
+	rt.composeHold = make(chan struct{})
+	rt.mu.Unlock()
+	first := send(t, r, http.MethodPost, base+"/app/restart", "")
+	if rec := send(t, r, http.MethodPost, base+"/app/stop", ""); rec.Code != http.StatusConflict {
+		t.Errorf("second job: %d %s", rec.Code, rec.Body)
+	}
+	close(rt.composeHold)
+	wait(first)
+
+	// Operations need a writable nerdctl.
+	ro := chi.NewRouter()
+	ro.Route("/api/v1", func(r chi.Router) {
+		h := &Handler{Envs: environment.NewRegistry(environment.Local(&fakeRuntime{}, "default")), Jobs: m, Stacks: &stacks.Service{Dir: dir}}
+		h.Routes(r, authz.NewGuard(authz.AdminOnly{}, admin, nil))
+	})
+	if rec := send(t, ro, http.MethodPost, base+"/app/up", ""); rec.Code != http.StatusServiceUnavailable {
+		t.Errorf("read-only: %d", rec.Code)
 	}
 }

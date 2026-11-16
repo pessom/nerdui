@@ -12,8 +12,12 @@ import (
 	"github.com/containerd/errdefs"
 	"github.com/go-chi/chi/v5"
 
+	"github.com/pessom/nerdui/internal/auth"
+	"github.com/pessom/nerdui/internal/authz"
 	"github.com/pessom/nerdui/internal/environment"
 	"github.com/pessom/nerdui/internal/httpjson"
+	"github.com/pessom/nerdui/internal/jobs"
+	"github.com/pessom/nerdui/internal/runtime"
 	"github.com/pessom/nerdui/internal/stacks"
 )
 
@@ -156,4 +160,94 @@ func (h *Handler) forgetStack(w http.ResponseWriter, r *http.Request) {
 	}
 	h.log().Info("stack registration removed", "environment", EnvFrom(r.Context()).ID, "stack", name)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// StackOperationRequest modifies a stack operation. Confirm must repeat the stack name when
+// Volumes is set: `down -v` deletes the project's volumes.
+type StackOperationRequest struct {
+	runtime.ComposeOptions
+	Confirm string `json:"confirm,omitempty"`
+}
+
+var stackOpTitles = map[string]string{
+	runtime.ComposeUp: "Deploy", runtime.ComposeDown: "Down", runtime.ComposeStart: "Start",
+	runtime.ComposeStop: "Stop", runtime.ComposeRestart: "Restart", runtime.ComposePull: "Pull images of",
+}
+
+// stackOperation runs `nerdctl compose <op>` for a stack as a job (#28, #31, ADR-0026):
+//
+//	POST /api/v1/environments/{env}/stacks/{name}/{op}?namespace=  {"volumes", "removeOrphans", "pull", "confirm"}
+//
+// op is up, down, start, stop, restart or pull. One job per stack runs at a time (409).
+func (h *Handler) stackOperation(w http.ResponseWriter, r *http.Request) {
+	ns, err := Namespace(r)
+	if err != nil {
+		httpjson.WriteErr(w, r, h.Logger, err)
+		return
+	}
+	if h.Stacks == nil {
+		httpjson.WriteErr(w, r, h.Logger, fmt.Errorf("%w: stacks are not available", errdefs.ErrNotImplemented))
+		return
+	}
+	name, op := chi.URLParam(r, "name"), chi.URLParam(r, "op")
+	title, ok := stackOpTitles[op]
+	if !ok {
+		httpjson.WriteErr(w, r, h.Logger, fmt.Errorf("%w: unknown stack operation %q", errdefs.ErrNotFound, op))
+		return
+	}
+	var req StackOperationRequest
+	if r.ContentLength != 0 && !httpjson.Decode(w, r, &req) {
+		return
+	}
+	if req.Volumes && req.Confirm != name {
+		httpjson.WriteErr(w, r, h.Logger, fmt.Errorf("%w: removing volumes deletes their data; confirm with the stack name", errdefs.ErrInvalidArgument))
+		return
+	}
+	defs, err := h.Stacks.Definitions(r.Context())
+	if err != nil {
+		httpjson.WriteErr(w, r, h.Logger, err)
+		return
+	}
+	var def *stacks.Definition
+	for i := range defs {
+		if defs[i].Name == name {
+			def = &defs[i]
+		}
+	}
+	switch {
+	case def == nil:
+		httpjson.WriteErr(w, r, h.Logger, fmt.Errorf("%w: stack %q has no known compose file; adopt it first", errdefs.ErrNotFound, name))
+		return
+	case def.File == "":
+		httpjson.WriteErr(w, r, h.Logger, fmt.Errorf("%w: no compose file in %s", errdefs.ErrFailedPrecondition, def.Dir))
+		return
+	}
+	// Validate before starting a job, so mistakes come back as 400.
+	if _, err := runtime.ComposeArgs(name, def.Dir, op, req.ComposeOptions); err != nil {
+		httpjson.WriteErr(w, r, h.Logger, err)
+		return
+	}
+	env := EnvFrom(r.Context())
+	user := ""
+	if p, ok := auth.PrincipalFrom(r.Context()); ok {
+		user = p.User.Username
+	}
+	if req.Volumes {
+		title = "Down (removing volumes)"
+	}
+	compose, dir, opts := env.Runtime.Compose(), def.Dir, req.ComposeOptions
+	job, err := h.Jobs.Start(jobs.Spec{
+		Kind: "stack." + op, Title: title + " stack " + name, Environment: env.ID, Namespace: ns,
+		Resource: fmt.Sprintf("env/%s/ns/%s/stack/%s", env.ID, ns, name),
+		Action:   string(authz.StacksDeploy), User: user,
+	}, func(ctx context.Context, out *jobs.Output) error {
+		return compose.Run(ctx, ns, name, dir, op, opts, out)
+	})
+	if err != nil {
+		httpjson.WriteErr(w, r, h.Logger, err)
+		return
+	}
+	h.log().Info("stack operation started", "environment", env.ID, "namespace", ns, "stack", name, "op", op,
+		"volumes", opts.Volumes, "user", user)
+	httpjson.Write(w, http.StatusAccepted, map[string]any{"job": job})
 }

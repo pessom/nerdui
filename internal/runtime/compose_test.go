@@ -80,3 +80,37 @@ volumes:
 		t.Errorf("bad project name: %v", err)
 	}
 }
+
+func TestComposeArgs(t *testing.T) {
+	got, err := ComposeArgs("app", "/srv/app", ComposeUp, ComposeOptions{Pull: true, RemoveOrphans: true})
+	want := []string{"compose", "--project-name=app", "--project-directory=/srv/app", "up", "--detach", "--pull=always", "--remove-orphans"}
+	if err != nil || !slices.Equal(got, want) {
+		t.Errorf("up: %q %v", got, err)
+	}
+	got, err = ComposeArgs("app", "/srv/app", ComposeDown, ComposeOptions{Volumes: true})
+	want = []string{"compose", "--project-name=app", "--project-directory=/srv/app", "down", "--volumes"}
+	if err != nil || !slices.Equal(got, want) {
+		t.Errorf("down: %q %v", got, err)
+	}
+	for _, op := range []string{ComposeStart, ComposeStop, ComposeRestart, ComposePull} {
+		if got, err := ComposeArgs("app", "/srv/app", op, ComposeOptions{}); err != nil || got[len(got)-1] != op {
+			t.Errorf("%s: %q %v", op, got, err)
+		}
+	}
+	bad := []struct {
+		project, dir, op string
+		opts             ComposeOptions
+	}{
+		{"--help", "/srv/app", ComposeUp, ComposeOptions{}},
+		{"app", "srv/app", ComposeUp, ComposeOptions{}},
+		{"app", "/srv/app", "rm", ComposeOptions{}},
+		{"app", "/srv/app", ComposeUp, ComposeOptions{Volumes: true}},
+		{"app", "/srv/app", ComposeStop, ComposeOptions{Pull: true}},
+		{"app", "/srv/app", ComposeRestart, ComposeOptions{RemoveOrphans: true}},
+	}
+	for _, b := range bad {
+		if _, err := ComposeArgs(b.project, b.dir, b.op, b.opts); !errdefs.IsInvalidArgument(err) {
+			t.Errorf("%+v: %v", b, err)
+		}
+	}
+}

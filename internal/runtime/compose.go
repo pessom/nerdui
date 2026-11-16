@@ -5,8 +5,11 @@ package runtime
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"slices"
 	"sort"
@@ -28,6 +31,9 @@ type Compose interface {
 	// Describe loads a project found on disk under its own name (`name:` or the directory
 	// name) for discovery and adoption (#25).
 	Describe(ctx context.Context, dir, file string) (ComposeProject, error)
+	// Run runs a stack operation with the host's `nerdctl compose` in dir (ADR-0026), writing
+	// its output to out.
+	Run(ctx context.Context, namespace, project, dir, op string, opts ComposeOptions, out io.Writer) error
 }
 
 // ComposeProject describes a compose project on disk.
@@ -42,9 +48,9 @@ type ComposeProject struct {
 }
 
 // Compose returns compose operations of the local containerd.
-func (c *Client) Compose() Compose { return clientCompose{} }
+func (c *Client) Compose() Compose { return clientCompose{c} }
 
-type clientCompose struct{}
+type clientCompose struct{ c *Client }
 
 // The package composer is not imported: its test dependencies reference a nerdctl-internal
 // module (mod/tigron) that `go mod tidy` cannot resolve outside nerdctl's repository.
@@ -134,4 +140,90 @@ func loadProject(ctx context.Context, project, dir, file string) (*types.Project
 		return nil, fmt.Errorf("%w: %w", errdefs.ErrInvalidArgument, err)
 	}
 	return p, nil
+}
+
+// Stack operations (#28) and their `nerdctl compose` arguments.
+const (
+	ComposeUp      = "up"
+	ComposeDown    = "down"
+	ComposeStart   = "start"
+	ComposeStop    = "stop"
+	ComposeRestart = "restart"
+	ComposePull    = "pull"
+)
+
+// ComposeOptions modify a stack operation.
+type ComposeOptions struct {
+	// Volumes removes the project's named volumes on down (`down -v`): their data is lost.
+	Volumes bool
+	// RemoveOrphans removes containers of services no longer in the compose file (up, down).
+	RemoveOrphans bool
+	// Pull pulls images before up (`up --pull always`).
+	Pull bool
+}
+
+// ComposeArgs returns the `nerdctl compose` arguments of an operation on project in dir, after
+// the global flags. The project is the stack name; the directory gives the default files.
+func ComposeArgs(project, dir, op string, opts ComposeOptions) ([]string, error) {
+	if err := identifiers.ValidateDockerCompat(project); err != nil {
+		return nil, fmt.Errorf("%w: project name: %w", errdefs.ErrInvalidArgument, err)
+	}
+	if !filepath.IsAbs(dir) {
+		return nil, fmt.Errorf("%w: project directory must be absolute", errdefs.ErrInvalidArgument)
+	}
+	args := []string{"compose", "--project-name=" + project, "--project-directory=" + dir, op}
+	switch op {
+	case ComposeUp:
+		args = append(args, "--detach")
+		if opts.Pull {
+			args = append(args, "--pull=always")
+		}
+		if opts.RemoveOrphans {
+			args = append(args, "--remove-orphans")
+		}
+	case ComposeDown:
+		if opts.Volumes {
+			args = append(args, "--volumes")
+		}
+		if opts.RemoveOrphans {
+			args = append(args, "--remove-orphans")
+		}
+	case ComposeStart, ComposeStop, ComposeRestart, ComposePull:
+	default:
+		return nil, fmt.Errorf("%w: unknown stack operation %q", errdefs.ErrInvalidArgument, op)
+	}
+	if (opts.Volumes && op != ComposeDown) || (opts.Pull && op != ComposeUp) ||
+		(opts.RemoveOrphans && op != ComposeUp && op != ComposeDown) {
+		return nil, fmt.Errorf("%w: option not supported by %s", errdefs.ErrInvalidArgument, op)
+	}
+	return args, nil
+}
+
+func (cc clientCompose) Run(ctx context.Context, namespace, project, dir, op string, opts ComposeOptions, out io.Writer) error {
+	args, err := ComposeArgs(project, dir, op, opts)
+	if err != nil {
+		return err
+	}
+	cfg := cc.c.nerdctlFor(namespace)
+	bin, global := cc.c.nerdctlInvocation(cfg)
+	if _, err := exec.LookPath(bin); err != nil {
+		return fmt.Errorf("%w: nerdctl binary %q not found", errdefs.ErrFailedPrecondition, bin)
+	}
+	global = append(global, "--cni-path="+cfg.CNIPath, "--cni-netconfpath="+cfg.CNINetConfPath)
+	argv := slices.Concat(global, args)
+	_, _ = fmt.Fprintf(out, "\x1b[1m$ nerdctl %s\x1b[0m\r\n", strings.Join(args, " "))
+	cmd := exec.CommandContext(ctx, bin, argv...) //nolint:gosec // G204: validated arguments, no shell (ADR-0026)
+	cmd.Dir = dir
+	cmd.Stdout, cmd.Stderr = out, out
+	if err := cmd.Run(); err != nil {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		var exit *exec.ExitError
+		if errors.As(err, &exit) {
+			return fmt.Errorf("nerdctl compose %s failed (exit code %d)", op, exit.ExitCode())
+		}
+		return fmt.Errorf("nerdctl compose %s: %w", op, err)
+	}
+	return nil
 }
