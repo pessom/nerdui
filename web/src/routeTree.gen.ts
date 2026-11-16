@@ -14,6 +14,7 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as ChangePasswordRouteImport } from './routes/change-password'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as SetupRouteImport } from './routes/setup'
+import { Route as AppApiDocsRouteImport } from './routes/_app/api-docs'
 import { Route as AppApiKeysRouteImport } from './routes/_app/api-keys'
 import { Route as AppUsersRouteImport } from './routes/_app/users'
 import { Route as AppEnvEnvRouteImport } from './routes/_app/env/$env'
@@ -54,6 +55,11 @@ const SetupRoute = SetupRouteImport.update({
   id: '/setup',
   path: '/setup',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AppApiDocsRoute = AppApiDocsRouteImport.update({
+  id: '/api-docs',
+  path: '/api-docs',
+  getParentRoute: () => AppRoute,
 } as any)
 const AppApiKeysRoute = AppApiKeysRouteImport.update({
   id: '/api-keys',
@@ -141,6 +147,7 @@ export interface FileRoutesByFullPath {
   '/change-password': typeof ChangePasswordRoute
   '/login': typeof LoginRoute
   '/setup': typeof SetupRoute
+  '/api-docs': typeof AppApiDocsRoute
   '/api-keys': typeof AppApiKeysRoute
   '/users': typeof AppUsersRoute
   '/env/$env': typeof AppEnvEnvRouteWithChildren
@@ -163,6 +170,7 @@ export interface FileRoutesByTo {
   '/change-password': typeof ChangePasswordRoute
   '/login': typeof LoginRoute
   '/setup': typeof SetupRoute
+  '/api-docs': typeof AppApiDocsRoute
   '/api-keys': typeof AppApiKeysRoute
   '/users': typeof AppUsersRoute
   '/env/$env/containers': typeof AppEnvEnvContainersRoute
@@ -186,6 +194,7 @@ export interface FileRoutesById {
   '/change-password': typeof ChangePasswordRoute
   '/login': typeof LoginRoute
   '/setup': typeof SetupRoute
+  '/_app/api-docs': typeof AppApiDocsRoute
   '/_app/api-keys': typeof AppApiKeysRoute
   '/_app/users': typeof AppUsersRoute
   '/_app/env/$env': typeof AppEnvEnvRouteWithChildren
@@ -210,6 +219,7 @@ export interface FileRouteTypes {
     | '/change-password'
     | '/login'
     | '/setup'
+    | '/api-docs'
     | '/api-keys'
     | '/users'
     | '/env/$env'
@@ -232,6 +242,7 @@ export interface FileRouteTypes {
     | '/change-password'
     | '/login'
     | '/setup'
+    | '/api-docs'
     | '/api-keys'
     | '/users'
     | '/env/$env/containers'
@@ -254,6 +265,7 @@ export interface FileRouteTypes {
     | '/change-password'
     | '/login'
     | '/setup'
+    | '/_app/api-docs'
     | '/_app/api-keys'
     | '/_app/users'
     | '/_app/env/$env'
@@ -316,6 +328,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/setup'
       preLoaderRoute: typeof SetupRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_app/api-docs': {
+      id: '/_app/api-docs'
+      path: '/api-docs'
+      fullPath: '/api-docs'
+      preLoaderRoute: typeof AppApiDocsRouteImport
+      parentRoute: typeof AppRoute
     }
     '/_app/api-keys': {
       id: '/_app/api-keys'
@@ -469,12 +488,14 @@ const AppEnvEnvRouteWithChildren = AppEnvEnvRoute._addFileChildren(
 )
 
 interface AppRouteChildren {
+  AppApiDocsRoute: typeof AppApiDocsRoute
   AppApiKeysRoute: typeof AppApiKeysRoute
   AppUsersRoute: typeof AppUsersRoute
   AppEnvEnvRoute: typeof AppEnvEnvRouteWithChildren
 }
 
 const AppRouteChildren: AppRouteChildren = {
+  AppApiDocsRoute: AppApiDocsRoute,
   AppApiKeysRoute: AppApiKeysRoute,
   AppUsersRoute: AppUsersRoute,
   AppEnvEnvRoute: AppEnvEnvRouteWithChildren,

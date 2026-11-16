@@ -278,6 +278,9 @@ func TestRouteAuthorization(t *testing.T) {
 	}
 	want := map[string]string{
 		"GET /api/v1/version":        "public",
+		"GET /api/v1/openapi.yaml":   "public",
+		"GET /api/v1/openapi.json":   "public",
+		"GET /api/docs":              "public",
 		"GET /api/v1/setup":          "public",
 		"POST /api/v1/setup":         "public",
 		"POST /api/v1/auth/login":    "public",
@@ -420,5 +423,29 @@ func TestEventsStreamThroughFullStack(t *testing.T) {
 	_, b, err := c.Read(ctx)
 	if err != nil || !strings.Contains(string(b), `"action":"disconnected"`) {
 		t.Errorf("first message: %s %v", b, err)
+	}
+}
+
+func TestAPISpecIsPublic(t *testing.T) {
+	srv := newTestServer(t, Config{})
+	noRedirect := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	for path, ct := range map[string]string{"/api/v1/openapi.yaml": "application/yaml", "/api/v1/openapi.json": "application/json"} {
+		resp, err := noRedirect.Get(srv.URL + path) //nolint:noctx // test
+		if err != nil {
+			t.Fatal(err)
+		}
+		b, _ := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		if resp.StatusCode != http.StatusOK || resp.Header.Get("Content-Type") != ct || !strings.Contains(string(b), "openapi") {
+			t.Errorf("%s: %d %q", path, resp.StatusCode, resp.Header.Get("Content-Type"))
+		}
+	}
+	resp, err := noRedirect.Get(srv.URL + "/api/docs") //nolint:noctx // test
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode != http.StatusFound || resp.Header.Get("Location") != "/api-docs" {
+		t.Errorf("/api/docs: %d %q", resp.StatusCode, resp.Header.Get("Location"))
 	}
 }

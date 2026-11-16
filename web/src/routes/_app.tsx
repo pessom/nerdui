@@ -5,6 +5,7 @@ import { AppShell, Burger, Group, ScrollArea, Text } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
   IconActivity,
+  IconApi,
   IconDatabase,
   IconNetwork,
   IconPlug,
@@ -179,6 +180,12 @@ function AppLayout() {
               to="/users"
               label="Users"
               leftSection={<IconUsers size={18} stroke={1.5} />}
+              onClick={close}
+            />
+            <RouterNavLink
+              to="/api-docs"
+              label="API"
+              leftSection={<IconApi size={18} stroke={1.5} />}
               onClick={close}
             />
           </ScrollArea>
