@@ -119,6 +119,9 @@ done
 
 # NFR-001: list latency.
 log "timing list endpoints ($requests requests each)"
+# The first request of each list is cold (nothing cached yet); then 3 warm-ups.
+cold_c=$(timings "/api/v1/environments/local/containers?namespace=$ns" 1 | percentiles | cut -d' ' -f1)
+cold_i=$(timings "/api/v1/environments/local/images?namespace=$ns" 1 | percentiles | cut -d' ' -f1)
 timings "/api/v1/environments/local/containers?namespace=$ns" 3 >/dev/null # warm up
 read -r c50 c95 cmax < <(timings "/api/v1/environments/local/containers?namespace=$ns" "$requests" | percentiles)
 timings "/api/v1/environments/local/images?namespace=$ns" 3 >/dev/null
@@ -174,6 +177,7 @@ nerdui \`$version\` · $host · $(date -u +%Y-%m-%dT%H:%MZ)
 | --- | --- | --- | --- | --- |
 | NFR-001 | \`GET /containers\`, $listed containers (p50 / p95 / max) | $c50 / $c95 / $cmax ms | p95 ≤ 300 ms | $(verdict "$c95" 300) |
 | NFR-001 | \`GET /images\`, $listed_images images (p50 / p95 / max) | $i50 / $i95 / $imax ms | p95 ≤ 300 ms | $(verdict "$i95" 300) |
+| — | First (cold) request: containers / images | $cold_c / $cold_i ms | | |
 | NFR-002 | Initial JavaScript, gzip | $js_kb KB | ≤ 500 KB | $(verdict "$js_kb" 500) |
 | NFR-002 | Initial page response | $(awk -v t="$page_time" 'BEGIN { printf "%.0f", t * 1000 }') ms | (load ≤ 1.5 s) | |
 | NFR-003 | CLI \`nerdctl create\` → event in nerdui | $fresh_ms ms | ≤ 2000 ms | $(verdict "$fresh_ms" 2000) |

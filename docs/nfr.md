@@ -35,7 +35,23 @@ GitHub-hosted runners (Ubuntu 24.04, nerdctl-full 2.4.2), filled from the Instal
 A Raspberry Pi 4-class host is the reference of NFR-001; results from such hosts are added
 below when measured.
 
-_Pending the first run of the Install workflow._
+**v0.1.0-beta.1**, 2026-11-18 ([run](https://github.com/pessom/nerdui/actions/runs/44332499089)),
+4 vCPU, 16 GB:
+
+| NFR | Measure | amd64 | arm64 | Target | |
+| --- | --- | --- | --- | --- | --- |
+| NFR-001 | `GET /containers`, 500 containers, p95 | 105 ms | 124 ms | ≤ 300 ms | ✅ |
+| NFR-001 | `GET /images`, 300 images, p95 | 888 ms | 1199 ms | ≤ 300 ms | ❌ → ADR-0029 |
+| NFR-002 | Initial JavaScript, gzip | 140 KB | 140 KB | ≤ 500 KB | ✅ |
+| NFR-003 | `nerdctl create` → event in nerdui | 407 ms | 1336 ms | ≤ 2 s | ✅ |
+| NFR-004 | Logs: first byte | 12 ms | 13 ms | ≤ 1 s | ✅ |
+| NFR-004 | Logs: throughput (100k lines) | 1.3 M lines/s | 1.1 M lines/s | ≥ 10k lines/s | ✅ |
+| NFR-005 | Idle RSS | 56 MB | 54 MB | ≤ 80 MB | ✅ |
+| NFR-005 | Idle CPU | 0.02 % | 0.03 % | ≤ 1 % | ✅ |
+
+The image list described every image's platforms and sizes on every request; they are now
+cached per digest ([ADR-0029](adr/0029-image-details-cache.md)). The next release is measured
+the same way and replaces this table.
 
 ## Measuring on your own host
 
