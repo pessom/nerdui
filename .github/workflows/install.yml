@@ -1,0 +1,154 @@
+# Release readiness (#129): installs a published release on clean Ubuntu hosts (amd64, arm64)
+# by the steps of docs/deployment.md, checks CLI interoperability and restart safety, and
+# measures the performance NFRs (scripts/nfr-bench.sh). The report is the job summary.
+name: Install
+
+on:
+  release:
+    types: [published]
+  # Changes to the check itself run it against the newest release.
+  pull_request:
+    paths: [.github/workflows/install.yml, scripts/nfr-bench.sh]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Release to install, e.g. 0.1.0-beta.1 (default the newest, prereleases included)
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  install:
+    name: Install (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { arch: amd64, runner: ubuntu-24.04 }
+          - { arch: arm64, runner: ubuntu-24.04-arm }
+    env:
+      NERDCTL_VERSION: "2.4.2"
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      # The checkout only provides scripts/nfr-bench.sh: nerdui itself comes from the release.
+      - uses: actions/checkout@v7
+      - uses: sigstore/cosign-installer@v4
+
+      - name: Release version
+        id: release
+        env:
+          INPUT: ${{ inputs.version }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          v=${INPUT:-${TAG#v}}
+          if [ -z "$v" ]; then
+            v=$(gh release list -R "$GITHUB_REPOSITORY" --limit 1 --json tagName -q '.[0].tagName')
+            v=${v#v}
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+          echo "Installing nerdui $v"
+
+      - name: Install nerdctl-full ${{ env.NERDCTL_VERSION }}
+        run: |
+          sudo systemctl stop docker.socket docker.service containerd || true
+          curl -fsSL "https://github.com/containerd/nerdctl/releases/download/v${NERDCTL_VERSION}/nerdctl-full-${NERDCTL_VERSION}-linux-${{ matrix.arch }}.tar.gz" \
+            | sudo tar -C /usr/local -xz
+          sudo systemctl daemon-reload
+          sudo systemctl enable --now containerd
+          sudo nerdctl version
+
+      # The commands of docs/deployment.md "Binary with systemd", plus the signature check of
+      # SECURITY.md.
+      - name: Install nerdui (docs/deployment.md)
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          ARCH=$(dpkg --print-architecture)
+          NERDCTL=$(nerdctl --version | grep -oE '[0-9]+\.[0-9]+' | head -1)
+          base=https://github.com/pessom/nerdui/releases/download/v${VERSION}
+          archive=nerdui_${VERSION}_nerdctl${NERDCTL}_linux_${ARCH}.tar.gz
+          cd "$(mktemp -d)"
+          curl -fsSLO "$base/$archive"
+          curl -fsSLO "$base/checksums.txt"
+          curl -fsSLO "$base/checksums.txt.sigstore.json"
+          cosign verify-blob \
+            --bundle checksums.txt.sigstore.json \
+            --certificate-identity-regexp '^https://github.com/pessom/nerdui/\.github/workflows/release\.yml@' \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            checksums.txt
+          sha256sum --ignore-missing -c checksums.txt
+          tar -xzf "$archive"
+
+          sudo install -m 0755 nerdui /usr/local/bin/nerdui
+          sudo install -m 0644 deploy/systemd/nerdui.service /etc/systemd/system/nerdui.service
+          sudo install -m 0644 deploy/systemd/nerdui.env /etc/default/nerdui
+          sudo systemctl daemon-reload
+          sudo systemctl enable --now nerdui
+
+          for _ in $(seq 1 30); do sudo nerdui healthcheck >/dev/null 2>&1 && break; sleep 1; done
+          sudo nerdui healthcheck
+          systemctl status nerdui --no-pager
+
+      - name: First-run setup and API key
+        run: |
+          token=$(sudo journalctl -u nerdui -o cat | grep -oE '"setup_token":"[^"]+"' | tail -1 | cut -d'"' -f4)
+          test -n "$token"
+          jar=$(mktemp)
+          password=$(openssl rand -hex 16)
+          csrf=$(curl -fsSk -c "$jar" -H 'Content-Type: application/json' \
+            -d "{\"token\":\"$token\",\"username\":\"admin\",\"password\":\"$password\"}" \
+            https://127.0.0.1:9443/api/v1/setup | jq -r .csrfToken)
+          key=$(curl -fsSk -b "$jar" -H 'Content-Type: application/json' -H "X-CSRF-Token: $csrf" \
+            -d '{"name":"install-check","readOnly":false}' \
+            https://127.0.0.1:9443/api/v1/auth/api-keys | jq -r .key)
+          echo "::add-mask::$key"
+          echo "NERDUI_KEY=$key" >> "$GITHUB_ENV"
+
+      # NFR-006: a container created through nerdui is a normal nerdctl container.
+      # NFR-012: restarting nerdui does not touch running containers.
+      - name: CLI interoperability and restart safety
+        run: |
+          api() { curl -fsSk -H "Authorization: Bearer $NERDUI_KEY" "$@"; }
+          api -H 'Content-Type: application/json' \
+            -d '{"image":"docker.io/library/busybox:1.37","name":"install-check","command":["sh","-c","echo hello from nerdui; sleep 600"],"start":true}' \
+            https://127.0.0.1:9443/api/v1/environments/local/containers
+          for _ in $(seq 1 60); do
+            [ "$(sudo nerdctl inspect -f '{{.State.Status}}' install-check 2>/dev/null)" = running ] && break
+            sleep 1
+          done
+          sudo nerdctl inspect install-check >/dev/null
+          sudo nerdctl logs install-check | grep -q 'hello from nerdui'
+          started=$(sudo nerdctl inspect -f '{{.State.StartedAt}}' install-check)
+
+          sudo systemctl restart nerdui
+          for _ in $(seq 1 30); do sudo nerdui healthcheck >/dev/null 2>&1 && break; sleep 1; done
+          test "$(sudo nerdctl inspect -f '{{.State.Status}}' install-check)" = running
+          test "$(sudo nerdctl inspect -f '{{.State.StartedAt}}' install-check)" = "$started"
+          api https://127.0.0.1:9443/api/v1/environments/local/containers | jq -e '.containers[] | select(.name == "install-check")' >/dev/null
+
+          sudo nerdctl rm -f install-check
+          echo "CLI interoperability and restart safety: ok" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: NFR measurements
+        run: |
+          sudo env "NERDUI_KEY=$NERDUI_KEY" scripts/nfr-bench.sh | tee nfr-${{ matrix.arch }}.md
+          {
+            echo
+            echo "Runner: ${{ matrix.runner }} (GitHub-hosted), nerdctl-full ${NERDCTL_VERSION}"
+            echo
+            cat nfr-${{ matrix.arch }}.md
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: nfr-${{ matrix.arch }}
+          path: nfr-${{ matrix.arch }}.md
+          if-no-files-found: ignore
+
+      - name: nerdui log
+        if: failure()
+        run: sudo journalctl -u nerdui --no-pager | tail -100

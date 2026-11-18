@@ -13,6 +13,8 @@ pre-releases and do not update the
 ## Steps
 
 1. Make sure `main` is green (CI, CodeQL).
+   After publishing, the [Install workflow](../.github/workflows/install.yml) installs the
+   release on clean amd64/arm64 hosts and measures the NFRs ([nfr.md](nfr.md)).
 2. Update `CHANGELOG.md`: move _Unreleased_ entries under a new version heading.
 3. Commit: `chore(release): v0.1.0`.
 4. Tag and push:
