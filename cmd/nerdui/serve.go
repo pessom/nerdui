@@ -27,6 +27,7 @@ import (
 	"github.com/pessom/nerdui/internal/stacks"
 	"github.com/pessom/nerdui/internal/store"
 	"github.com/pessom/nerdui/internal/tlsutil"
+	"github.com/pessom/nerdui/internal/updates"
 	"github.com/pessom/nerdui/internal/version"
 	"github.com/pessom/nerdui/web"
 )
@@ -119,6 +120,10 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 		}
 	}
 
+	// Image update checks (#53) on each environment's schedule.
+	imageUpdates := &updates.Checker{Environments: envs, Store: st.Write(), Logger: logger}
+	checks.Go(func() { imageUpdates.Run(checkCtx) })
+
 	// Hijacked WebSocket connections are neither tracked nor closed by Shutdown; their
 	// request contexts derive from streamsCtx, which is canceled after Shutdown so streams
 	// end with "going away" (ADR-0007).
@@ -138,7 +143,8 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 			Stacks: &stacks.Service{
 				Dir: cfg.EffectiveStacksDir(), Registry: st.Read(), Writer: st.Write(), ScanDirs: cfg.StacksScanDirs,
 			},
-			Logger: logger,
+			ImageUpdates: imageUpdates,
+			Logger:       logger,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
 		BaseContext:       func(net.Listener) context.Context { return streamsCtx },

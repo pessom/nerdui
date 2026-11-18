@@ -16,11 +16,18 @@ import { useDisclosure } from "@mantine/hooks";
 import { IconFolderPlus, IconPlus } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi } from "@tanstack/react-router";
-import { envStatusQuery, stacksQuery } from "../../../../api/queries";
+import {
+  containersQuery,
+  envStatusQuery,
+  imageUpdatesQuery,
+  stacksQuery,
+  updatesByRef,
+} from "../../../../api/queries";
 import { RouterAnchor } from "../../../../components/RouterAnchor";
 import { AdoptStackDialog } from "../../../../features/stacks/AdoptStackDialog";
 import { NewStackDialog } from "../../../../features/stacks/NewStackDialog";
 import { StackMode, StackStatus } from "../../../../features/stacks/StackStatus";
+import { StacksUpdateBadge } from "../../../../features/updates/StacksUpdateBadge";
 
 const envRoute = getRouteApi("/_app/env/$env");
 
@@ -35,6 +42,14 @@ function StacksPage() {
   const status = useQuery(envStatusQuery(env));
   const namespace = ns ?? status.data?.defaultNamespace ?? "default";
   const list = useQuery(stacksQuery(env, namespace));
+  // Update badges (#53): a stack has an update when one of its containers' images has.
+  const containers = useQuery(containersQuery(env, namespace));
+  const updates = useQuery(imageUpdatesQuery(env, namespace));
+  const byRef = updatesByRef(updates.data);
+  const stackUpdates = (name: string) =>
+    (containers.data?.containers ?? []).filter(
+      (c) => c.compose?.project === name && byRef.get(c.image)?.updateAvailable,
+    ).length;
   const [adopting, { open, close }] = useDisclosure();
   const [creating, newStack] = useDisclosure();
 
@@ -105,6 +120,7 @@ function StacksPage() {
                         {s.name}
                       </RouterAnchor>
                       <StackMode mode={s.mode} />
+                      <StacksUpdateBadge count={stackUpdates(s.name)} />
                     </Group>
                   </Table.Td>
                   <Table.Td>

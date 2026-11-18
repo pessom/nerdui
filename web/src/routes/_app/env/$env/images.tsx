@@ -7,10 +7,18 @@ import { IconDownload } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi } from "@tanstack/react-router";
 import { useState } from "react";
-import { envStatusQuery, imagesQuery, type Image } from "../../../../api/queries";
+import {
+  envStatusQuery,
+  imageUpdatesQuery,
+  imagesQuery,
+  updatesByRef,
+  type Image,
+} from "../../../../api/queries";
 import { ImagesTable } from "../../../../features/images/ImagesTable";
 import { RemoveImagesDialog, TagDialog } from "../../../../features/images/ImageActions";
 import { ImageJobDialog } from "../../../../features/images/ImageJobDialog";
+import { CheckUpdatesButton } from "../../../../features/updates/CheckUpdatesButton";
+import { ImageUpdatesContext } from "../../../../features/updates/context";
 
 const envRoute = getRouteApi("/_app/env/$env");
 
@@ -25,6 +33,7 @@ function ImagesPage() {
   const status = useQuery(envStatusQuery(env));
   const namespace = ns ?? status.data?.defaultNamespace ?? "default";
   const list = useQuery(imagesQuery(env, namespace));
+  const updates = useQuery(imageUpdatesQuery(env, namespace));
   const [pulling, { open, close }] = useDisclosure();
   const [tagging, setTagging] = useState<Image>();
   const [pushing, setPushing] = useState<Image>();
@@ -40,11 +49,14 @@ function ImagesPage() {
           <Title order={2}>Images</Title>
           {list.isFetching && !list.isPending && <Loader size="xs" aria-label="Refreshing" />}
         </Group>
-        <Tooltip label="Read-only mode: host nerdctl is incompatible" disabled={!readOnly}>
-          <Button leftSection={<IconDownload size={16} />} onClick={open} disabled={readOnly}>
-            Pull image
-          </Button>
-        </Tooltip>
+        <Group gap="sm">
+          {updates.data && <CheckUpdatesButton env={env} overview={updates.data} />}
+          <Tooltip label="Read-only mode: host nerdctl is incompatible" disabled={!readOnly}>
+            <Button leftSection={<IconDownload size={16} />} onClick={open} disabled={readOnly}>
+              Pull image
+            </Button>
+          </Tooltip>
+        </Group>
       </Group>
       <ImageJobDialog
         kind="pull"
@@ -81,15 +93,17 @@ function ImagesPage() {
         </Alert>
       )}
       {list.data && (
-        <ImagesTable
-          images={list.data.images}
-          actions={{
-            tag: setTagging,
-            push: setPushing,
-            remove: setRemoving,
-            disabled: readOnly ? "Read-only mode: host nerdctl is incompatible" : undefined,
-          }}
-        />
+        <ImageUpdatesContext.Provider value={updatesByRef(updates.data)}>
+          <ImagesTable
+            images={list.data.images}
+            actions={{
+              tag: setTagging,
+              push: setPushing,
+              remove: setRemoving,
+              disabled: readOnly ? "Read-only mode: host nerdctl is incompatible" : undefined,
+            }}
+          />
+        </ImageUpdatesContext.Provider>
       )}
     </>
   );

@@ -37,7 +37,8 @@ type fakeRuntime struct {
 	events     runtime.EventSource
 	containers []runtime.Container
 	gotNS      string
-	nsCalls    []string // "create x" / "remove x"
+	nsCalls    []string          // "create x" / "remove x"
+	remote     map[string]string // registry digests by reference
 	nsErr      error
 
 	mu           sync.Mutex
@@ -398,6 +399,15 @@ func (fi fakeImages) Remove(_ context.Context, ns, ref string, force bool) error
 	defer fi.f.mu.Unlock()
 	fi.f.removed = append(fi.f.removed, fmt.Sprintf("%s/%s/%v", ns, ref, force))
 	return fi.f.imageErr[ref]
+}
+
+func (fi fakeImages) RemoteDigest(_ context.Context, ref string) (string, error) {
+	fi.f.mu.Lock()
+	defer fi.f.mu.Unlock()
+	if d, ok := fi.f.remote[ref]; ok {
+		return d, nil
+	}
+	return "", fmt.Errorf("%w: %s not in registry", errdefs.ErrNotFound, ref)
 }
 
 func (fi fakeImages) Push(_ context.Context, ns, ref string, opts runtime.PushOptions, out io.Writer) error {

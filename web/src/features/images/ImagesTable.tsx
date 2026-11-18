@@ -42,6 +42,7 @@ import {
 import { useMemo, useState } from "react";
 import type { Image } from "../../api/queries";
 import { Time } from "../../components/Time";
+import { UpdateBadgeFor } from "../updates/UpdateBadge";
 import { ColumnsMenu } from "../preferences/ColumnsMenu";
 import { useHiddenColumns } from "../preferences/useHiddenColumns";
 import { formatBytes } from "../system/info";
@@ -78,15 +79,18 @@ const columns = col.columns([
     cell: ({ row }) => {
       const i = row.original;
       return (
-        <Text
-          size="sm"
-          fw={500}
-          ff="monospace"
-          title={i.name}
-          c={i.repository ? undefined : "dimmed"}
-        >
-          {displayName(i)}
-        </Text>
+        <Group gap={6} wrap="nowrap">
+          <Text
+            size="sm"
+            fw={500}
+            ff="monospace"
+            title={i.name}
+            c={i.repository ? undefined : "dimmed"}
+          >
+            {displayName(i)}
+          </Text>
+          <UpdateBadgeFor imageRef={i.name} />
+        </Group>
       );
     },
   }),

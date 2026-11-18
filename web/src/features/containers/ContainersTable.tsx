@@ -41,6 +41,7 @@ import {
 import { Fragment, useMemo, useState } from "react";
 import { RouterAnchor } from "../../components/RouterAnchor";
 import { Time } from "../../components/Time";
+import { UpdateBadgeFor } from "../updates/UpdateBadge";
 import { ColumnsMenu } from "../preferences/ColumnsMenu";
 import { useHiddenColumns } from "../preferences/useHiddenColumns";
 import { BulkActions, RowActions, type TableActions } from "./ContainerActions";
@@ -143,9 +144,12 @@ const columns = col.columns([
     header: "Image",
     sortFn: "alphanumeric",
     cell: ({ getValue }) => (
-      <Text size="sm" ff="monospace" truncate="end" maw={320} title={getValue()}>
-        {getValue()}
-      </Text>
+      <Group gap={6} wrap="nowrap">
+        <Text size="sm" ff="monospace" truncate="end" maw={320} title={getValue()}>
+          {getValue()}
+        </Text>
+        <UpdateBadgeFor imageRef={getValue()} />
+      </Group>
     ),
   }),
   col.accessor((c) => c.ports.map(portLabel).join(" "), {

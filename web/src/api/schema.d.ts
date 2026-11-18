@@ -1522,6 +1522,87 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/environments/{env}/image-updates": {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Image update checks of a namespace
+         * @description Requires `images:read` (#53, ADR-0030). The stored registry digest of each checked
+         *     reference present in the namespace, compared with the local image now: a pull clears
+         *     `updateAvailable` at once. Also reports the schedule.
+         */
+        get: operations["listImageUpdates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/environments/{env}/image-updates/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Check images for updates now
+         * @description Requires `images:read`. Without `ref`, resolves every tag used by containers of any
+         *     namespace (digest-pinned references are skipped); with `ref`, that tag only. One HEAD
+         *     request per tag, with nerdctl's registry configuration and credentials. 409 while a
+         *     check runs.
+         */
+        post: operations["checkImageUpdates"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/environments/{env}/settings/image-updates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Schedule of image update checks
+         * @description Requires `settings:read`. Default every 6 hours.
+         */
+        get: operations["getImageUpdateSettings"];
+        /**
+         * Set the schedule of image update checks
+         * @description Requires `settings:write`.
+         */
+        put: operations["putImageUpdateSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/environments/{env}/settings/prometheus": {
         parameters: {
             query?: never;
@@ -1675,6 +1756,48 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        ImageUpdateSettings: {
+            /**
+             * Format: int64
+             * @description 0 turns scheduled checks off
+             * @enum {integer}
+             */
+            intervalSeconds: 0 | 3600 | 21600 | 43200 | 86400;
+        };
+        CheckImageUpdatesRequest: {
+            /**
+             * @description One reference; empty checks all used ones
+             * @example docker.io/library/nginx:1.27
+             */
+            ref?: string;
+        };
+        ImageUpdateReport: {
+            checked: number;
+            updates: number;
+            failed: number;
+        };
+        ImageUpdateStatus: {
+            ref: string;
+            localDigest: string;
+            remoteDigest?: string;
+            /** Format: date-time */
+            checkedAt: string;
+            /** @description Why the registry could not be asked */
+            error?: string;
+            updateAvailable: boolean;
+            /** @description Containers of the namespace created from the reference */
+            containers: number;
+        };
+        ImageUpdateOverview: {
+            /** Format: int64 */
+            intervalSeconds: number;
+            /** Format: date-time */
+            lastCheck?: string;
+            /** Format: date-time */
+            nextCheck?: string;
+            running: boolean;
+            images: components["schemas"]["ImageUpdateStatus"][];
+        };
         NamespaceSpec: {
             /** @example lab */
             name: string;
@@ -4858,6 +4981,129 @@ export interface operations {
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
             503: components["responses"]["Error"];
+        };
+    };
+    listImageUpdates: {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Checks and schedule */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImageUpdateOverview"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            501: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    checkImageUpdates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CheckImageUpdatesRequest"];
+            };
+        };
+        responses: {
+            /** @description Done */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImageUpdateReport"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            501: components["responses"]["Error"];
+        };
+    };
+    getImageUpdateSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Settings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImageUpdateSettings"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            501: components["responses"]["Error"];
+        };
+    };
+    putImageUpdateSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ImageUpdateSettings"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ImageUpdateSettings"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            501: components["responses"]["Error"];
         };
     };
     getPrometheusSettings: {

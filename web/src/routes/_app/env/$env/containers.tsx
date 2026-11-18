@@ -5,9 +5,15 @@ import { Alert, Button, Group, Loader, Title } from "@mantine/core";
 import { IconPlus } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi, useNavigate } from "@tanstack/react-router";
-import { containersQuery, envStatusQuery } from "../../../../api/queries";
+import {
+  containersQuery,
+  envStatusQuery,
+  imageUpdatesQuery,
+  updatesByRef,
+} from "../../../../api/queries";
 import { useContainerActions } from "../../../../features/containers/actions";
 import { ContainersTable } from "../../../../features/containers/ContainersTable";
+import { ImageUpdatesContext } from "../../../../features/updates/context";
 
 const envRoute = getRouteApi("/_app/env/$env");
 
@@ -23,6 +29,7 @@ function ContainersPage() {
   const status = useQuery(envStatusQuery(env));
   const namespace = ns ?? status.data?.defaultNamespace ?? "default";
   const list = useQuery(containersQuery(env, namespace));
+  const updates = useQuery(imageUpdatesQuery(env, namespace));
   const { run, busy } = useContainerActions(env, namespace);
   const nerdctl = status.data?.runtime?.nerdctl;
   // Read-only mode (ADR-0011): the server would answer 503 nerdctl_incompatible.
@@ -52,14 +59,16 @@ function ContainersPage() {
         </Alert>
       )}
       {list.data && (
-        <ContainersTable
-          containers={list.data.containers}
-          actions={{
-            run,
-            busy,
-            disabled: readOnly ? "Read-only mode: host nerdctl is incompatible" : undefined,
-          }}
-        />
+        <ImageUpdatesContext.Provider value={updatesByRef(updates.data)}>
+          <ContainersTable
+            containers={list.data.containers}
+            actions={{
+              run,
+              busy,
+              disabled: readOnly ? "Read-only mode: host nerdctl is incompatible" : undefined,
+            }}
+          />
+        </ImageUpdatesContext.Provider>
       )}
     </>
   );
