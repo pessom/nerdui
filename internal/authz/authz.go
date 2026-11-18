@@ -49,6 +49,9 @@ const (
 	StacksWrite  Action = "stacks:write"  // edit files, adopt, remove
 	StacksDeploy Action = "stacks:deploy" // up, down, restart, pull
 
+	NamespacesRead  Action = "namespaces:read"
+	NamespacesWrite Action = "namespaces:write" // create, remove (#195)
+
 	SystemRead  Action = "system:read" // info, events, df, runtime versions
 	SystemPrune Action = "system:prune"
 
@@ -66,6 +69,7 @@ var catalog = []Action{
 	ImagesRead, ImagesWrite,
 	VolumesRead, VolumesWrite, NetworksRead, NetworksWrite,
 	StacksRead, StacksWrite, StacksDeploy,
+	NamespacesRead, NamespacesWrite,
 	SystemRead, SystemPrune,
 	RegistriesRead, RegistriesWrite, UsersRead, UsersWrite, SettingsRead, SettingsWrite,
 }

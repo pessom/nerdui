@@ -37,6 +37,8 @@ type fakeRuntime struct {
 	events     runtime.EventSource
 	containers []runtime.Container
 	gotNS      string
+	nsCalls    []string // "create x" / "remove x"
+	nsErr      error
 
 	mu           sync.Mutex
 	actions      []actionCall
@@ -99,7 +101,19 @@ func (f *fakeRuntime) Events() runtime.EventSource {
 func (f *fakeRuntime) Versions(context.Context) (runtime.Versions, error) {
 	return f.v, f.err
 }
-func (f *fakeRuntime) Namespaces(context.Context) ([]string, error)  { return f.ns, f.err }
+func (f *fakeRuntime) Namespaces(context.Context) ([]string, error) { return f.ns, f.err }
+func (f *fakeRuntime) CreateNamespace(_ context.Context, name string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.nsCalls = append(f.nsCalls, "create "+name)
+	return f.nsErr
+}
+func (f *fakeRuntime) RemoveNamespace(_ context.Context, name string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.nsCalls = append(f.nsCalls, "remove "+name)
+	return f.nsErr
+}
 func (f *fakeRuntime) Nerdctl(context.Context) runtime.NerdctlStatus { return f.nerdctl }
 func (f *fakeRuntime) Containers() runtime.Containers                { return f }
 func (f *fakeRuntime) Info(context.Context) (runtime.Info, error)    { return f.info, f.err }

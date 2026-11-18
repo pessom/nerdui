@@ -7,6 +7,7 @@ import {
   IconActivity,
   IconApi,
   IconDatabase,
+  IconFolders,
   IconNetwork,
   IconPlug,
   IconSettings,
@@ -169,6 +170,14 @@ function AppLayout() {
                 search={(prev: { ns?: string }) => ({ ns: prev.ns })}
                 label="Events"
                 leftSection={<IconActivity size={18} stroke={1.5} />}
+                onClick={close}
+              />
+              <RouterNavLink
+                to="/env/$env/namespaces"
+                params={{ env }}
+                search={(prev: { ns?: string }) => ({ ns: prev.ns })}
+                label="Namespaces"
+                leftSection={<IconFolders size={18} stroke={1.5} />}
                 onClick={close}
               />
               <RouterNavLink

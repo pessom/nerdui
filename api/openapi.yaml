@@ -630,7 +630,7 @@ paths:
       tags: [environments]
       operationId: listNamespaces
       summary: containerd namespaces of the environment
-      description: "Requires `system:read`."
+      description: "Requires `namespaces:read`."
       responses:
         "200":
           description: Namespaces, sorted
@@ -647,6 +647,53 @@ paths:
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+    post:
+      tags: [environments]
+      operationId: createNamespace
+      summary: Create a namespace
+      description: |
+        Requires `namespaces:write`; refused (503) in read-only mode. The name follows
+        containerd's identifier rules (letters, digits, `_`, `.`, `-`; up to 76 characters).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NamespaceSpec" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NamespaceSpec" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/namespaces/{name}:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - name: name
+        in: path
+        required: true
+        schema: { type: string }
+    delete:
+      tags: [environments]
+      operationId: removeNamespace
+      summary: Remove an empty namespace
+      description: |
+        Requires `namespaces:write`; refused (503) in read-only mode. Refused (409) while the
+        namespace holds containers, images, volumes or user-defined networks (the message names
+        them), or anything containerd still keeps there (content, snapshots, leases).
+      responses:
+        "204": { description: Removed }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
         "503": { $ref: "#/components/responses/Error" }
   /api/v1/environments/{env}/events:
     parameters:
@@ -2166,6 +2213,12 @@ components:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
   schemas:
+    NamespaceSpec:
+      type: object
+      required: [name]
+      additionalProperties: false
+      properties:
+        name: { type: string, example: lab }
     Health:
       type: object
       required: [status]

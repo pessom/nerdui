@@ -77,7 +77,9 @@ func (h *Handler) Routes(r chi.Router, g *authz.Guard) {
 func (h *Handler) runtimeRoutes(r chi.Router, g *authz.Guard) {
 	r.Method(http.MethodGet, "/", g.Protect(authz.SystemRead, h.get))
 	r.Method(http.MethodGet, "/info", g.Protect(authz.SystemRead, h.info))
-	r.Method(http.MethodGet, "/namespaces", g.Protect(authz.SystemRead, h.namespaces))
+	r.Method(http.MethodGet, "/namespaces", g.Protect(authz.NamespacesRead, h.namespaces))
+	r.Method(http.MethodPost, "/namespaces", g.Protect(authz.NamespacesWrite, h.createNamespace))
+	r.Method(http.MethodDelete, "/namespaces/{name}", g.Protect(authz.NamespacesWrite, h.removeNamespace))
 	r.Method(http.MethodGet, "/events/stream", g.Protect(authz.SystemRead, h.eventsStream))
 	r.Method(http.MethodGet, "/events", g.Protect(authz.SystemRead, h.listEvents))
 	r.Method(http.MethodGet, "/containers", g.Protect(authz.ContainersRead, h.listContainers))
