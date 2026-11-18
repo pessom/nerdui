@@ -38,6 +38,15 @@ func (s *syncBuffer) String() string {
 }
 
 // TestIntegrationExec runs interactive processes with a terminal (#15).
+// heldInput gives s and then keeps stdin open, like a browser terminal: an input that ends at
+// once closes the terminal, and a shell that has not read it yet gets SIGHUP (exit 129).
+func heldInput(t *testing.T, s string) io.Reader {
+	pr, pw := io.Pipe()
+	go func() { _, _ = pw.Write([]byte(s)) }()
+	t.Cleanup(func() { _ = pw.Close() })
+	return pr
+}
+
 func TestIntegrationExec(t *testing.T) {
 	ncfg, _, err := LoadNerdctlConfig()
 	if err != nil {
@@ -59,7 +68,7 @@ func TestIntegrationExec(t *testing.T) {
 	// Default shell (sh on Alpine), input, output and exit code; TERM is set.
 	var buf syncBuffer
 	code, err := ct.Exec(ctx, DefaultNamespace, id, ExecOptions{Cols: 80, Rows: 24},
-		strings.NewReader("echo term=$TERM; stty size; exit 7\n"), &buf, nil)
+		heldInput(t, "echo term=$TERM; stty size; exit 7\n"), &buf, nil)
 	if err != nil || code != 7 {
 		t.Fatalf("exec: code %d, err %v, output %q", code, err, buf.String())
 	}
