@@ -10,7 +10,7 @@ require (
 	github.com/containerd/containerd/v2 v2.4.2
 	github.com/containerd/errdefs v1.0.0
 	github.com/containerd/errdefs/pkg v0.3.0
-	github.com/containerd/go-cni v1.1.14
+	github.com/containerd/go-cni v1.1.15
 	github.com/containerd/log v0.2.0
 	github.com/containerd/nerdctl/v2 v2.4.2
 	github.com/containerd/platforms v1.0.0-rc.5
