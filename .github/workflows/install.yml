@@ -133,6 +133,7 @@ jobs:
           echo "CLI interoperability and restart safety: ok" >> "$GITHUB_STEP_SUMMARY"
 
       - name: NFR measurements
+        shell: bash # -eo pipefail: a failing benchmark fails the step despite tee
         run: |
           sudo env "NERDUI_KEY=$NERDUI_KEY" scripts/nfr-bench.sh | tee nfr-${{ matrix.arch }}.md
           {

@@ -73,10 +73,12 @@ percentiles() {
 
 # Times of n GET requests over one kept-alive connection (no TLS handshake per request).
 timings() {
-	local path=$1 n=$2 urls=()
-	for _ in $(seq 1 "$n"); do urls+=("$url$path"); done
-	curl "${curl_opts[@]}" -o /dev/null -w '%{http_code} %{time_total}\n' "${urls[@]}" |
-		awk '$1 != 200 { bad = 1 } { print $2 } END { if (bad) exit 1 }'
+	local path=$1 n=$2 args=()
+	# -o applies to one URL: give each its own.
+	for _ in $(seq 1 "$n"); do args+=(-o /dev/null "$url$path"); done
+	curl "${curl_opts[@]}" -w '%{http_code} %{time_total}\n' "${args[@]}" |
+		awk '$1 != 200 { print "HTTP " $1 " for " p > "/dev/stderr"; bad = 1 } { print $2 }
+			END { if (bad) exit 1 }' p="$path"
 }
 
 pid_of_nerdui() {
@@ -90,7 +92,7 @@ pid_of_nerdui() {
 cpu_ticks() { awk '{ print $14 + $15 }' "/proc/$1/stat"; }
 rss_mb() { awk '/^VmRSS:/ { printf "%.0f", $2 / 1024 }' "/proc/$1/status"; }
 
-version=$(api /api/v1/version | jq -r '.version')
+version=$(api /api/v1/version | jq -r '.nerdui.version')
 host="$(uname -m), $(nproc) CPU, $(awk '/MemTotal/ { printf "%.1f GiB", $2 / 1048576 }' /proc/meminfo)"
 log "nerdui $version on $host"
 
