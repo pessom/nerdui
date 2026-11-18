@@ -287,3 +287,24 @@ export const summaryQuery = (env: string, volumeSizes = false) =>
     // Volume sizes walk every volume: never polled (#90).
     ...(volumeSizes && { refetchInterval: false as const }),
   });
+
+export type ImageUpdateOverview = components["schemas"]["ImageUpdateOverview"];
+export type ImageUpdateStatus = components["schemas"]["ImageUpdateStatus"];
+
+/** Update checks of a namespace's images (#53); under env, so pulls refresh the comparison. */
+export const imageUpdatesQuery = (env: string, namespace: string) =>
+  queryOptions({
+    queryKey: ["env", env, "image-updates", namespace] as const,
+    queryFn: () =>
+      unwrap(
+        api.GET("/api/v1/environments/{env}/image-updates", {
+          params: { path: { env }, query: { namespace } },
+        }),
+      ),
+    retry: false,
+  });
+
+/** Image update status by reference; empty while loading or when checks are unavailable. */
+export function updatesByRef(o?: ImageUpdateOverview): Map<string, ImageUpdateStatus> {
+  return new Map((o?.images ?? []).map((s) => [s.ref, s]));
+}

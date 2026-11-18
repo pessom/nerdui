@@ -1948,6 +1948,97 @@ paths:
         "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
         "503": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/image-updates:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - $ref: "#/components/parameters/Namespace"
+    get:
+      tags: [images]
+      operationId: listImageUpdates
+      summary: Image update checks of a namespace
+      description: |
+        Requires `images:read` (#53, ADR-0030). The stored registry digest of each checked
+        reference present in the namespace, compared with the local image now: a pull clears
+        `updateAvailable` at once. Also reports the schedule.
+      responses:
+        "200":
+          description: Checks and schedule
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImageUpdateOverview" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/image-updates/check:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+    post:
+      tags: [images]
+      operationId: checkImageUpdates
+      summary: Check images for updates now
+      description: |
+        Requires `images:read`. Without `ref`, resolves every tag used by containers of any
+        namespace (digest-pinned references are skipped); with `ref`, that tag only. One HEAD
+        request per tag, with nerdctl's registry configuration and credentials. 409 while a
+        check runs.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CheckImageUpdatesRequest" }
+      responses:
+        "200":
+          description: Done
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImageUpdateReport" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/settings/image-updates:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+    get:
+      tags: [settings]
+      operationId: getImageUpdateSettings
+      summary: Schedule of image update checks
+      description: "Requires `settings:read`. Default every 6 hours."
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImageUpdateSettings" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
+    put:
+      tags: [settings]
+      operationId: putImageUpdateSettings
+      summary: Set the schedule of image update checks
+      description: "Requires `settings:write`."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ImageUpdateSettings" }
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ImageUpdateSettings" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
   /api/v1/environments/{env}/settings/prometheus:
     parameters:
       - $ref: "#/components/parameters/Env"
@@ -2213,6 +2304,50 @@ components:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
   schemas:
+    ImageUpdateSettings:
+      type: object
+      required: [intervalSeconds]
+      additionalProperties: false
+      properties:
+        intervalSeconds:
+          type: integer
+          format: int64
+          enum: [0, 3600, 21600, 43200, 86400]
+          description: 0 turns scheduled checks off
+    CheckImageUpdatesRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        ref: { type: string, description: "One reference; empty checks all used ones", examples: ["docker.io/library/nginx:1.27"] }
+    ImageUpdateReport:
+      type: object
+      required: [checked, updates, failed]
+      properties:
+        checked: { type: integer }
+        updates: { type: integer }
+        failed: { type: integer }
+    ImageUpdateStatus:
+      type: object
+      required: [ref, localDigest, checkedAt, updateAvailable, containers]
+      properties:
+        ref: { type: string }
+        localDigest: { type: string }
+        remoteDigest: { type: string }
+        checkedAt: { type: string, format: date-time }
+        error: { type: string, description: Why the registry could not be asked }
+        updateAvailable: { type: boolean }
+        containers: { type: integer, description: Containers of the namespace created from the reference }
+    ImageUpdateOverview:
+      type: object
+      required: [intervalSeconds, running, images]
+      properties:
+        intervalSeconds: { type: integer, format: int64 }
+        lastCheck: { type: string, format: date-time }
+        nextCheck: { type: string, format: date-time }
+        running: { type: boolean }
+        images:
+          type: array
+          items: { $ref: "#/components/schemas/ImageUpdateStatus" }
     NamespaceSpec:
       type: object
       required: [name]

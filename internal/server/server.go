@@ -49,7 +49,9 @@ type Config struct {
 	Settings api.Settings
 	// Stacks finds compose stacks (#24); nil disables them.
 	Stacks *stacks.Service
-	Logger *slog.Logger
+	// ImageUpdates checks images for newer registry digests (#53); nil disables it.
+	ImageUpdates api.ImageUpdates
+	Logger       *slog.Logger
 }
 
 // VersionResponse is returned by GET /api/v1/version. Keep in sync with api/openapi.yaml.
@@ -102,7 +104,8 @@ func New(cfg Config) http.Handler {
 			r.Use(cfg.Auth.RequireSession, auth.CSRF, auth.PasswordChanged)
 			(&api.Handler{
 				Envs: cfg.Environments, Jobs: cfg.Jobs, EventHistory: cfg.EventHistory,
-				ExecDisabled: cfg.DisableExec, Settings: cfg.Settings, Stacks: cfg.Stacks, Logger: cfg.Logger,
+				ExecDisabled: cfg.DisableExec, Settings: cfg.Settings, Stacks: cfg.Stacks,
+				ImageUpdates: cfg.ImageUpdates, Logger: cfg.Logger,
 			}).Routes(r, guard)
 		})
 	})

@@ -1,0 +1,109 @@
+// SPDX-FileCopyrightText: 2026 The nerdui Authors
+// SPDX-License-Identifier: AGPL-3.0-only
+
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { Image, ImageUpdateOverview } from "../../api/queries";
+import { renderApp, signedIn } from "../../test/render";
+import { SilentWebSocket, fakeApi, json } from "../../test/server";
+
+const image = (name: string, digest: string): Image => ({
+  name,
+  repository: name.replace("docker.io/library/", "").split(":")[0] ?? "",
+  tag: name.split(":")[1] ?? "",
+  digest,
+  createdAt: "2027-03-01T10:00:00Z",
+  platforms: ["linux/amd64"],
+  size: 1024,
+  contentSize: 512,
+  containers: 1,
+  labels: {},
+});
+
+const overview = (checked: boolean): ImageUpdateOverview => ({
+  intervalSeconds: 21600,
+  running: false,
+  lastCheck: checked ? "2027-03-01T11:00:00Z" : undefined,
+  images: checked
+    ? [
+        {
+          ref: "docker.io/library/nginx:1",
+          localDigest: "sha256:old",
+          remoteDigest: "sha256:new",
+          checkedAt: "2027-03-01T11:00:00Z",
+          updateAvailable: true,
+          containers: 1,
+        },
+        {
+          ref: "docker.io/library/redis:7",
+          localDigest: "sha256:same",
+          remoteDigest: "sha256:same",
+          checkedAt: "2027-03-01T11:00:00Z",
+          updateAvailable: false,
+          containers: 1,
+        },
+      ]
+    : [],
+});
+
+describe("image updates", () => {
+  beforeEach(() => vi.stubGlobal("WebSocket", SilentWebSocket));
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("marks images with updates and checks on request", async () => {
+    let checked = false;
+    const { calls } = fakeApi({
+      ...signedIn,
+      "GET /api/v1/environments/local/images": () =>
+        json(200, {
+          namespace: "default",
+          images: [
+            image("docker.io/library/nginx:1", "sha256:old"),
+            image("docker.io/library/redis:7", "sha256:same"),
+          ],
+        }),
+      "GET /api/v1/environments/local/image-updates": () => json(200, overview(checked)),
+      "POST /api/v1/environments/local/image-updates/check": () => {
+        checked = true;
+        return json(200, { checked: 2, updates: 1, failed: 0 });
+      },
+    });
+    renderApp("/env/local/images");
+
+    const table = await screen.findByRole("table");
+    expect(within(table).getByText("nginx:1")).toBeInTheDocument();
+    expect(within(table).queryByText("update")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Check for updates" }));
+    expect(await screen.findByText(/2 images checked, 1 with updates/)).toBeInTheDocument();
+    expect(
+      await within(table).findByLabelText("Update available for docker.io/library/nginx:1"),
+    ).toBeInTheDocument();
+    expect(within(table).getAllByText("update")).toHaveLength(1);
+    expect(calls.find((c) => c.method === "POST")?.body).toEqual({});
+  });
+
+  it("saves the check schedule in Settings", async () => {
+    let interval = 21600;
+    fakeApi({
+      ...signedIn,
+      "GET /api/v1/environments/local/settings/prometheus": () => json(200, { configured: false }),
+      "GET /api/v1/environments/local/settings/image-updates": () =>
+        json(200, { intervalSeconds: interval }),
+      "PUT /api/v1/environments/local/settings/image-updates": (c) => {
+        interval = (c.body as { intervalSeconds: number }).intervalSeconds;
+        return json(200, { intervalSeconds: interval });
+      },
+      "GET /api/v1/environments/local/image-updates": () => json(200, overview(true)),
+    });
+    renderApp("/env/local/settings");
+
+    const card = await screen.findByRole("region", { name: "Image updates" });
+    const select = await within(card).findByLabelText("Check automatically", { selector: "input" });
+    expect(select).toHaveValue("Every 6 hours");
+    expect(within(card).getByText(/Last check/)).toBeInTheDocument();
+    fireEvent.click(select);
+    fireEvent.click(await screen.findByRole("option", { name: "Every day", hidden: true }));
+    await waitFor(() => expect(interval).toBe(86400));
+  });
+});

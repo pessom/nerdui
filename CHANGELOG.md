@@ -7,6 +7,18 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 
 ## [Unreleased]
 
+### Added
+
+- **Image updates:** nerdui checks whether the tags of images used by containers point to a newer
+  image in the registry (one HEAD request per tag, not counted as a pull by Docker Hub) and marks
+  them in the containers, images and stacks lists. Checks run on a schedule set in Settings →
+  Image updates (off, 1, 6, 12 or 24 hours; every 6 hours by default) and on request with
+  "Check for updates". Nothing is pulled or recreated automatically (#53, ADR-0030).
+
+### Upgrade notes
+
+- Database migration 6 (image update results) runs automatically at start.
+
 ## [0.1.0] - 2026-11-18
 
 First stable release (MVP): a web UI for one host's containerd and nerdctl. It contains everything

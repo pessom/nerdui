@@ -40,6 +40,8 @@ type Handler struct {
 	Settings Settings
 	// Stacks finds compose stacks (#24, ADR-0008); nil disables them.
 	Stacks *stacks.Service
+	// ImageUpdates checks images for newer registry digests (#53); nil disables it.
+	ImageUpdates ImageUpdates
 	// PrometheusHTTP is the HTTP client for Prometheus; nil uses a default with a timeout.
 	PrometheusHTTP *http.Client
 	Logger         *slog.Logger
@@ -57,6 +59,11 @@ func (h *Handler) Routes(r chi.Router, g *authz.Guard) {
 		r.Method(http.MethodPut, "/settings/prometheus", g.Protect(authz.SettingsWrite, h.putPrometheusSettings))
 		r.Method(http.MethodDelete, "/settings/prometheus", g.Protect(authz.SettingsWrite, h.deletePrometheusSettings))
 		r.Method(http.MethodPost, "/settings/prometheus/test", g.Protect(authz.SettingsWrite, h.testPrometheusSettings))
+		r.Method(http.MethodGet, "/settings/image-updates", g.Protect(authz.SettingsRead, h.getImageUpdateSettings))
+		r.Method(http.MethodPut, "/settings/image-updates", g.Protect(authz.SettingsWrite, h.putImageUpdateSettings))
+		// Update checks only ask registries: they work in read-only mode too (#53).
+		r.Method(http.MethodGet, "/image-updates", g.Protect(authz.ImagesRead, h.listImageUpdates))
+		r.Method(http.MethodPost, "/image-updates/check", g.Protect(authz.ImagesRead, h.checkImageUpdates))
 		// Adopting and forgetting stacks change files and the database, not containerd.
 		r.Method(http.MethodGet, "/stack-candidates", g.Protect(authz.StacksRead, h.stackCandidates))
 		r.Method(http.MethodPost, "/stacks/adopt", g.Protect(authz.StacksWrite, h.adoptStack))

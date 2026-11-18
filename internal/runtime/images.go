@@ -53,6 +53,8 @@ type Images interface {
 	Remove(ctx context.Context, namespace, ref string, force bool) error
 	// Push pushes an image, writing terminal progress to out (#44).
 	Push(ctx context.Context, namespace, ref string, opts PushOptions, out io.Writer) error
+	// RemoteDigest resolves a tag in its registry without pulling (#53).
+	RemoteDigest(ctx context.Context, ref string) (string, error)
 }
 
 // Images returns image operations of the local containerd.

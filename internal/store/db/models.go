@@ -33,6 +33,14 @@ type Event struct {
 	Attributes  string
 }
 
+type ImageUpdate struct {
+	Environment  string
+	Ref          string
+	RemoteDigest string
+	Error        string
+	CheckedAt    int64
+}
+
 type Session struct {
 	TokenHash  []byte
 	UserID     int64
