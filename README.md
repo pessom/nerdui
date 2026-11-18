@@ -2,7 +2,8 @@
 
 Web UI for [nerdctl](https://github.com/containerd/nerdctl) / [containerd](https://containerd.io).
 
-> **Status:** early development. Features and requirements are being defined in [`docs/requirements`](docs/requirements).
+> **Status:** release candidate of v0.1 (MVP). Requirements: [`docs/requirements`](docs/requirements);
+> changes: [CHANGELOG.md](CHANGELOG.md).
 
 nerdui talks to containerd **directly over its gRPC socket** and uses nerdctl's Go packages, so
 containers, images, networks and volumes managed from the UI stay fully compatible with the
@@ -12,13 +13,25 @@ containers, images, networks and volumes managed from the UI stay fully compatib
 > Access to the containerd socket is equivalent to **root on the host**.
 > Never expose nerdui to untrusted networks. See [SECURITY.md](SECURITY.md).
 
+## Features
+
+- **Containers:** list with filters and grouping by compose project, create, start/stop/restart,
+  remove, inspect, logs, live stats with Prometheus history, web terminal.
+- **Images, volumes, networks:** pull/push/tag/remove, volume sizes, CNI networks with
+  attached containers, ports and conflicts, registry logins, prune.
+- **Stacks:** compose projects from the stacks directory or adopted in place, an editor with
+  validation, deploy/stop/down with live output, aggregated logs.
+- **Host:** overview dashboard, namespaces, containerd events with history, system information.
+- **Access:** users, API keys (optionally read-only), OpenAPI documentation in the UI, per-user
+  preferences.
+
 ## Quick start
 
 On a Linux host with containerd and nerdctl (e.g. `nerdctl-full`), install the binary and run it
 as a systemd service:
 
 ```bash
-VERSION=0.1.0 ARCH=amd64   # or arm64
+VERSION=0.1.0 ARCH=$(dpkg --print-architecture)   # amd64 or arm64
 NERDCTL=$(nerdctl --version | grep -oE '[0-9]+\.[0-9]+' | head -1)   # build for the host nerdctl: 2.4 or 2.3
 curl -fsSLO https://github.com/pessom/nerdui/releases/download/v${VERSION}/nerdui_${VERSION}_nerdctl${NERDCTL}_linux_${ARCH}.tar.gz
 tar -xzf nerdui_${VERSION}_nerdctl${NERDCTL}_linux_${ARCH}.tar.gz
@@ -30,8 +43,9 @@ journalctl -u nerdui | grep setup_token   # then open https://<host>:9443
 ```
 
 Each release has one build per supported nerdctl minor version (2.4 and 2.3); use the one that
-matches the host's nerdctl, otherwise nerdui is read-only. Details, upgrades and the
-(experimental) container image: [docs/deployment.md](docs/deployment.md).
+matches the host's nerdctl, otherwise nerdui is read-only. Verify the signature first
+([SECURITY.md](SECURITY.md#verifying-releases)). Details, upgrades and the (experimental)
+container image: [docs/deployment.md](docs/deployment.md).
 
 ## First run
 
@@ -62,6 +76,8 @@ Every flag has an environment variable `NERDUI_<FLAG>`; command-line flags take 
 | `--skip-nerdctl-version-check` | `NERDUI_SKIP_NERDCTL_VERSION_CHECK` | `false` | Allow an unsupported nerdctl version |
 | `--tls` | `NERDUI_TLS` | `true` | Serve HTTPS; `--tls=false` only behind a TLS-terminating reverse proxy |
 | `--tls-cert` / `--tls-key` | `NERDUI_TLS_CERT` / `NERDUI_TLS_KEY` | self-signed in `<data-dir>/tls` | Your own PEM certificate and key (reloaded when the files change) |
+| `--events-retention` | `NERDUI_EVENTS_RETENTION` | `168h` | How long the event history is kept; `0` disables it |
+| `--disable-exec` | `NERDUI_DISABLE_EXEC` | `false` | Turn off the web terminal into containers |
 | `--log-level` | `NERDUI_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error` |
 
 Subcommands: `nerdui serve` (default), `nerdui version`, `nerdui healthcheck`, `nerdui admin reset-password <user>`.
