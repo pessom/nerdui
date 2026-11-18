@@ -42,3 +42,17 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Releases published with GITHUB_TOKEN do not trigger other workflows; workflow_dispatch is
+  # the exception, so the clean-host check (#129) is started explicitly.
+  install-check:
+    needs: goreleaser
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - name: Start the Install workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: gh workflow run install.yml -R "$GITHUB_REPOSITORY" --ref main -f version="${TAG#v}"
