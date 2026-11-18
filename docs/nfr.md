@@ -32,8 +32,9 @@ steps of [deployment.md](deployment.md).
 ## Measurements
 
 GitHub-hosted runners (Ubuntu 24.04, nerdctl-full 2.4.2), filled from the Install workflow.
-A Raspberry Pi 4-class host is the reference of NFR-001; results from such hosts are added
-below when measured.
+NFR-001 names a Raspberry Pi 4-class host as the reference; v0.1.0 was not measured on one
+(arm64 is covered by the GitHub-hosted arm64 runner). Results from such hosts are welcome:
+see below.
 
 **v0.1.0-rc.1**, 2026-11-18 ([run](https://github.com/pessom/nerdui/actions/runs/44367972025)),
 4 vCPU, 16 GB:

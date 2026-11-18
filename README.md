@@ -2,7 +2,7 @@
 
 Web UI for [nerdctl](https://github.com/containerd/nerdctl) / [containerd](https://containerd.io).
 
-> **Status:** release candidate of v0.1 (MVP). Requirements: [`docs/requirements`](docs/requirements);
+> **Status:** v0.1 (MVP), single host. Requirements: [`docs/requirements`](docs/requirements);
 > changes: [CHANGELOG.md](CHANGELOG.md).
 
 nerdui talks to containerd **directly over its gRPC socket** and uses nerdctl's Go packages, so
