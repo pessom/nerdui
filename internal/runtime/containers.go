@@ -86,6 +86,10 @@ type Containers interface {
 	Exec(ctx context.Context, namespace, id string, opts ExecOptions, stdin io.Reader, out io.Writer, resize <-chan TermSize) (int, error)
 	// Create pulls if needed, creates with `nerdctl create` and optionally starts (#17).
 	Create(ctx context.Context, namespace string, spec CreateSpec, start bool, out io.Writer) (string, error)
+	// Spec reconstructs a container's settings for editing and recreating (#18).
+	Spec(ctx context.Context, namespace, ref string) (ContainerSpec, error)
+	// Recreate replaces a container with one created from spec, rolling back on failure (#18).
+	Recreate(ctx context.Context, namespace, ref string, spec CreateSpec, opts RecreateOptions, out io.Writer) (string, error)
 }
 
 // Containers returns container operations of the local containerd.

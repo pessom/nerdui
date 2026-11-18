@@ -32,6 +32,7 @@ import { Route as AppEnvEnvVolumesRouteImport } from './routes/_app/env/$env/vol
 import { Route as AppEnvEnvContainersIdRouteImport } from './routes/_app/env/$env/containers_.$id'
 import { Route as AppEnvEnvContainersNewRouteImport } from './routes/_app/env/$env/containers_.new'
 import { Route as AppEnvEnvStacksNameRouteImport } from './routes/_app/env/$env/stacks_.$name'
+import { Route as AppEnvEnvContainersIdEditRouteImport } from './routes/_app/env/$env/containers_.$id_.edit'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -147,6 +148,12 @@ const AppEnvEnvStacksNameRoute = AppEnvEnvStacksNameRouteImport.update({
   path: '/stacks/$name',
   getParentRoute: () => AppEnvEnvRoute,
 } as any)
+const AppEnvEnvContainersIdEditRoute =
+  AppEnvEnvContainersIdEditRouteImport.update({
+    id: '/containers_/$id_/edit',
+    path: '/containers/$id/edit',
+    getParentRoute: () => AppEnvEnvRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -171,6 +178,7 @@ export interface FileRoutesByFullPath {
   '/env/$env/containers/$id': typeof AppEnvEnvContainersIdRoute
   '/env/$env/containers/new': typeof AppEnvEnvContainersNewRoute
   '/env/$env/stacks/$name': typeof AppEnvEnvStacksNameRoute
+  '/env/$env/containers/$id/edit': typeof AppEnvEnvContainersIdEditRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -194,6 +202,7 @@ export interface FileRoutesByTo {
   '/env/$env/containers/$id': typeof AppEnvEnvContainersIdRoute
   '/env/$env/containers/new': typeof AppEnvEnvContainersNewRoute
   '/env/$env/stacks/$name': typeof AppEnvEnvStacksNameRoute
+  '/env/$env/containers/$id/edit': typeof AppEnvEnvContainersIdEditRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -220,6 +229,7 @@ export interface FileRoutesById {
   '/_app/env/$env/containers_/$id': typeof AppEnvEnvContainersIdRoute
   '/_app/env/$env/containers_/new': typeof AppEnvEnvContainersNewRoute
   '/_app/env/$env/stacks_/$name': typeof AppEnvEnvStacksNameRoute
+  '/_app/env/$env/containers_/$id_/edit': typeof AppEnvEnvContainersIdEditRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -246,6 +256,7 @@ export interface FileRouteTypes {
     | '/env/$env/containers/$id'
     | '/env/$env/containers/new'
     | '/env/$env/stacks/$name'
+    | '/env/$env/containers/$id/edit'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -269,6 +280,7 @@ export interface FileRouteTypes {
     | '/env/$env/containers/$id'
     | '/env/$env/containers/new'
     | '/env/$env/stacks/$name'
+    | '/env/$env/containers/$id/edit'
   id:
     | '__root__'
     | '/'
@@ -294,6 +306,7 @@ export interface FileRouteTypes {
     | '/_app/env/$env/containers_/$id'
     | '/_app/env/$env/containers_/new'
     | '/_app/env/$env/stacks_/$name'
+    | '/_app/env/$env/containers_/$id_/edit'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -467,6 +480,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppEnvEnvStacksNameRouteImport
       parentRoute: typeof AppEnvEnvRoute
     }
+    '/_app/env/$env/containers_/$id_/edit': {
+      id: '/_app/env/$env/containers_/$id_/edit'
+      path: '/containers/$id/edit'
+      fullPath: '/env/$env/containers/$id/edit'
+      preLoaderRoute: typeof AppEnvEnvContainersIdEditRouteImport
+      parentRoute: typeof AppEnvEnvRoute
+    }
   }
 }
 
@@ -485,6 +505,7 @@ interface AppEnvEnvRouteChildren {
   AppEnvEnvContainersIdRoute: typeof AppEnvEnvContainersIdRoute
   AppEnvEnvContainersNewRoute: typeof AppEnvEnvContainersNewRoute
   AppEnvEnvStacksNameRoute: typeof AppEnvEnvStacksNameRoute
+  AppEnvEnvContainersIdEditRoute: typeof AppEnvEnvContainersIdEditRoute
 }
 
 const AppEnvEnvRouteChildren: AppEnvEnvRouteChildren = {
@@ -502,6 +523,7 @@ const AppEnvEnvRouteChildren: AppEnvEnvRouteChildren = {
   AppEnvEnvContainersIdRoute: AppEnvEnvContainersIdRoute,
   AppEnvEnvContainersNewRoute: AppEnvEnvContainersNewRoute,
   AppEnvEnvStacksNameRoute: AppEnvEnvStacksNameRoute,
+  AppEnvEnvContainersIdEditRoute: AppEnvEnvContainersIdEditRoute,
 }
 
 const AppEnvEnvRouteWithChildren = AppEnvEnvRoute._addFileChildren(

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 import {
+  Button,
   Alert,
   Badge,
   Breadcrumbs,
@@ -14,6 +15,7 @@ import {
   Title,
 } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
+import { IconPencil } from "@tabler/icons-react";
 import { createFileRoute, getRouteApi } from "@tanstack/react-router";
 import { Suspense, lazy } from "react";
 import { ApiError } from "../../../../api/client";
@@ -85,7 +87,28 @@ function ContainerPage() {
           )}
           {inspect.isFetching && !inspect.isPending && <Loader size="xs" aria-label="Refreshing" />}
         </Group>
-        {summary && <RowActions container={summary} actions={tableActions} request={request} />}
+        {summary && (
+          <Group gap="xs">
+            {!summary.compose?.project && (
+              <Button
+                onClick={() =>
+                  void navigate({
+                    to: "/env/$env/containers/$id/edit",
+                    params: { env, id: summary.id },
+                    search: { ns },
+                  })
+                }
+                variant="default"
+                size="xs"
+                leftSection={<IconPencil size={14} />}
+                disabled={readOnly}
+              >
+                Edit
+              </Button>
+            )}
+            <RowActions container={summary} actions={tableActions} request={request} />
+          </Group>
+        )}
       </Group>
       {dialog}
 

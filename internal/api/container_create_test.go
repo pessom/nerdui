@@ -5,6 +5,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -64,5 +65,58 @@ func TestCreateContainerJob(t *testing.T) {
 	defer f.mu.Unlock()
 	if len(f.created) != 1 || f.created[0].Name != "app" || !f.createStart || f.created[0].Env[0].Value != "1" {
 		t.Errorf("created %+v start %v", f.created, f.createStart)
+	}
+}
+
+func TestRecreateContainerJob(t *testing.T) {
+	cur := runtime.ContainerSpec{
+		ID: strings.Repeat("b", 64), Running: true,
+		Spec: runtime.CreateSpec{Image: "nginx:1", Name: "web"},
+	}
+	f := &fakeRuntime{nerdctl: runtime.NerdctlStatus{Compatible: true}, createID: strings.Repeat("c", 64), spec: cur}
+	srv, m := jobsServer(t, f, authz.AdminOnly{})
+
+	var got runtime.ContainerSpec
+	if rec := do(t, newRouter(f), "/api/v1/environments/local/containers/web/spec", &got); rec.Code != http.StatusOK || got.Spec.Name != "web" || got.Unsupported == nil {
+		t.Fatalf("spec: %d %s", rec.Code, rec.Body)
+	}
+
+	url := srv.URL + "/api/v1/environments/local/containers/web/recreate"
+	resp, body := postJSON(t, url, `{"image":"nginx:1","name":"web","env":[{"name":"A","value":"2"}],"pull":true}`)
+	if resp.StatusCode != http.StatusAccepted {
+		t.Fatalf("recreate: %d %v", resp.StatusCode, body)
+	}
+	job := body["job"].(map[string]any)
+	if job["title"] != "Update container web" || job["kind"] != "container.recreate" {
+		t.Errorf("job %v", job)
+	}
+	id := job["id"].(string)
+	deadline := time.Now().Add(5 * time.Second)
+	for j, _ := m.Get(id); !j.Done(); j, _ = m.Get(id) {
+		if time.Now().After(deadline) {
+			t.Fatal("recreate job did not finish")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	if j, _ := m.Get(id); j.Status != "succeeded" || j.Result["containerId"] != f.createID {
+		t.Errorf("finished job %+v", j)
+	}
+	f.mu.Lock()
+	if len(f.recreated) != 1 || f.recreated[0].Env[0].Value != "2" || !f.recreatePull {
+		t.Errorf("recreated %+v pull %v", f.recreated, f.recreatePull)
+	}
+	f.mu.Unlock()
+
+	// Refused: settings that would be lost, stack containers, invalid specs.
+	f.spec.Unsupported = []string{"sysctls net.ipv4.ip_forward"}
+	if resp, body := postJSON(t, url, `{"image":"nginx:1"}`); resp.StatusCode != http.StatusConflict || !strings.Contains(fmt.Sprint(body), "sysctls") {
+		t.Errorf("unsupported: %d %v", resp.StatusCode, body)
+	}
+	f.spec.Unsupported, f.spec.Stack = nil, "media"
+	if resp, _ := postJSON(t, url, `{"image":"nginx:1"}`); resp.StatusCode != http.StatusConflict {
+		t.Errorf("stack container: %d", resp.StatusCode)
+	}
+	if resp, _ := postJSON(t, url, `{"image":"--privileged"}`); resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("invalid spec: %d", resp.StatusCode)
 	}
 }

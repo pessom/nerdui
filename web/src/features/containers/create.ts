@@ -203,3 +203,59 @@ export function secretsMasked(command: string, env: EnvRow[]): string {
   }
   return out;
 }
+
+/** Joins arguments into a line that parseArgs splits back into the same arguments. */
+export function joinArgs(args: string[]): string {
+  return args
+    .map((a) =>
+      a !== "" && /^[A-Za-z0-9_./:=@%+,-]+$/.test(a) ? a : `'${a.replaceAll("'", `'"'"'`)}'`,
+    )
+    .join(" ");
+}
+
+const restarts = ["no", "always", "unless-stopped", "on-failure"] as const;
+
+/** The form for an existing container's settings (#18): the inverse of toRequest. */
+export function fromRequest(r: CreateRequest): CreateForm {
+  const [policy, retries] = (r.restart ?? "no").split(":");
+  return {
+    ...emptyForm,
+    image: r.image,
+    name: r.name ?? "",
+    command: joinArgs(r.command ?? []),
+    entrypoint: r.entrypoint ?? "",
+    ports: (r.ports ?? []).map((p) => ({
+      hostIp: p.hostIp ?? "",
+      hostPort: p.hostPort ? String(p.hostPort) : "",
+      containerPort: String(p.containerPort),
+      protocol: p.protocol === "udp" ? "udp" : "tcp",
+    })),
+    env: (r.env ?? []).map((e) => ({ name: e.name, value: e.value, secret: false })),
+    mounts: (r.mounts ?? []).map((m) => ({
+      type: m.type as MountRow["type"],
+      source: m.source ?? "",
+      target: m.target,
+      readOnly: !!m.readOnly,
+    })),
+    network: r.network ?? "",
+    hostname: r.hostname ?? "",
+    user: r.user ?? "",
+    workdir: r.workdir ?? "",
+    cpus: r.cpus ? String(r.cpus) : "",
+    memoryMiB: r.memoryBytes ? String(r.memoryBytes / 1024 / 1024) : "",
+    restart: (restarts as readonly string[]).includes(policy ?? "")
+      ? (policy as CreateForm["restart"])
+      : "no",
+    retries: retries ?? "",
+    labels: Object.entries(r.labels ?? {}).map(([key, value]) => ({ key, value })),
+    start: true,
+    extraNetworks: r.extraNetworks ?? [],
+    ip: r.ip ?? "",
+    privileged: !!r.privileged,
+    capAdd: r.capAdd ?? [],
+    capDrop: r.capDrop ?? [],
+    devices: r.devices ?? [],
+    dns: r.dns ?? [],
+    extraHosts: r.extraHosts ?? [],
+  };
+}

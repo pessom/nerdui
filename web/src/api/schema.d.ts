@@ -1402,6 +1402,67 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/environments/{env}/containers/{id}/spec": {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                id: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * Settings to edit and recreate a container
+         * @description Requires `containers:read` (#18, ADR-0031). Reconstructed from `nerdctl inspect`: values
+         *     equal to the image's defaults are left out. `unsupported` lists settings the create form
+         *     cannot express; while it is not empty, recreating is refused.
+         */
+        get: operations["getContainerSpec"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/environments/{env}/containers/{id}/recreate": {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Recreate a container with edited settings (background job)
+         * @description Requires `containers:write` and a compatible host nerdctl (#18, ADR-0031). With `pull`,
+         *     the image is pulled first (an update). The old container is stopped and renamed, the
+         *     new one created under the same name and started when the old one ran, then the old one
+         *     is removed; if creating or starting fails, the old container is restored. Refused (409)
+         *     for stack containers and containers with unsupported settings. The job's `result` has
+         *     `containerId`.
+         */
+        post: operations["recreateContainer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/environments/{env}/containers/{id}/inspect": {
         parameters: {
             query?: {
@@ -1756,6 +1817,20 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        ContainerSpec: {
+            id: string;
+            spec: components["schemas"]["CreateContainerRequest"];
+            unsupported: string[];
+            running: boolean;
+            /** @description Compose project managing the container */
+            stack?: string;
+            /** @description The tag points to another image than when the container was created */
+            imageChanged?: boolean;
+        };
+        RecreateContainerRequest: components["schemas"]["CreateContainerRequest"] & {
+            /** @description Pull the image first (update) */
+            pull?: boolean;
+        };
         ImageUpdateSettings: {
             /**
              * Format: int64
@@ -4859,6 +4934,77 @@ export interface operations {
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
             500: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    getContainerSpec: {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Settings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContainerSpec"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    recreateContainer: {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RecreateContainerRequest"];
+            };
+        };
+        responses: {
+            /** @description Job started */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        job: components["schemas"]["Job"];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
             503: components["responses"]["Error"];
         };
     };
