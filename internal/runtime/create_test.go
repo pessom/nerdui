@@ -85,9 +85,43 @@ func TestCreateArgsRejects(t *testing.T) {
 		"reserved label":       {Image: "a", Labels: map[string]string{"nerdctl/name": "x"}},
 		"label newline":        {Image: "a", Labels: map[string]string{"a": "b\nc"}},
 		"command NUL":          {Image: "a", Command: []string{"a\x00b"}},
+		"extra without first":  {Image: "a", ExtraNetworks: []string{"b"}},
+		"extra with host":      {Image: "a", Network: "host", ExtraNetworks: []string{"b"}},
+		"extra duplicate":      {Image: "a", Network: "b", ExtraNetworks: []string{"b"}},
+		"ip v6":                {Image: "a", Network: "b", IP: "::1"},
+		"ip without network":   {Image: "a", IP: "10.0.0.2"},
+		"capability":           {Image: "a", CapAdd: []string{"NET_ADMIN --privileged"}},
+		"device relative":      {Image: "a", Devices: []string{"dev/sda"}},
+		"device perms":         {Image: "a", Devices: []string{"/dev/sda:/dev/sda:xyz"}},
+		"dns":                  {Image: "a", DNS: []string{"dns.example"}},
+		"extra host":           {Image: "a", ExtraHosts: []string{"db"}},
+		"extra host address":   {Image: "a", ExtraHosts: []string{"db:evil host"}},
 	} {
 		if _, err := CreateArgs(s); !errdefs.IsInvalidArgument(err) {
 			t.Errorf("%s: %v", name, err)
 		}
+	}
+}
+
+func TestCreateArgsAdvanced(t *testing.T) {
+	got, err := CreateArgs(CreateSpec{
+		Image: "a", Network: "lan", ExtraNetworks: []string{"backend"}, IP: "10.1.0.5",
+		Privileged: true, CapAdd: []string{"net_admin"}, CapDrop: []string{"MKNOD"},
+		Devices:    []string{"/dev/ttyUSB0", "/dev/dri:/dev/dri:rw", "/dev/net/tun:rwm"},
+		DNS:        []string{"1.1.1.1", "2606:4700:4700::1111"},
+		ExtraHosts: []string{"db:10.1.0.9", "host.internal:host-gateway"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []string{
+		"--network=lan", "--network=backend", "--ip=10.1.0.5", "--privileged",
+		"--cap-add=NET_ADMIN", "--cap-drop=MKNOD",
+		"--device=/dev/ttyUSB0", "--device=/dev/dri:/dev/dri:rw", "--device=/dev/net/tun:rwm",
+		"--dns=1.1.1.1", "--dns=2606:4700:4700::1111",
+		"--add-host=db:10.1.0.9", "--add-host=host.internal:host-gateway", "a",
+	}
+	if !slices.Equal(got, want) {
+		t.Errorf("args\n got %q\nwant %q", got, want)
 	}
 }

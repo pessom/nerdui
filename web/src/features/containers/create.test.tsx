@@ -54,6 +54,32 @@ describe("create helpers", () => {
       restart: "on-failure:3",
       labels: { app: "web" },
     });
+    expect(
+      toRequest({
+        ...emptyForm,
+        image: "a",
+        network: "lan",
+        extraNetworks: ["backend", " "],
+        ip: " 10.1.0.5 ",
+        privileged: true,
+        capAdd: ["NET_ADMIN"],
+        devices: ["/dev/net/tun"],
+        dns: ["1.1.1.1"],
+        extraHosts: ["db:10.1.0.9"],
+      }).request,
+    ).toEqual({
+      image: "a",
+      start: true,
+      network: "lan",
+      restart: "unless-stopped",
+      extraNetworks: ["backend"],
+      ip: "10.1.0.5",
+      privileged: true,
+      capAdd: ["NET_ADMIN"],
+      devices: ["/dev/net/tun"],
+      dns: ["1.1.1.1"],
+      extraHosts: ["db:10.1.0.9"],
+    });
     expect(secretsMasked("--env=A=s3cret x", [{ name: "A", value: "s3cret", secret: true }])).toBe(
       "--env=A=•••••• x",
     );

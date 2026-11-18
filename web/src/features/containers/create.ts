@@ -97,6 +97,15 @@ export interface CreateForm {
   retries: string;
   labels: LabelRow[];
   start: boolean;
+  // Advanced (#18)
+  extraNetworks: string[];
+  ip: string;
+  privileged: boolean;
+  capAdd: string[];
+  capDrop: string[];
+  devices: string[];
+  dns: string[];
+  extraHosts: string[];
 }
 
 export const emptyForm: CreateForm = {
@@ -117,6 +126,14 @@ export const emptyForm: CreateForm = {
   retries: "",
   labels: [],
   start: true,
+  extraNetworks: [],
+  ip: "",
+  privileged: false,
+  capAdd: [],
+  capDrop: [],
+  devices: [],
+  dns: [],
+  extraHosts: [],
 };
 
 /** The API request for a form; rows left empty are skipped. The server validates. */
@@ -163,6 +180,18 @@ export function toRequest(f: CreateForm): { request: CreateRequest; error?: stri
     f.labels.filter((l) => l.key.trim()).map((l) => [l.key.trim(), l.value]),
   );
   if (Object.keys(labels).length) request.labels = labels;
+  const list = (k: "extraNetworks" | "capAdd" | "capDrop" | "devices" | "dns" | "extraHosts") => {
+    const v = f[k].map((x) => x.trim()).filter(Boolean);
+    if (v.length) request[k] = v;
+  };
+  list("extraNetworks");
+  opt("ip", f.ip.trim());
+  if (f.privileged) request.privileged = true;
+  list("capAdd");
+  list("capDrop");
+  list("devices");
+  list("dns");
+  list("extraHosts");
   return { request, error: cmd.error ? `Command: ${cmd.error}` : undefined };
 }
 

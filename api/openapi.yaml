@@ -2821,6 +2821,24 @@ components:
         restart: { type: string, examples: ["no", "always", "unless-stopped", "on-failure:3"] }
         labels: { type: object, additionalProperties: { type: string } }
         start: { type: boolean, description: Start after creating (like nerdctl run -d) }
+        extraNetworks:
+          type: array
+          items: { type: string }
+          description: More networks after `network` (#18)
+        ip: { type: string, description: Static IPv4 address in the first network }
+        privileged: { type: boolean }
+        capAdd: { type: array, items: { type: string }, examples: [["NET_ADMIN"]] }
+        capDrop: { type: array, items: { type: string } }
+        devices:
+          type: array
+          items: { type: string }
+          description: "host[:container[:permissions]], as --device"
+          examples: [["/dev/net/tun", "/dev/dri:/dev/dri:rw"]]
+        dns: { type: array, items: { type: string }, description: DNS server addresses }
+        extraHosts:
+          type: array
+          items: { type: string }
+          description: "name:address entries for /etc/hosts; the address may be host-gateway"
     Job:
       type: object
       required: [id, kind, title, environment, status, startedAt]
