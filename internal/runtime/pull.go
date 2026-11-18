@@ -30,6 +30,8 @@ type PullOptions struct {
 // progress to out as terminal output. nerdctl's registry configuration applies: hosts.d,
 // credentials of the user running nerdui (docker config), insecure registries.
 func (ci clientImages) Pull(ctx context.Context, namespace, ref string, opts PullOptions, out io.Writer) error {
+	// Pulling adds content and snapshots (ADR-0029).
+	defer ci.c.images.reset(namespace)
 	if _, err := referenceutil.Parse(ref); err != nil || ref == "" {
 		return fmt.Errorf("%w: invalid image reference %q", errdefs.ErrInvalidArgument, ref)
 	}

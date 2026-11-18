@@ -110,6 +110,7 @@ func pruneCandidates(ctx context.Context, cl *containerd.Client, all bool) ([]im
 // Prune runs nerdctl's prunes in the order of `nerdctl system prune` and writes their output
 // to out. A missing BuildKit daemon skips the build cache with a note instead of failing.
 func (c *Client) Prune(ctx context.Context, namespace string, opts PruneOptions, out io.Writer) error {
+	defer c.images.reset(namespace) // content and snapshots go (ADR-0029)
 	cl, err := c.conn()
 	if err != nil {
 		return err

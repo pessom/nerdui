@@ -15,6 +15,12 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
   well-known namespaces (`default`, `k8s.io`, `moby`, `buildkit`) and the environment's default
   need the name typed. New permissions `namespaces:read` and `namespaces:write` (#195).
 
+### Changed
+
+- The image list is faster with many images: platforms and sizes are computed once per image
+  digest and reused for 5 minutes; pulls, removals and prunes through nerdui refresh them at
+  once (ADR-0029).
+
 ## [0.1.0-beta.1] - 2026-11-16
 
 Overview dashboard, API keys with API documentation, and per-user preferences.

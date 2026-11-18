@@ -82,53 +82,85 @@ func (ci clientImages) List(ctx context.Context, namespace string) ([]Image, err
 		return nil, err
 	}
 
-	out := make([]Image, len(list))
-	keep := make([]bool, len(list))
+	// Details depend on the digest only: describe each digest once, reusing recent results
+	// (ADR-0029); tags of one image share them.
+	details := map[digest.Digest]imageDetails{}
+	var todo []images.Image
+	for _, img := range list {
+		d := img.Target.Digest
+		if _, seen := details[d]; seen {
+			continue
+		}
+		if cached, ok := ci.c.images.get(namespace, d.String()); ok {
+			details[d] = cached
+			continue
+		}
+		details[d] = imageDetails{}
+		todo = append(todo, img)
+	}
+	var mu sync.Mutex
+	failed := map[digest.Digest]bool{}
 	sem := make(chan struct{}, listConcurrency)
 	var wg sync.WaitGroup
-	for i, img := range list {
+	for _, img := range todo {
 		wg.Add(1)
 		sem <- struct{}{}
 		go func() {
 			defer wg.Done()
 			defer func() { <-sem }()
-			item, err := describeImage(ctx, cl, img)
+			d, err := imageDetailsOf(ctx, cl, img)
+			mu.Lock()
+			defer mu.Unlock()
 			if err != nil {
-				return // removed while listing: skip
+				failed[img.Target.Digest] = true // removed while listing: skip
+				return
 			}
-			item.Containers = used[img.Target.Digest]
-			out[i], keep[i] = item, true
+			details[img.Target.Digest] = d
+			ci.c.images.put(namespace, img.Target.Digest.String(), d)
 		}()
 	}
 	wg.Wait()
 
-	result := make([]Image, 0, len(out))
-	for i := range out {
-		if keep[i] {
-			result = append(result, out[i])
+	out := make([]Image, 0, len(list))
+	for _, img := range list {
+		if failed[img.Target.Digest] {
+			continue
 		}
+		item := describeImage(img, details[img.Target.Digest])
+		item.Containers = used[img.Target.Digest]
+		out = append(out, item)
 	}
-	sort.SliceStable(result, func(i, j int) bool { return result[i].Name < result[j].Name })
-	return result, nil
+
+	sort.SliceStable(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	return out, nil
 }
 
-func describeImage(ctx context.Context, cl *containerd.Client, img images.Image) (Image, error) {
-	store := cl.ContentStore()
+// describeImage combines an image record with the details of its digest.
+func describeImage(img images.Image, d imageDetails) Image {
 	out := Image{
-		Name:      img.Name,
-		Digest:    img.Target.Digest.String(),
-		CreatedAt: img.CreatedAt.UTC(),
-		Platforms: []string{},
-		Labels:    img.Labels,
+		Name:        img.Name,
+		Digest:      img.Target.Digest.String(),
+		CreatedAt:   img.CreatedAt.UTC(),
+		Platforms:   append([]string{}, d.Platforms...),
+		Labels:      img.Labels,
+		ContentSize: d.ContentSize,
+		Size:        d.Size,
 	}
 	if out.Labels == nil {
 		out.Labels = map[string]string{}
 	}
 	out.Repository, out.Tag = splitReference(img.Name)
+	return out
+}
 
+// imageDetailsOf reads the platforms whose content is in the store and the content and
+// unpacked sizes of an image.
+func imageDetailsOf(ctx context.Context, cl *containerd.Client, img images.Image) (imageDetails, error) {
+	store := cl.ContentStore()
+	out := imageDetails{Platforms: []string{}}
 	all, err := images.Platforms(ctx, store, img.Target)
 	if err != nil && !errdefs.IsNotFound(err) {
-		return Image{}, err
+		return imageDetails{}, err
 	}
 	seen := map[string]bool{}
 	for _, p := range all {
@@ -150,11 +182,11 @@ func describeImage(ctx context.Context, cl *containerd.Client, img images.Image)
 
 	stored := containerd.NewImageWithPlatform(cl, img, platforms.All)
 	if out.ContentSize, err = stored.Usage(ctx); err != nil {
-		return Image{}, err
+		return imageDetails{}, err
 	}
 	withSnapshots, err := stored.Usage(ctx, containerd.WithSnapshotUsage())
 	if err != nil {
-		return Image{}, err
+		return imageDetails{}, err
 	}
 	out.Size = withSnapshots - out.ContentSize
 	return out, nil
