@@ -10,11 +10,11 @@ steps of [deployment.md](deployment.md).
 
 | NFR | Requirement | Verified by | Status |
 | --- | --- | --- | --- |
-| NFR-001 | List latency p95 ≤ 300 ms (500 containers, 300 images) | `nfr-bench.sh` in the Install workflow (amd64, arm64) | [Measurements](#measurements) |
-| NFR-002 | Initial load ≤ 1.5 s, initial JS ≤ 500 KB gzip, editor/terminal lazy | `nfr-bench.sh` (initial JS); route-level code splitting in `web/` (CodeMirror, xterm, uPlot are separate chunks) | [Measurements](#measurements) |
-| NFR-003 | CLI changes visible ≤ 2 s via events | `TestIntegrationEventsFromNerdctl`, `TestEventsStreamThroughFullStack`; `nfr-bench.sh` (CLI create → event) | [Measurements](#measurements) |
-| NFR-004 | Logs: first lines ≤ 1 s, 10k lines/s, slow clients dropped | `TestIntegrationLogs`, `TestContainerLogsStreamFollowAndDisconnect`, `TestSlowConsumerDoesNotBlockProducer`, `TestSlowSubscriberDropped`; `nfr-bench.sh` (throughput) | [Measurements](#measurements) |
-| NFR-005 | Idle RSS ≤ 80 MB, CPU ≤ 1 % | `nfr-bench.sh` | [Measurements](#measurements) |
+| NFR-001 | List latency p95 ≤ 300 ms (500 containers, 300 images) | `nfr-bench.sh` in the Install workflow (amd64, arm64) | ✅ [measured](#measurements) |
+| NFR-002 | Initial load ≤ 1.5 s, initial JS ≤ 500 KB gzip, editor/terminal lazy | `nfr-bench.sh` (initial JS); route-level code splitting in `web/` (CodeMirror, xterm, uPlot are separate chunks) | ✅ [measured](#measurements) |
+| NFR-003 | CLI changes visible ≤ 2 s via events | `TestIntegrationEventsFromNerdctl`, `TestEventsStreamThroughFullStack`; `nfr-bench.sh` (CLI create → event) | ✅ [measured](#measurements) |
+| NFR-004 | Logs: first lines ≤ 1 s, 10k lines/s, slow clients dropped | `TestIntegrationLogs`, `TestContainerLogsStreamFollowAndDisconnect`, `TestSlowConsumerDoesNotBlockProducer`, `TestSlowSubscriberDropped`; `nfr-bench.sh` (throughput) | ✅ [measured](#measurements) |
+| NFR-005 | Idle RSS ≤ 80 MB, CPU ≤ 1 % | `nfr-bench.sh` | ✅ [measured](#measurements) |
 | NFR-006 | CLI interoperability | Install workflow: container created through the API is inspected, logged and removed with `nerdctl`; integration tests use the host `nerdctl` for stacks, networks, volumes | ✅ |
 | NFR-007 | TLS by default | `TestSelfSignedGenerateAndReuse`, `TestTLSConfigHandshake`, `TestInsecureCookieWithoutTLS` (explicit opt-out) | ✅ |
 | NFR-008 | argon2id, cookies, CSRF, WebSocket origin, rate limits, setup token | `TestLoginAndSessions`, `TestRehashOnLogin`, `TestHTTPFlow` (CSRF), `TestCrossOriginRejected`, `TestLoginRateLimit`, `TestSetupTokenRateLimited`, `TestSetup` | ✅ |
@@ -35,23 +35,27 @@ GitHub-hosted runners (Ubuntu 24.04, nerdctl-full 2.4.2), filled from the Instal
 A Raspberry Pi 4-class host is the reference of NFR-001; results from such hosts are added
 below when measured.
 
-**v0.1.0-beta.1**, 2026-11-18 ([run](https://github.com/pessom/nerdui/actions/runs/44332499089)),
+**v0.1.0-rc.1**, 2026-11-18 ([run](https://github.com/pessom/nerdui/actions/runs/44367972025)),
 4 vCPU, 16 GB:
 
 | NFR | Measure | amd64 | arm64 | Target | |
 | --- | --- | --- | --- | --- | --- |
-| NFR-001 | `GET /containers`, 500 containers, p95 | 105 ms | 124 ms | ≤ 300 ms | ✅ |
-| NFR-001 | `GET /images`, 300 images, p95 | 888 ms | 1199 ms | ≤ 300 ms | ❌ → ADR-0029 |
+| NFR-001 | `GET /containers`, 500 containers, p95 | 138 ms | 120 ms | ≤ 300 ms | ✅ |
+| NFR-001 | `GET /images`, 300 images, p95 | 28 ms | 23 ms | ≤ 300 ms | ✅ |
+| — | First (cold) request: containers / images | 146 / 45 ms | 132 / 52 ms | | |
 | NFR-002 | Initial JavaScript, gzip | 140 KB | 140 KB | ≤ 500 KB | ✅ |
-| NFR-003 | `nerdctl create` → event in nerdui | 407 ms | 1336 ms | ≤ 2 s | ✅ |
-| NFR-004 | Logs: first byte | 12 ms | 13 ms | ≤ 1 s | ✅ |
-| NFR-004 | Logs: throughput (100k lines) | 1.3 M lines/s | 1.1 M lines/s | ≥ 10k lines/s | ✅ |
-| NFR-005 | Idle RSS | 56 MB | 54 MB | ≤ 80 MB | ✅ |
-| NFR-005 | Idle CPU | 0.02 % | 0.03 % | ≤ 1 % | ✅ |
+| NFR-003 | `nerdctl create` → event in nerdui | 999 ms | 1318 ms | ≤ 2 s | ✅ |
+| NFR-004 | Logs: first byte | 13 ms | 13 ms | ≤ 1 s | ✅ |
+| NFR-004 | Logs: throughput (100k lines) | 1.0 M lines/s | 1.1 M lines/s | ≥ 10k lines/s | ✅ |
+| NFR-005 | Idle RSS | 57 MB | 55 MB | ≤ 80 MB | ✅ |
+| NFR-005 | Idle CPU | 0.02–0.03 % | 0.02 % | ≤ 1 % | ✅ |
 
-The image list described every image's platforms and sizes on every request; they are now
-cached per digest ([ADR-0029](adr/0029-image-details-cache.md)). The next release is measured
-the same way and replaces this table.
+The 300 images of the benchmark are tags of one image, so the cold image request describes one
+digest; a host with 300 distinct images pays that once per digest after start or a change
+([ADR-0029](adr/0029-image-details-cache.md)).
+
+Before the image details cache, v0.1.0-beta.1 answered `GET /images` in 888 ms (amd64) and
+1199 ms (arm64) at p95 ([run](https://github.com/pessom/nerdui/actions/runs/44332499089)).
 
 ## Measuring on your own host
 
