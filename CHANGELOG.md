@@ -7,6 +7,32 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-18
+
+First stable release (MVP): a web UI for one host's containerd and nerdctl. It contains everything
+from the pre-releases below; no functional changes since 0.1.0-rc.1:
+
+- containers with logs, stats (with Prometheus history), web terminal and creation form;
+- images, registries, volumes, networks, ports and prune;
+- compose stacks: list, adopt, edit, deploy, logs;
+- overview dashboard, namespaces, events with history, system information;
+- users, API keys, OpenAPI documentation, per-user preferences.
+
+Every release is installed on clean amd64 and arm64 hosts and measured against the
+non-functional requirements ([docs/nfr.md](docs/nfr.md)).
+
+### Known limitations
+
+- One host per nerdui instance; multiple environments and remote agents are planned (#69, #70).
+- Every user is an administrator; roles are planned (#78).
+- Rootless containerd is not supported.
+- The container image is experimental (#145); install the binary with systemd.
+
+### Upgrade notes
+
+- From 0.1.0-rc.1: no changes. From earlier pre-releases, read their upgrade notes; database
+  migrations run automatically at start, with a backup.
+
 ## [0.1.0-rc.1] - 2026-11-18
 
 Release candidate: namespace management, a faster image list and release-readiness checks.
@@ -266,7 +292,8 @@ First preview release: manage containers on one Linux host with containerd and n
 - Every user is an administrator; roles are planned (#78).
 - The container image is experimental (#145); install the binary with systemd.
 
-[Unreleased]: https://github.com/pessom/nerdui/compare/v0.1.0-rc.1...HEAD
+[Unreleased]: https://github.com/pessom/nerdui/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/pessom/nerdui/compare/v0.1.0-rc.1...v0.1.0
 [0.1.0-rc.1]: https://github.com/pessom/nerdui/compare/v0.1.0-beta.1...v0.1.0-rc.1
 [0.1.0-beta.1]: https://github.com/pessom/nerdui/compare/v0.1.0-alpha.5...v0.1.0-beta.1
 [0.1.0-alpha.5]: https://github.com/pessom/nerdui/compare/v0.1.0-alpha.4...v0.1.0-alpha.5
