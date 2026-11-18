@@ -54,6 +54,7 @@ func (ci clientImages) Tag(ctx context.Context, namespace, source, target string
 // containers are refused (409); with force, an image used by a running container is only
 // untagged, its content stays.
 func (ci clientImages) Remove(ctx context.Context, namespace, ref string, force bool) error {
+	defer ci.c.images.reset(namespace) // content and snapshots may go (ADR-0029)
 	if ref == "" {
 		return fmt.Errorf("%w: image reference is required", errdefs.ErrInvalidArgument)
 	}

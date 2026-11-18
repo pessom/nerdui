@@ -37,3 +37,4 @@ We record significant architectural decisions as ADRs
 | 0026 | [Stack operations with the host's nerdctl compose](0026-stack-operations.md) | Accepted |
 | 0027 | [Stack file editor: server validation, schema completion, versioned saves](0027-stack-file-editor.md) | Accepted |
 | 0028 | [API keys](0028-api-keys.md) | Accepted |
+| 0029 | [Image details cache](0029-image-details-cache.md) | Accepted |

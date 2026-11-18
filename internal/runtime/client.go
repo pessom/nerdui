@@ -66,6 +66,8 @@ type Client struct {
 
 	mu     sync.Mutex
 	client *containerd.Client
+
+	images *imageCache
 }
 
 // New creates a client. The connection is established on first use, so nerdui
@@ -75,6 +77,7 @@ func New(address, namespace string, opts ...Option) *Client {
 		address: address, namespace: namespace,
 		nerdctl:       newNerdctlChecker("nerdctl", false),
 		nerdctlConfig: *config.New(),
+		images:        newImageCache(),
 	}
 	for _, o := range opts {
 		o(c)
