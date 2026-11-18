@@ -4,8 +4,8 @@
 name: Install
 
 on:
-  release:
-    types: [published]
+  # Started by the Release workflow after publishing (a release made with GITHUB_TOKEN does not
+  # trigger `release` events), or by hand.
   # Changes to the check itself run it against the newest release.
   pull_request:
     paths: [.github/workflows/install.yml, scripts/nfr-bench.sh]
