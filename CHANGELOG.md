@@ -7,6 +7,10 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 
 ## [Unreleased]
 
+## [0.1.0-rc.1] - 2026-11-18
+
+Release candidate: namespace management, a faster image list and release-readiness checks.
+
 ### Added
 
 - **Namespaces:** a Namespaces page lists the environment's containerd namespaces with their
@@ -20,6 +24,12 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 - The image list is faster with many images: platforms and sizes are computed once per image
   digest and reused for 5 minutes; pulls, removals and prunes through nerdui refresh them at
   once (ADR-0029).
+
+### Upgrade notes
+
+- No database migration.
+- Every release is now installed on clean amd64 and arm64 hosts and measured against the NFRs
+  ([docs/nfr.md](docs/nfr.md)); `scripts/nfr-bench.sh` measures your own host.
 
 ## [0.1.0-beta.1] - 2026-11-16
 
@@ -256,7 +266,8 @@ First preview release: manage containers on one Linux host with containerd and n
 - Every user is an administrator; roles are planned (#78).
 - The container image is experimental (#145); install the binary with systemd.
 
-[Unreleased]: https://github.com/pessom/nerdui/compare/v0.1.0-beta.1...HEAD
+[Unreleased]: https://github.com/pessom/nerdui/compare/v0.1.0-rc.1...HEAD
+[0.1.0-rc.1]: https://github.com/pessom/nerdui/compare/v0.1.0-beta.1...v0.1.0-rc.1
 [0.1.0-beta.1]: https://github.com/pessom/nerdui/compare/v0.1.0-alpha.5...v0.1.0-beta.1
 [0.1.0-alpha.5]: https://github.com/pessom/nerdui/compare/v0.1.0-alpha.4...v0.1.0-alpha.5
 [0.1.0-alpha.4]: https://github.com/pessom/nerdui/compare/v0.1.0-alpha.3...v0.1.0-alpha.4
