@@ -84,6 +84,7 @@ Details: [docs/development.md](docs/development.md).
 - [Development](docs/development.md)
 - [Deployment](docs/deployment.md)
 - [Release process](docs/release.md)
+- [NFR verification](docs/nfr.md)
 - [API (OpenAPI)](api/openapi.yaml)
 - [Architecture decision records](docs/adr)
 - [Requirements & technical specification](docs/requirements)
