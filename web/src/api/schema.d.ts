@@ -2294,6 +2294,30 @@ export interface components {
             };
             /** @description Start after creating (like nerdctl run -d) */
             start?: boolean;
+            /** @description More networks after `network` (#18) */
+            extraNetworks?: string[];
+            /** @description Static IPv4 address in the first network */
+            ip?: string;
+            privileged?: boolean;
+            /**
+             * @example [
+             *       "NET_ADMIN"
+             *     ]
+             */
+            capAdd?: string[];
+            capDrop?: string[];
+            /**
+             * @description host[:container[:permissions]], as --device
+             * @example [
+             *       "/dev/net/tun",
+             *       "/dev/dri:/dev/dri:rw"
+             *     ]
+             */
+            devices?: string[];
+            /** @description DNS server addresses */
+            dns?: string[];
+            /** @description name:address entries for /etc/hosts; the address may be host-gateway */
+            extraHosts?: string[];
         };
         Job: {
             id: string;

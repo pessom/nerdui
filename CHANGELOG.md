@@ -14,6 +14,9 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
   them in the containers, images and stacks lists. Checks run on a schedule set in Settings →
   Image updates (off, 1, 6, 12 or 24 hours; every 6 hours by default) and on request with
   "Check for updates". Nothing is pulled or recreated automatically (#53, ADR-0030).
+- **Container creation:** an Advanced section sets more networks, a static IPv4 address,
+  privileged mode, added and dropped capabilities, devices, DNS servers and extra `/etc/hosts`
+  entries, each validated and passed as its own `nerdctl create` argument (#18).
 
 ### Upgrade notes
 

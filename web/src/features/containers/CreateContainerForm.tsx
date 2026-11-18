@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 import {
+  Accordion,
   ActionIcon,
   Alert,
   Button,
@@ -16,6 +17,7 @@ import {
   SimpleGrid,
   Stack,
   Text,
+  TagsInput,
   TextInput,
   Tooltip,
 } from "@mantine/core";
@@ -372,6 +374,65 @@ export function CreateContainerForm({
             />
           )}
         </SimpleGrid>
+
+        <Accordion variant="contained">
+          <Accordion.Item value="advanced">
+            <Accordion.Control>Advanced: networks, privileges, devices, DNS</Accordion.Control>
+            <Accordion.Panel>
+              <SimpleGrid cols={{ base: 1, sm: 2 }}>
+                <TagsInput
+                  label="More networks"
+                  description="Attached after the network above"
+                  value={form.extraNetworks}
+                  onChange={(extraNetworks) => set({ extraNetworks })}
+                />
+                <TextInput
+                  label="Static IP"
+                  description="IPv4 address in the first network"
+                  value={form.ip}
+                  onChange={(e) => set({ ip: e.currentTarget.value })}
+                />
+                <TagsInput
+                  label="Add capabilities"
+                  placeholder="NET_ADMIN"
+                  value={form.capAdd}
+                  onChange={(capAdd) => set({ capAdd })}
+                />
+                <TagsInput
+                  label="Drop capabilities"
+                  value={form.capDrop}
+                  onChange={(capDrop) => set({ capDrop })}
+                />
+                <TagsInput
+                  label="Devices"
+                  description="/host/path[:/container/path][:rwm]"
+                  placeholder="/dev/net/tun"
+                  value={form.devices}
+                  onChange={(devices) => set({ devices })}
+                />
+                <TagsInput
+                  label="DNS servers"
+                  placeholder="1.1.1.1"
+                  value={form.dns}
+                  onChange={(dns) => set({ dns })}
+                />
+                <TagsInput
+                  label="Extra hosts"
+                  description="name:address, or name:host-gateway"
+                  value={form.extraHosts}
+                  onChange={(extraHosts) => set({ extraHosts })}
+                />
+                <Checkbox
+                  mt="lg"
+                  label="Privileged"
+                  description="All capabilities and host devices: avoid unless required"
+                  checked={form.privileged}
+                  onChange={(e) => set({ privileged: e.currentTarget.checked })}
+                />
+              </SimpleGrid>
+            </Accordion.Panel>
+          </Accordion.Item>
+        </Accordion>
 
         <Rows<LabelRow>
           label="Labels"

@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/netip"
 	"os/exec"
 	"regexp"
 	"slices"
@@ -41,6 +42,20 @@ type CreateSpec struct {
 	// Restart is no, always, unless-stopped or on-failure[:N].
 	Restart string            `json:"restart,omitempty"`
 	Labels  map[string]string `json:"labels,omitempty"`
+
+	// Advanced settings (#18): extra networks after Network, a static IPv4 address in the
+	// first network, privileges, devices and name resolution.
+	ExtraNetworks []string `json:"extraNetworks,omitempty"`
+	IP            string   `json:"ip,omitempty"`
+	Privileged    bool     `json:"privileged,omitempty"`
+	CapAdd        []string `json:"capAdd,omitempty"`
+	CapDrop       []string `json:"capDrop,omitempty"`
+	// Devices are host[:container[:permissions]], as in --device.
+	Devices []string `json:"devices,omitempty"`
+	DNS     []string `json:"dns,omitempty"`
+	// ExtraHosts are name:address entries for /etc/hosts (--add-host); the address may be
+	// host-gateway.
+	ExtraHosts []string `json:"extraHosts,omitempty"`
 }
 
 // PortSpec publishes a container port.
@@ -73,6 +88,9 @@ var (
 	networkRe       = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_.:-]*$`)
 	userRe          = regexp.MustCompile(`^[a-zA-Z0-9_.-]+(:[a-zA-Z0-9_.-]+)?$`)
 	hostnameRe      = regexp.MustCompile(`^[a-zA-Z0-9]([a-zA-Z0-9.-]{0,252}[a-zA-Z0-9])?$`)
+	capabilityRe    = regexp.MustCompile(`^(?i:(CAP_)?[A-Z_]{2,32})$`)
+	devicePathRe    = regexp.MustCompile(`^/[^:\x00\n\r]*$`)
+	devicePermsRe   = regexp.MustCompile(`^[rwm]{1,3}$`)
 )
 
 func invalid(format string, args ...any) error {
@@ -144,6 +162,11 @@ func CreateArgs(s CreateSpec) ([]string, error) {
 		}
 		a = append(a, "--network="+s.Network)
 	}
+	advanced, err := advancedArgs(s)
+	if err != nil {
+		return nil, err
+	}
+	a = append(a, advanced...)
 	if s.Hostname != "" {
 		if !hostnameRe.MatchString(s.Hostname) {
 			return nil, invalid("invalid hostname %q", s.Hostname)
@@ -346,4 +369,79 @@ func (cc clientContainers) Create(ctx context.Context, namespace string, spec Cr
 		_, _ = fmt.Fprintf(out, "Started %s\r\n", id[:12])
 	}
 	return id, nil
+}
+
+// advancedArgs validates the advanced settings (#18).
+func advancedArgs(s CreateSpec) ([]string, error) {
+	var a []string
+	if len(s.ExtraNetworks) > 0 {
+		if s.Network == "" || s.Network == "host" || s.Network == "none" {
+			return nil, invalid("extra networks need a first network other than host or none")
+		}
+		for _, n := range s.ExtraNetworks {
+			if !networkRe.MatchString(n) || n == "host" || n == "none" || n == s.Network {
+				return nil, invalid("invalid extra network %q", n)
+			}
+			a = append(a, "--network="+n)
+		}
+	}
+	if s.IP != "" {
+		ip, err := netip.ParseAddr(s.IP)
+		if err != nil || !ip.Is4() {
+			return nil, invalid("ip must be an IPv4 address")
+		}
+		if s.Network == "" || s.Network == "host" || s.Network == "none" {
+			return nil, invalid("a static IP needs a network other than host or none")
+		}
+		a = append(a, "--ip="+ip.String())
+	}
+	if s.Privileged {
+		a = append(a, "--privileged")
+	}
+	for _, c := range s.CapAdd {
+		if !capabilityRe.MatchString(c) {
+			return nil, invalid("invalid capability %q", c)
+		}
+		a = append(a, "--cap-add="+strings.ToUpper(c))
+	}
+	for _, c := range s.CapDrop {
+		if !capabilityRe.MatchString(c) {
+			return nil, invalid("invalid capability %q", c)
+		}
+		a = append(a, "--cap-drop="+strings.ToUpper(c))
+	}
+	for _, d := range s.Devices {
+		parts := strings.Split(d, ":")
+		ok := len(parts) <= 3 && devicePathRe.MatchString(parts[0])
+		if ok && len(parts) >= 2 {
+			// host:perms or host:container[:perms]
+			ok = devicePathRe.MatchString(parts[1]) || (len(parts) == 2 && devicePermsRe.MatchString(parts[1]))
+		}
+		if ok && len(parts) == 3 {
+			ok = devicePermsRe.MatchString(parts[2])
+		}
+		if !ok {
+			return nil, invalid("device must be /host/path[:/container/path][:rwm], got %q", d)
+		}
+		a = append(a, "--device="+d)
+	}
+	for _, d := range s.DNS {
+		ip, err := netip.ParseAddr(d)
+		if err != nil {
+			return nil, invalid("DNS server must be an IP address, got %q", d)
+		}
+		a = append(a, "--dns="+ip.String())
+	}
+	for _, h := range s.ExtraHosts {
+		name, addr, ok := strings.Cut(h, ":")
+		if ok && addr != "host-gateway" {
+			_, err := netip.ParseAddr(addr)
+			ok = err == nil
+		}
+		if !ok || !hostnameRe.MatchString(name) {
+			return nil, invalid("extra host must be name:address, got %q", h)
+		}
+		a = append(a, "--add-host="+name+":"+addr)
+	}
+	return a, nil
 }

@@ -105,3 +105,45 @@ func TestIntegrationCreate(t *testing.T) {
 		t.Errorf("duplicate name: %v", err)
 	}
 }
+
+// TestIntegrationCreateAdvanced passes the advanced settings (#18) to nerdctl: the container
+// starts with the capabilities, device, DNS server and /etc/hosts entry.
+func TestIntegrationCreateAdvanced(t *testing.T) {
+	ncfg, _, err := LoadNerdctlConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := New(DefaultAddress, DefaultNamespace, WithNerdctlConfig(ncfg), WithNerdctl("nerdctl", false))
+	t.Cleanup(func() { _ = c.Close() })
+	name := "it-create-adv-" + strconv.FormatInt(time.Now().UnixNano(), 36)
+	t.Cleanup(func() { _ = exec.Command("nerdctl", "rm", "-f", name).Run() })
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	defer cancel()
+	spec := CreateSpec{
+		Image:      "docker.io/library/alpine:3",
+		Name:       name,
+		Command:    []string{"sh", "-c", "cat /etc/hosts /etc/resolv.conf; grep CapEff /proc/self/status; ls /dev/net/tun; sleep 300"},
+		CapAdd:     []string{"NET_ADMIN"},
+		CapDrop:    []string{"MKNOD"},
+		Devices:    []string{"/dev/net/tun"},
+		DNS:        []string{"9.9.9.9"},
+		ExtraHosts: []string{"db.internal:10.1.0.9"},
+	}
+	var out bytes.Buffer
+	if _, err := c.Containers().Create(ctx, DefaultNamespace, spec, true, &out); err != nil {
+		t.Fatalf("create: %v\n%s", err, out.String())
+	}
+	var logs string
+	for range 30 {
+		b, _ := exec.Command("nerdctl", "logs", name).CombinedOutput()
+		if logs = string(b); strings.Contains(logs, "/dev/net/tun") {
+			break
+		}
+		time.Sleep(time.Second)
+	}
+	for _, want := range []string{"10.1.0.9", "db.internal", "nameserver 9.9.9.9", "/dev/net/tun"} {
+		if !strings.Contains(logs, want) {
+			t.Errorf("logs lack %q:\n%s", want, logs)
+		}
+	}
+}
