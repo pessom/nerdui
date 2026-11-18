@@ -528,12 +528,43 @@ export interface paths {
         };
         /**
          * containerd namespaces of the environment
-         * @description Requires `system:read`.
+         * @description Requires `namespaces:read`.
          */
         get: operations["listNamespaces"];
         put?: never;
-        post?: never;
+        /**
+         * Create a namespace
+         * @description Requires `namespaces:write`; refused (503) in read-only mode. The name follows
+         *     containerd's identifier rules (letters, digits, `_`, `.`, `-`; up to 76 characters).
+         */
+        post: operations["createNamespace"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/environments/{env}/namespaces/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove an empty namespace
+         * @description Requires `namespaces:write`; refused (503) in read-only mode. Refused (409) while the
+         *     namespace holds containers, images, volumes or user-defined networks (the message names
+         *     them), or anything containerd still keeps there (content, snapshots, leases).
+         */
+        delete: operations["removeNamespace"];
         options?: never;
         head?: never;
         patch?: never;
@@ -1644,6 +1675,10 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        NamespaceSpec: {
+            /** @example lab */
+            name: string;
+        };
         Health: {
             /** @enum {string} */
             status: "ok";
@@ -3302,6 +3337,67 @@ export interface operations {
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    createNamespace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NamespaceSpec"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NamespaceSpec"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    removeNamespace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
             503: components["responses"]["Error"];
         };
     };

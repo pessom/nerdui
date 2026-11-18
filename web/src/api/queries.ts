@@ -270,3 +270,20 @@ export const stackCandidatesQuery = (env: string) =>
     queryFn: () =>
       unwrap(api.GET("/api/v1/environments/{env}/stack-candidates", { params: { path: { env } } })),
   });
+
+export type Summary = components["schemas"]["Summary"];
+
+/** Counts of all namespaces and disk usage (#63); volume sizes only on request. */
+export const summaryQuery = (env: string, volumeSizes = false) =>
+  queryOptions({
+    // Under env: container events refresh the counters.
+    queryKey: [...keys.env(env), "summary", { volumeSizes }] as const,
+    queryFn: () =>
+      unwrap(
+        api.GET("/api/v1/environments/{env}/summary", {
+          params: { path: { env }, query: { volumeSizes } },
+        }),
+      ),
+    // Volume sizes walk every volume: never polled (#90).
+    ...(volumeSizes && { refetchInterval: false as const }),
+  });

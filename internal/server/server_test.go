@@ -43,6 +43,8 @@ func (f fakeRuntime) Networks() runtime.Networks                         { retur
 func (f fakeRuntime) Compose() runtime.Compose                           { return nil }
 func (f fakeRuntime) Versions(context.Context) (runtime.Versions, error) { return f.v, f.err }
 func (f fakeRuntime) Namespaces(context.Context) ([]string, error)       { return []string{"default"}, f.err }
+func (f fakeRuntime) CreateNamespace(context.Context, string) error      { return f.err }
+func (f fakeRuntime) RemoveNamespace(context.Context, string) error      { return f.err }
 func (f fakeRuntime) Nerdctl(context.Context) runtime.NerdctlStatus {
 	return runtime.NerdctlStatus{Compatible: true}
 }
@@ -306,7 +308,9 @@ func TestRouteAuthorization(t *testing.T) {
 		"GET /api/v1/compose-schema":                                   "stacks:read",
 		"GET /api/v1/environments/{env}/":                              "system:read",
 		"GET /api/v1/environments/{env}/info":                          "system:read",
-		"GET /api/v1/environments/{env}/namespaces":                    "system:read",
+		"GET /api/v1/environments/{env}/namespaces":                    "namespaces:read",
+		"POST /api/v1/environments/{env}/namespaces":                   "namespaces:write",
+		"DELETE /api/v1/environments/{env}/namespaces/{name}":          "namespaces:write",
 		"GET /api/v1/environments/{env}/events/stream":                 "system:read",
 		"GET /api/v1/environments/{env}/events":                        "system:read",
 		"GET /api/v1/environments/{env}/containers":                    "containers:read",

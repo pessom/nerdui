@@ -19,7 +19,7 @@ import { IconRuler } from "@tabler/icons-react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { api, unwrap, type components } from "../../api/client";
-import { keys } from "../../api/queries";
+import { keys, summaryQuery } from "../../api/queries";
 import { RouterAnchor } from "../../components/RouterAnchor";
 import { Time } from "../../components/Time";
 import { eventColor, eventLabel, eventObject } from "../events/format";
@@ -28,19 +28,6 @@ import { useTopStats } from "./topStats";
 
 type Summary = components["schemas"]["Summary"];
 type TopContainer = components["schemas"]["TopContainer"];
-
-const summaryQuery = (env: string, volumeSizes: boolean) => ({
-  // Under env: container events refresh the counters.
-  queryKey: [...keys.env(env), "summary", { volumeSizes }] as const,
-  queryFn: () =>
-    unwrap(
-      api.GET("/api/v1/environments/{env}/summary", {
-        params: { path: { env }, query: { volumeSizes } },
-      }),
-    ),
-  // Volume sizes walk every volume: never polled (#90).
-  ...(volumeSizes && { refetchInterval: false as const }),
-});
 
 function Counter({
   env,

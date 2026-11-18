@@ -32,6 +32,9 @@ type System interface {
 	Versions(ctx context.Context) (Versions, error)
 	// Namespaces lists containerd namespaces.
 	Namespaces(ctx context.Context) ([]string, error)
+	// CreateNamespace and RemoveNamespace manage namespaces (#195); only empty ones are removed.
+	CreateNamespace(ctx context.Context, name string) error
+	RemoveNamespace(ctx context.Context, name string) error
 	// Nerdctl reports the nerdctl compatibility check; mutations require Writable().
 	Nerdctl(ctx context.Context) NerdctlStatus
 	// Info describes the host, runtime components and containerd plugins (#66).
