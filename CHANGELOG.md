@@ -7,6 +7,11 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-19
+
+A fix for published ports of stopped containers, container editing and updating, and image
+update checks.
+
 ### Added
 
 - **Image updates:** nerdui checks whether the tags of images used by containers point to a newer
@@ -30,7 +35,9 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 
 ### Upgrade notes
 
-- Database migration 6 (image update results) runs automatically at start.
+- Database migration 6 (image update results) runs automatically at start, with a backup.
+- Containers stopped from nerdui 0.1.0 may still hold their published ports: start and stop
+  them again, or restart them, to release the ports.
 
 ## [0.1.0] - 2026-11-18
 
@@ -317,7 +324,8 @@ First preview release: manage containers on one Linux host with containerd and n
 - Every user is an administrator; roles are planned (#78).
 - The container image is experimental (#145); install the binary with systemd.
 
-[Unreleased]: https://github.com/pessom/nerdui/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/pessom/nerdui/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/pessom/nerdui/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/pessom/nerdui/compare/v0.1.0-rc.1...v0.1.0
 [0.1.0-rc.1]: https://github.com/pessom/nerdui/compare/v0.1.0-beta.1...v0.1.0-rc.1
 [0.1.0-beta.1]: https://github.com/pessom/nerdui/compare/v0.1.0-alpha.5...v0.1.0-beta.1
