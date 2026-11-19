@@ -1639,6 +1639,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/environments/{env}/auto-updates/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Apply automatic updates waiting for approval
+         * @description Requires `settings:write` (#56, ADR-0033). When a scheduled check finds more due updates
+         *     than `maxBatch`, none is applied until approved. They are planned again and started in the
+         *     background; each runs as a job and is logged.
+         */
+        post: operations["approveAutoUpdates"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/environments/{env}/image-updates/check": {
         parameters: {
             query?: never;
@@ -1685,6 +1710,33 @@ export interface paths {
          * @description Requires `settings:write`.
          */
         put: operations["putImageUpdateSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/environments/{env}/settings/auto-updates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Guards of automatic updates
+         * @description Requires `settings:read` (#56). Default: no delay, approval above 5 updates.
+         */
+        get: operations["getAutoUpdateSettings"];
+        /**
+         * Set the guards of automatic updates
+         * @description Requires `settings:write`.
+         */
+        put: operations["putAutoUpdateSettings"];
         post?: never;
         delete?: never;
         options?: never;
@@ -1921,6 +1973,36 @@ export interface components {
             startedAt: string;
             /** Format: date-time */
             finishedAt: string;
+        };
+        AutoUpdatesLog: {
+            entries: components["schemas"]["AutoUpdateEntry"][];
+            pending?: components["schemas"]["AutoUpdatePending"];
+        };
+        /** @description Updates of the environment (all namespaces) waiting for approval */
+        AutoUpdatePending: {
+            /** Format: date-time */
+            since: string;
+            targets: {
+                /** @enum {string} */
+                kind: "container" | "stack";
+                namespace: string;
+                name: string;
+                services?: string[];
+                refs: string[];
+            }[];
+        };
+        AutoUpdateSettings: {
+            /**
+             * Format: int64
+             * @description How long a new image must have been seen in the registry before it is applied
+             * @enum {integer}
+             */
+            delaySeconds: 0 | 3600 | 21600 | 86400 | 259200 | 604800;
+            /**
+             * @description More due updates than this wait for approval; 0 never asks
+             * @enum {integer}
+             */
+            maxBatch: 0 | 1 | 3 | 5 | 10 | 20;
         };
         NamespaceSpec: {
             /** @example lab */
@@ -5254,14 +5336,42 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
+                    "application/json": components["schemas"]["AutoUpdatesLog"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            501: components["responses"]["Error"];
+        };
+    };
+    approveAutoUpdates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Started */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
                     "application/json": {
-                        entries: components["schemas"]["AutoUpdateEntry"][];
+                        updates: number;
                     };
                 };
             };
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
             501: components["responses"]["Error"];
         };
     };
@@ -5348,6 +5458,65 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ImageUpdateSettings"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            501: components["responses"]["Error"];
+        };
+    };
+    getAutoUpdateSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Settings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutoUpdateSettings"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            501: components["responses"]["Error"];
+        };
+    };
+    putAutoUpdateSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AutoUpdateSettings"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutoUpdateSettings"];
                 };
             };
             400: components["responses"]["Error"];

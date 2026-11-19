@@ -12,10 +12,13 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 - Automatic updates: containers and compose services labeled `nerdui.auto-update=true` ("Update
   automatically" in the container form) are pulled and recreated after a scheduled image check
   finds a newer image; a log of updates is under Settings → Image updates (#54).
+- Guards for automatic updates: a minimum time since a new image appeared, and approval when more
+  updates than a threshold (5 by default) are due at once (#56).
 
 ### Upgrade notes
 
-- Database migration 7 (automatic update log) is applied on start.
+- Database migrations 7 (automatic update log) and 8 (when new images were first seen) are
+  applied on start.
 
 ## [0.1.1] - 2026-11-19
 

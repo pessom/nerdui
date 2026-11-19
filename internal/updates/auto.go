@@ -5,11 +5,13 @@ package updates
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pessom/nerdui/internal/authz"
@@ -59,6 +61,8 @@ type AutoStore interface {
 	LastAutoUpdate(ctx context.Context, arg db.LastAutoUpdateParams) (db.AutoUpdate, error)
 	ListAutoUpdates(ctx context.Context, arg db.ListAutoUpdatesParams) ([]db.AutoUpdate, error)
 	PruneAutoUpdates(ctx context.Context, arg db.PruneAutoUpdatesParams) error
+	GetSetting(ctx context.Context, key string) (string, error)
+	SetSetting(ctx context.Context, arg db.SetSettingParams) error
 }
 
 // JobRunner starts jobs; *jobs.Manager implements it.
@@ -78,21 +82,132 @@ type Updater struct {
 	Jobs   JobRunner
 	Stacks StackDefinitions // nil: stack services are skipped
 	Now    func() time.Time
+	// Base is the context of approved updates, canceled on shutdown; nil: never canceled.
+	Base context.Context //nolint:containedctx // background work outlives the approving request
+
+	mu      sync.Mutex
+	running map[string]bool
+	pending map[string]Pending // by environment
+}
+
+// Delays are the allowed minimum ages of a new image before it is applied (#56).
+var Delays = []time.Duration{0, time.Hour, 6 * time.Hour, 24 * time.Hour, 72 * time.Hour, 168 * time.Hour}
+
+// MaxBatches are the allowed thresholds above which updates wait for approval; 0 never asks.
+var MaxBatches = []int{0, 1, 3, 5, 10, 20}
+
+// DefaultMaxBatch applies until an administrator chooses another.
+const DefaultMaxBatch = 5
+
+// ErrInvalidAutoSettings is returned for settings outside Delays and MaxBatches.
+var ErrInvalidAutoSettings = errors.New("invalid automatic update settings")
+
+// ErrNothingPending is returned when approving without waiting updates.
+var ErrNothingPending = errors.New("no automatic updates wait for approval")
+
+// AutoSettings guard automatic updates of an environment (#56, ADR-0033). Keep in sync with
+// api/openapi.yaml.
+type AutoSettings struct {
+	// DelaySeconds is how long a new registry digest must have been seen before it is applied.
+	DelaySeconds int64 `json:"delaySeconds"`
+	// MaxBatch: when more updates than this are due at once, they wait for approval (0: never).
+	MaxBatch int `json:"maxBatch"`
+}
+
+// Pending are updates waiting for approval because there were more than MaxBatch.
+type Pending struct {
+	Since   time.Time `json:"since"`
+	Targets []Target  `json:"targets"`
+}
+
+func autoSettingKey(env string) string { return "environments/" + env + "/auto-updates" }
+
+// Settings returns the environment's automatic update settings.
+func (u *Updater) Settings(ctx context.Context, env string) (AutoSettings, error) {
+	def := AutoSettings{MaxBatch: DefaultMaxBatch}
+	v, err := u.Store.GetSetting(ctx, autoSettingKey(env))
+	if store.IsNotFound(err) {
+		return def, nil
+	}
+	if err != nil {
+		return AutoSettings{}, err
+	}
+	var s AutoSettings
+	if json.Unmarshal([]byte(v), &s) != nil || s.validate() != nil {
+		return def, nil
+	}
+	return s, nil
+}
+
+func (s AutoSettings) validate() error {
+	if !slices.Contains(Delays, time.Duration(s.DelaySeconds)*time.Second) || !slices.Contains(MaxBatches, s.MaxBatch) {
+		return fmt.Errorf("%w: delay %ds, batch %d", ErrInvalidAutoSettings, s.DelaySeconds, s.MaxBatch)
+	}
+	return nil
+}
+
+// SetSettings stores the environment's automatic update settings.
+func (u *Updater) SetSettings(ctx context.Context, env string, s AutoSettings) error {
+	if err := s.validate(); err != nil {
+		return err
+	}
+	b, _ := json.Marshal(s)
+	return u.Store.SetSetting(ctx, db.SetSettingParams{Key: autoSettingKey(env), Value: string(b), Now: u.now().Unix()})
+}
+
+// PendingFor returns the updates of an environment waiting for approval, if any.
+func (u *Updater) PendingFor(env string) (Pending, bool) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	p, ok := u.pending[env]
+	return p, ok
+}
+
+func (u *Updater) setPending(env string, p *Pending) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	if p == nil {
+		delete(u.pending, env)
+		return
+	}
+	if u.pending == nil {
+		u.pending = map[string]Pending{}
+	}
+	u.pending[env] = *p
+}
+
+func (u *Updater) begin(env string) bool {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	if u.running == nil {
+		u.running = map[string]bool{}
+	}
+	if u.running[env] {
+		return false
+	}
+	u.running[env] = true
+	return true
+}
+
+func (u *Updater) end(env string) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	delete(u.running, env)
 }
 
 // Target is one update: a standalone container, or the opted-in services of a stack.
 type Target struct {
-	Kind      string
-	Namespace string
+	Kind      string `json:"kind"`
+	Namespace string `json:"namespace"`
 	// Name is the container name or the stack (compose project) name.
-	Name string
+	Name string `json:"name"`
 	// ContainerID is set for containers.
-	ContainerID string
+	ContainerID string `json:"-"`
 	// Services are the stack's services to update.
-	Services []string
+	Services []string `json:"services,omitempty"`
 	// Refs and Digests are the image references and the registry digests they update to.
-	Refs    []string
-	Digests []string
+	Refs    []string `json:"refs"`
+	Digests []string `json:"-"`
 }
 
 // Entry is a row of the auto-update log. Keep in sync with api/openapi.yaml.
@@ -118,14 +233,16 @@ func (u *Updater) now() time.Time {
 
 // Plan lists the updates due in an environment: opted-in containers whose image reference has a
 // newer registry digest than the local image, grouped by stack for compose services.
-func (u *Updater) Plan(ctx context.Context, env *environment.Environment) ([]Target, error) {
+//
+// A registry digest first seen less than delay ago is not due yet (#56).
+func (u *Updater) Plan(ctx context.Context, env *environment.Environment, delay time.Duration) ([]Target, error) {
 	rows, err := u.Store.ListImageUpdates(ctx, env.ID)
 	if err != nil {
 		return nil, err
 	}
 	remote := map[string]string{}
 	for _, r := range rows {
-		if r.Error == "" && r.RemoteDigest != "" {
+		if r.Error == "" && r.RemoteDigest != "" && u.now().Sub(time.Unix(r.SeenAt, 0)) >= delay {
 			remote[r.Ref] = r.RemoteDigest
 		}
 	}
@@ -186,24 +303,80 @@ func (u *Updater) Plan(ctx context.Context, env *environment.Environment) ([]Tar
 	return out, nil
 }
 
-// Run applies the planned updates of an environment one at a time and logs each.
+// ErrUpdating is returned while automatic updates of the environment run.
+var ErrUpdating = errors.New("automatic updates are already running")
+
+// Run applies the planned updates of an environment one at a time and logs each. When more are
+// due than the environment's MaxBatch, nothing is applied and they wait for Approve (#56).
 func (u *Updater) Run(ctx context.Context, env *environment.Environment) error {
+	if !u.begin(env.ID) {
+		return ErrUpdating
+	}
+	defer u.end(env.ID)
 	if err := u.Store.PruneAutoUpdates(ctx, db.PruneAutoUpdatesParams{
 		Environment: env.ID, Before: u.now().Add(-logRetention).Unix(),
 	}); err != nil {
 		return err
 	}
-	targets, err := u.Plan(ctx, env)
+	set, err := u.Settings(ctx, env.ID)
 	if err != nil {
 		return err
 	}
+	targets, err := u.Plan(ctx, env, time.Duration(set.DelaySeconds)*time.Second)
+	if err != nil {
+		return err
+	}
+	if set.MaxBatch > 0 && len(targets) > set.MaxBatch {
+		since := u.now()
+		if p, ok := u.PendingFor(env.ID); ok {
+			since = p.Since
+		}
+		u.setPending(env.ID, &Pending{Since: since, Targets: targets})
+		return nil
+	}
+	u.setPending(env.ID, nil)
+	u.applyAll(ctx, env, targets)
+	return nil
+}
+
+// Approve applies the updates waiting for approval, re-planned now so that updates done or
+// withdrawn meanwhile are left out; it returns once they have started.
+func (u *Updater) Approve(ctx context.Context, env *environment.Environment) (int, error) {
+	if _, ok := u.PendingFor(env.ID); !ok {
+		return 0, ErrNothingPending
+	}
+	if !u.begin(env.ID) {
+		return 0, ErrUpdating
+	}
+	set, err := u.Settings(ctx, env.ID)
+	if err != nil {
+		u.end(env.ID)
+		return 0, err
+	}
+	targets, err := u.Plan(ctx, env, time.Duration(set.DelaySeconds)*time.Second)
+	if err != nil {
+		u.end(env.ID)
+		return 0, err
+	}
+	u.setPending(env.ID, nil)
+	go func() {
+		defer u.end(env.ID)
+		base := u.Base
+		if base == nil {
+			base = context.WithoutCancel(ctx)
+		}
+		u.applyAll(base, env, targets)
+	}()
+	return len(targets), nil
+}
+
+func (u *Updater) applyAll(ctx context.Context, env *environment.Environment, targets []Target) {
 	for _, t := range targets {
-		if err := ctx.Err(); err != nil {
-			return err
+		if ctx.Err() != nil {
+			return
 		}
 		u.apply(ctx, env, t)
 	}
-	return nil
 }
 
 func (u *Updater) apply(ctx context.Context, env *environment.Environment, t Target) {

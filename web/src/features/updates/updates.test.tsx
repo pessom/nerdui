@@ -85,7 +85,8 @@ describe("image updates", () => {
 
   it("saves the check schedule in Settings", async () => {
     let interval = 21600;
-    fakeApi({
+    let approved = false;
+    const { calls } = fakeApi({
       ...signedIn,
       "GET /api/v1/environments/local/settings/prometheus": () => json(200, { configured: false }),
       "GET /api/v1/environments/local/settings/image-updates": () =>
@@ -95,8 +96,28 @@ describe("image updates", () => {
         return json(200, { intervalSeconds: interval });
       },
       "GET /api/v1/environments/local/image-updates": () => json(200, overview(true)),
+      "GET /api/v1/environments/local/settings/auto-updates": () =>
+        json(200, { delaySeconds: 0, maxBatch: 5 }),
+      "PUT /api/v1/environments/local/settings/auto-updates": (c) => json(200, c.body),
+      "POST /api/v1/environments/local/auto-updates/approve": () => {
+        approved = true;
+        return json(202, { updates: 1 });
+      },
       "GET /api/v1/environments/local/auto-updates": () =>
         json(200, {
+          pending: approved
+            ? undefined
+            : {
+                since: "2027-03-01T10:00:00Z",
+                targets: [
+                  {
+                    kind: "container",
+                    namespace: "default",
+                    name: "db",
+                    refs: ["docker.io/library/postgres:17"],
+                  },
+                ],
+              },
           entries: [
             {
               id: 2,
@@ -137,5 +158,23 @@ describe("image updates", () => {
     expect(await within(log).findByText("Stack app")).toBeInTheDocument();
     expect(within(log).getByText("recreating would lose settings: tmpfs")).toBeInTheDocument();
     expect(within(log).getByText("updated")).toBeInTheDocument();
+
+    expect(within(log).getByText("1 updates wait for approval")).toBeInTheDocument();
+    expect(within(log).getByText(/db \(default\)/)).toBeInTheDocument();
+    fireEvent.click(within(log).getByRole("button", { name: "Approve and update" }));
+    await waitFor(() =>
+      expect(within(log).queryByText("1 updates wait for approval")).not.toBeInTheDocument(),
+    );
+
+    const delay = within(log).getByLabelText("Wait before applying a new image", {
+      selector: "input",
+    });
+    fireEvent.click(delay);
+    fireEvent.click(await screen.findByRole("option", { name: "3 days", hidden: true }));
+    await waitFor(() =>
+      expect(
+        calls.find((c) => c.method === "PUT" && c.path.endsWith("/settings/auto-updates"))?.body,
+      ).toEqual({ delaySeconds: 259200, maxBatch: 5 }),
+    );
   });
 });

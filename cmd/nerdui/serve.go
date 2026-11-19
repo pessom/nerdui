@@ -128,7 +128,7 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 	}
 	// Image update checks (#53) on each environment's schedule, each followed by the automatic
 	// updates of opted-in containers and stacks (#54).
-	autoUpdates := &updates.Updater{Store: st.Write(), Jobs: jobManager, Stacks: stackService}
+	autoUpdates := &updates.Updater{Store: st.Write(), Jobs: jobManager, Stacks: stackService, Base: checkCtx}
 	imageUpdates := &updates.Checker{Environments: envs, Store: st.Write(), Logger: logger, AfterCheck: autoUpdates.Run}
 	checks.Go(func() { imageUpdates.Run(checkCtx) })
 
