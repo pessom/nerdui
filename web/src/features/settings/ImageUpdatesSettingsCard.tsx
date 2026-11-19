@@ -55,8 +55,8 @@ export function ImageUpdatesSettingsCard({ env, namespace }: { env: string; name
           <Text size="sm" c="dimmed">
             nerdui asks the registries whether the tags of images used by containers point to a
             newer image, with one HEAD request per tag (Docker Hub does not count it as a pull).
-            Images with updates are marked in the containers and images lists. Only containers
-            that opted in are updated automatically, below.
+            Images with updates are marked in the containers and images lists. Only containers that
+            opted in are updated automatically, below.
           </Text>
         </div>
         {settings.isPending && <Loader aria-label="Loading settings" />}
