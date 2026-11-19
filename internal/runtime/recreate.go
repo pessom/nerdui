@@ -5,16 +5,20 @@ package runtime
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"strconv"
+	"strings"
 	"time"
 
+	containerd "github.com/containerd/containerd/v2/client"
 	"github.com/containerd/containerd/v2/pkg/namespaces"
 	"github.com/containerd/errdefs"
 	"github.com/containerd/nerdctl/v2/pkg/api/types"
 	ncontainer "github.com/containerd/nerdctl/v2/pkg/cmd/container"
+	"github.com/containerd/nerdctl/v2/pkg/store"
 )
 
 // RecreateOptions control Recreate.
@@ -79,7 +83,7 @@ func (cc clientContainers) Recreate(ctx context.Context, namespace, ref string, 
 	if len(parked) > 128 {
 		parked = "nerdui-old-" + oldID[:12]
 	}
-	if err := ncontainer.Rename(nctx, cl, oldID, parked, types.ContainerRenameOptions{Stdout: io.Discard, GOptions: gopts}); err != nil {
+	if err := cc.rename(nctx, cl, oldID, parked, gopts); err != nil {
 		cc.restart(bg, namespace, oldID, cur.Running, out)
 		return "", fmt.Errorf("rename %s: %w", spec.Name, classify(err))
 	}
@@ -102,7 +106,7 @@ func (cc clientContainers) Recreate(ctx context.Context, namespace, ref string, 
 		if newID != "" {
 			_ = cc.Do(bg, namespace, newID, ActionRemove, ActionOptions{Force: true})
 		}
-		if rerr := ncontainer.Rename(namespaces.WithNamespace(bg, namespace), cl, oldID, spec.Name, types.ContainerRenameOptions{Stdout: io.Discard, GOptions: gopts}); rerr != nil {
+		if rerr := cc.rename(namespaces.WithNamespace(bg, namespace), cl, oldID, spec.Name, gopts); rerr != nil {
 			return "", fmt.Errorf("%w; restoring the name failed too (%w): the previous container is %s", err, rerr, parked)
 		}
 		cc.restart(bg, namespace, oldID, cur.Running, out)
@@ -174,4 +178,20 @@ func tryBind(ctx context.Context, proto, addr string) error {
 		_ = l.Close()
 	}
 	return err
+}
+
+// rename renames a container like `nerdctl rename`. Deleting a stopped task runs nerdctl's
+// post-stop hook, which already released the name in nerdctl's name store (starting the
+// container acquires it again from the OCI spec); then only the name label changes.
+func (cc clientContainers) rename(ctx context.Context, cl *containerd.Client, id, name string, gopts types.GlobalCommandOptions) error {
+	err := ncontainer.Rename(ctx, cl, id, name, types.ContainerRenameOptions{Stdout: io.Discard, GOptions: gopts})
+	if err == nil || !errors.Is(err, store.ErrNotFound) && !strings.Contains(err.Error(), "does not exist") {
+		return err
+	}
+	c, lerr := cl.LoadContainer(ctx, id)
+	if lerr != nil {
+		return lerr
+	}
+	_, lerr = c.SetLabels(ctx, map[string]string{"nerdctl/name": name})
+	return lerr
 }
