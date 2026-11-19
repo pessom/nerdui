@@ -17,6 +17,7 @@ import (
 	"github.com/pessom/nerdui/internal/authz"
 	"github.com/pessom/nerdui/internal/environment"
 	"github.com/pessom/nerdui/internal/jobs"
+	"github.com/pessom/nerdui/internal/notify"
 	"github.com/pessom/nerdui/internal/runtime"
 	"github.com/pessom/nerdui/internal/stacks"
 	"github.com/pessom/nerdui/internal/store"
@@ -82,6 +83,8 @@ type Updater struct {
 	Jobs   JobRunner
 	Stacks StackDefinitions // nil: stack services are skipped
 	Now    func() time.Time
+	// Notify, when set, receives events about updates done, failed and waiting (#86).
+	Notify func(notify.Event)
 	// Base is the context of approved updates, canceled on shutdown; nil: never canceled.
 	Base context.Context //nolint:containedctx // background work outlives the approving request
 
@@ -328,10 +331,19 @@ func (u *Updater) Run(ctx context.Context, env *environment.Environment) error {
 	}
 	if set.MaxBatch > 0 && len(targets) > set.MaxBatch {
 		since := u.now()
-		if p, ok := u.PendingFor(env.ID); ok {
+		p, waiting := u.PendingFor(env.ID)
+		if waiting {
 			since = p.Since
 		}
 		u.setPending(env.ID, &Pending{Since: since, Targets: targets})
+		if !waiting {
+			u.notify(notify.Event{
+				Kind: notify.KindAutoUpdatePending, Severity: notify.SeverityWarning, Environment: env.ID,
+				Title:   fmt.Sprintf("%d automatic updates wait for approval", len(targets)),
+				Message: "Approve them under Settings → Image updates.",
+				Object:  "pending",
+			})
+		}
 		return nil
 	}
 	u.setPending(env.ID, nil)
@@ -512,7 +524,29 @@ func (u *Updater) stack(ctx context.Context, name string) (stacks.Definition, er
 	return stacks.Definition{}, errUnknownStack
 }
 
+func (u *Updater) notify(ev notify.Event) {
+	if u.Notify != nil {
+		u.Notify(ev)
+	}
+}
+
 func (u *Updater) record(ctx context.Context, env *environment.Environment, t Target, status, msg, jobID string, started time.Time) {
+	what := "Container " + t.Name
+	if t.Kind == KindStack {
+		what = "Stack " + t.Name
+	}
+	switch status {
+	case StatusUpdated:
+		u.notify(notify.Event{
+			Kind: notify.KindAutoUpdateDone, Severity: notify.SeverityInfo, Environment: env.ID, Namespace: t.Namespace,
+			Title: what + " updated", Message: strings.Join(t.Refs, ", "), Object: t.Kind + "/" + t.Name,
+		})
+	case StatusFailed:
+		u.notify(notify.Event{
+			Kind: notify.KindAutoUpdateFailed, Severity: notify.SeverityError, Environment: env.ID, Namespace: t.Namespace,
+			Title: what + " could not be updated", Message: msg, Object: t.Kind + "/" + t.Name,
+		})
+	}
 	_ = u.Store.AddAutoUpdate(context.WithoutCancel(ctx), db.AddAutoUpdateParams{
 		Environment: env.ID, Namespace: t.Namespace, Kind: t.Kind, Name: t.Name,
 		Refs: strings.Join(t.Refs, ","), Digests: strings.Join(t.Digests, ","),

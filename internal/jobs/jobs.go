@@ -88,7 +88,9 @@ type Manager struct {
 	MaxJobs   int
 	Retention time.Duration
 	MaxOutput int
-	now       func() time.Time
+	// OnFinish, when set, is called with each finished job, outside the manager's locks.
+	OnFinish func(Job)
+	now      func() time.Time
 
 	base   context.Context
 	stop   context.CancelFunc
@@ -197,6 +199,9 @@ func (m *Manager) finish(ctx context.Context, e *entry, err error) {
 		delete(m.locks, e.job.Resource)
 	}
 	job := e.job
+	if f := m.OnFinish; f != nil {
+		go f(job)
+	}
 	m.broadcastLocked(e, Update{Job: &job})
 	for c := range e.subs {
 		close(c)

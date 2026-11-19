@@ -21,6 +21,7 @@ import (
 	"github.com/containerd/errdefs"
 
 	"github.com/pessom/nerdui/internal/environment"
+	"github.com/pessom/nerdui/internal/notify"
 	"github.com/pessom/nerdui/internal/store"
 	"github.com/pessom/nerdui/internal/store/db"
 )
@@ -63,6 +64,8 @@ type Checker struct {
 	Now          func() time.Time
 	// AfterCheck runs after each successful scheduled check, e.g. Updater.Run (#54).
 	AfterCheck func(ctx context.Context, env *environment.Environment) error
+	// Notify, when set, receives an event when a check finds new images for tags in use (#96).
+	Notify func(notify.Event)
 
 	mu      sync.Mutex
 	running map[string]bool
@@ -304,6 +307,12 @@ func (c *Checker) Check(ctx context.Context, env *environment.Environment, ref s
 		sem = make(chan struct{}, concurrency)
 	)
 	results := map[string]string{} // ref -> remote digest
+	previous := map[string]string{}
+	if rows, err := c.Store.ListImageUpdates(ctx, env.ID); err == nil {
+		for _, row := range rows {
+			previous[row.Ref] = row.RemoteDigest
+		}
+	}
 	for _, r := range refs {
 		wg.Add(1)
 		sem <- struct{}{}
@@ -355,10 +364,37 @@ func (c *Checker) Check(ctx context.Context, env *environment.Environment, ref s
 			}
 		}
 		rep.Updates = len(updated)
+		c.notifyNew(env, updated, results, previous)
 	}
 	c.log().Info("image update check", "environment", env.ID, "ref", ref,
 		"checked", rep.Checked, "updates", rep.Updates, "failed", rep.Failed)
 	return rep, nil
+}
+
+// notifyNew sends one event for the references whose update is new: the registry digest
+// changed since the previous check.
+func (c *Checker) notifyNew(env *environment.Environment, updated map[string]bool, results, previous map[string]string) {
+	if c.Notify == nil {
+		return
+	}
+	var refs []string
+	for r := range updated {
+		if results[r] != previous[r] {
+			refs = append(refs, r)
+		}
+	}
+	if len(refs) == 0 {
+		return
+	}
+	sort.Strings(refs)
+	title := "New image for " + refs[0]
+	if len(refs) > 1 {
+		title = fmt.Sprintf("New images for %d tags in use", len(refs))
+	}
+	c.Notify(notify.Event{
+		Kind: notify.KindImageUpdate, Severity: notify.SeverityInfo, Environment: env.ID,
+		Title: title, Message: strings.Join(refs, "\n"), Object: strings.Join(refs, ","),
+	})
 }
 
 func truncate(s string) string {

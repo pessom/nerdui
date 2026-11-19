@@ -126,17 +126,34 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 	hostname, _ := os.Hostname()
 	notifier := &notify.Service{Store: st.Write(), Host: hostname, Logger: logger}
 	checks.Go(func() { notifier.Run(checkCtx) })
+	for _, env := range envs.List() {
+		w := &notify.Watcher{Env: env, Notifier: notifier, Logger: logger}
+		checks.Go(func() { w.Run(checkCtx) })
+	}
 
 	// Background jobs (#126) are canceled and awaited when serving ends.
 	jobManager := jobs.NewManager()
 	defer jobManager.Close()
+	jobManager.OnFinish = func(j jobs.Job) {
+		// Automatic updates report their own failures.
+		if j.Status == jobs.StatusFailed && j.User != updates.AutoUser {
+			notifier.Notify(notify.Event{
+				Kind: notify.KindJobFailed, Severity: notify.SeverityError, Environment: j.Environment,
+				Namespace: j.Namespace, Title: j.Title + " failed", Message: j.Error, Object: j.ID,
+			})
+		}
+	}
 	stackService := &stacks.Service{
 		Dir: cfg.EffectiveStacksDir(), Registry: st.Read(), Writer: st.Write(), ScanDirs: cfg.StacksScanDirs,
 	}
 	// Image update checks (#53) on each environment's schedule, each followed by the automatic
 	// updates of opted-in containers and stacks (#54).
-	autoUpdates := &updates.Updater{Store: st.Write(), Jobs: jobManager, Stacks: stackService, Base: checkCtx}
-	imageUpdates := &updates.Checker{Environments: envs, Store: st.Write(), Logger: logger, AfterCheck: autoUpdates.Run}
+	autoUpdates := &updates.Updater{
+		Store: st.Write(), Jobs: jobManager, Stacks: stackService, Base: checkCtx, Notify: notifier.Notify,
+	}
+	imageUpdates := &updates.Checker{
+		Environments: envs, Store: st.Write(), Logger: logger, AfterCheck: autoUpdates.Run, Notify: notifier.Notify,
+	}
 	checks.Go(func() { imageUpdates.Run(checkCtx) })
 
 	// Hijacked WebSocket connections are neither tracked nor closed by Shutdown; their

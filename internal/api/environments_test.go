@@ -445,6 +445,8 @@ type pullCall struct {
 }
 
 func (f *fakeRuntime) List(_ context.Context, ns string) ([]runtime.Container, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.gotNS = ns
 	return f.containers, f.err
 }

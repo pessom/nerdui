@@ -7,6 +7,7 @@ import (
 	"context"
 	"net/http"
 	"slices"
+	"sync"
 	"testing"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/pessom/nerdui/internal/authz"
 	"github.com/pessom/nerdui/internal/environment"
 	"github.com/pessom/nerdui/internal/jobs"
+	"github.com/pessom/nerdui/internal/notify"
 	"github.com/pessom/nerdui/internal/runtime"
 	"github.com/pessom/nerdui/internal/stacks"
 	"github.com/pessom/nerdui/internal/store"
@@ -61,13 +63,40 @@ func TestAutoUpdates(t *testing.T) {
 	envs := environment.NewRegistry(env)
 	m := jobs.NewManager()
 	t.Cleanup(m.Close)
-	checker := &updates.Checker{Environments: envs, Store: st.Write()}
+	var evMu sync.Mutex
+	var sent []notify.Event
+	collect := func(e notify.Event) {
+		evMu.Lock()
+		defer evMu.Unlock()
+		sent = append(sent, e)
+	}
+	kinds := func() []string {
+		evMu.Lock()
+		defer evMu.Unlock()
+		var k []string
+		for _, e := range sent {
+			k = append(k, e.Kind+" "+e.Title)
+		}
+		sent = nil
+		return k
+	}
+	checker := &updates.Checker{Environments: envs, Store: st.Write(), Notify: collect}
 	u := &updates.Updater{
-		Store: st.Write(), Jobs: m,
+		Store: st.Write(), Jobs: m, Notify: collect,
 		Stacks: fakeStackDefs{{Name: "app", Dir: "/srv/app", File: "compose.yaml"}},
 	}
 	if _, err := checker.Check(ctx, env, ""); err != nil {
 		t.Fatal(err)
+	}
+	if k := kinds(); !slices.Equal(k, []string{"image.update New image for docker.io/library/nginx:1"}) {
+		t.Errorf("check events %q", k)
+	}
+	// The same digest again is not new.
+	if _, err := checker.Check(ctx, env, ""); err != nil {
+		t.Fatal(err)
+	}
+	if k := kinds(); len(k) != 0 {
+		t.Errorf("repeated check events %q", k)
 	}
 
 	plan, err := u.Plan(ctx, env, 0)
@@ -83,6 +112,9 @@ func TestAutoUpdates(t *testing.T) {
 	}
 	if len(rt.recreated) != 1 || !rt.recreatePull || rt.recreated[0].Name != "web" {
 		t.Errorf("recreated %+v pull %v", rt.recreated, rt.recreatePull)
+	}
+	if k := kinds(); !slices.Equal(k, []string{"autoupdate.updated Container web updated", "autoupdate.updated Stack app updated"}) {
+		t.Errorf("update events %q", k)
 	}
 	if !slices.Equal(rt.composeRuns, []string{"pull app /srv/app", "up app /srv/app"}) ||
 		!slices.Equal(rt.composeOpts[1].Services, []string{"web"}) {
@@ -182,7 +214,12 @@ func TestAutoUpdateGuards(t *testing.T) {
 	now := t0
 	clock := func() time.Time { return now }
 	checker := &updates.Checker{Environments: envs, Store: st.Write(), Now: clock}
-	u := &updates.Updater{Store: st.Write(), Jobs: m, Now: clock}
+	var pendingEvents int
+	u := &updates.Updater{Store: st.Write(), Jobs: m, Now: clock, Notify: func(e notify.Event) {
+		if e.Kind == notify.KindAutoUpdatePending {
+			pendingEvents++
+		}
+	}}
 	if _, err := checker.Check(ctx, env, ""); err != nil {
 		t.Fatal(err)
 	}
@@ -227,8 +264,13 @@ func TestAutoUpdateGuards(t *testing.T) {
 	if rec := send(t, r, http.MethodPut, "/api/v1/environments/local/settings/auto-updates", `{"delaySeconds":0,"maxBatch":1}`); rec.Code != http.StatusOK {
 		t.Fatalf("save: %d %s", rec.Code, rec.Body)
 	}
-	if err := u.Run(ctx, env); err != nil || recreated() != 3 {
-		t.Fatalf("over the threshold: %v, %d recreated", err, recreated())
+	for range 2 {
+		if err := u.Run(ctx, env); err != nil || recreated() != 3 {
+			t.Fatalf("over the threshold: %v, %d recreated", err, recreated())
+		}
+	}
+	if pendingEvents != 1 {
+		t.Errorf("pending notified %d times", pendingEvents)
 	}
 	var log AutoUpdatesLog
 	if rec := do(t, r, "/api/v1/environments/local/auto-updates?namespace=default", &log); rec.Code != http.StatusOK || log.Pending == nil || len(log.Pending.Targets) != 3 {

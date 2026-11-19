@@ -15,7 +15,8 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 - Guards for automatic updates: a minimum time since a new image appeared, and approval when more
   updates than a threshold (5 by default) are due at once (#56).
 - Notifications: webhook, Slack, Discord, Telegram, ntfy, Gotify and email channels under
-  Settings → Notifications, each receiving the events it subscribes to, with a test message (#86).
+  Settings → Notifications, each receiving the events it subscribes to: new images, automatic
+  updates, crashed containers and failed operations (#86, #96).
 
 ### Upgrade notes
 

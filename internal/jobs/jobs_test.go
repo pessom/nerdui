@@ -202,3 +202,23 @@ func TestPrune(t *testing.T) {
 		t.Errorf("after retention: %v (finished %v)", got, finished)
 	}
 }
+
+func TestOnFinish(t *testing.T) {
+	m := NewManager()
+	defer m.Close()
+	done := make(chan Job, 1)
+	m.OnFinish = func(j Job) { done <- j }
+	if _, err := m.Start(Spec{Kind: "image.pull", Title: "Pull x"}, func(context.Context, *Output) error {
+		return errors.New("boom")
+	}); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case j := <-done:
+		if j.Status != StatusFailed || j.Error != "boom" || j.Title != "Pull x" {
+			t.Errorf("job %+v", j)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("OnFinish not called")
+	}
+}
