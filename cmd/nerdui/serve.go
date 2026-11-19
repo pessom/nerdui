@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"os"
 	"sync"
 	"syscall"
 	"time"
@@ -22,6 +23,7 @@ import (
 	"github.com/pessom/nerdui/internal/environment"
 	"github.com/pessom/nerdui/internal/events"
 	"github.com/pessom/nerdui/internal/jobs"
+	"github.com/pessom/nerdui/internal/notify"
 	"github.com/pessom/nerdui/internal/runtime"
 	"github.com/pessom/nerdui/internal/server"
 	"github.com/pessom/nerdui/internal/stacks"
@@ -120,6 +122,11 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 		}
 	}
 
+	// Notifications (#86) are sent in the background.
+	hostname, _ := os.Hostname()
+	notifier := &notify.Service{Store: st.Write(), Host: hostname, Logger: logger}
+	checks.Go(func() { notifier.Run(checkCtx) })
+
 	// Background jobs (#126) are canceled and awaited when serving ends.
 	jobManager := jobs.NewManager()
 	defer jobManager.Close()
@@ -145,10 +152,11 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 		Handler: server.New(server.Config{
 			Auth: authSvc, Environments: envs, UI: web.Dist(), Jobs: jobManager,
 			EventHistory: eventHistory, DisableExec: cfg.DisableExec, Settings: st.Write(),
-			Stacks:       stackService,
-			ImageUpdates: imageUpdates,
-			AutoUpdates:  autoUpdates,
-			Logger:       logger,
+			Stacks:        stackService,
+			ImageUpdates:  imageUpdates,
+			AutoUpdates:   autoUpdates,
+			Notifications: st.Write(), Notifier: notifier,
+			Logger: logger,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,
 		BaseContext:       func(net.Listener) context.Context { return streamsCtx },

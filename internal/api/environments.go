@@ -20,6 +20,7 @@ import (
 	"github.com/pessom/nerdui/internal/environment"
 	"github.com/pessom/nerdui/internal/httpjson"
 	"github.com/pessom/nerdui/internal/jobs"
+	"github.com/pessom/nerdui/internal/notify"
 	"github.com/pessom/nerdui/internal/runtime"
 	"github.com/pessom/nerdui/internal/stacks"
 )
@@ -44,6 +45,10 @@ type Handler struct {
 	ImageUpdates ImageUpdates
 	// AutoUpdates is the log of automatic updates (#54); nil disables it.
 	AutoUpdates AutoUpdates
+	// Notifications stores notification channels and Notifier sends through them (#86); nil
+	// disables them.
+	Notifications NotificationStore
+	Notifier      *notify.Service
 	// PrometheusHTTP is the HTTP client for Prometheus; nil uses a default with a timeout.
 	PrometheusHTTP *http.Client
 	Logger         *slog.Logger
@@ -53,6 +58,7 @@ type Handler struct {
 func (h *Handler) Routes(r chi.Router, g *authz.Guard) {
 	r.Method(http.MethodGet, "/environments", g.Protect(authz.SystemRead, h.list))
 	h.jobRoutes(r, g)
+	h.notificationRoutes(r, g)
 	r.Method(http.MethodGet, "/compose-schema", g.Protect(authz.StacksRead, h.composeSchema))
 	r.Route("/environments/{env}", func(r chi.Router) {
 		r.Use(h.resolveEnv)

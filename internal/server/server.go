@@ -24,6 +24,7 @@ import (
 	"github.com/pessom/nerdui/internal/environment"
 	"github.com/pessom/nerdui/internal/httpjson"
 	"github.com/pessom/nerdui/internal/jobs"
+	"github.com/pessom/nerdui/internal/notify"
 	"github.com/pessom/nerdui/internal/runtime"
 	"github.com/pessom/nerdui/internal/stacks"
 	"github.com/pessom/nerdui/internal/version"
@@ -53,7 +54,11 @@ type Config struct {
 	ImageUpdates api.ImageUpdates
 	// AutoUpdates is the log of automatic updates (#54); nil disables it.
 	AutoUpdates api.AutoUpdates
-	Logger      *slog.Logger
+	// Notifications stores notification channels and Notifier sends through them (#86); nil
+	// disables them.
+	Notifications api.NotificationStore
+	Notifier      *notify.Service
+	Logger        *slog.Logger
 }
 
 // VersionResponse is returned by GET /api/v1/version. Keep in sync with api/openapi.yaml.
@@ -108,6 +113,7 @@ func New(cfg Config) http.Handler {
 				Envs: cfg.Environments, Jobs: cfg.Jobs, EventHistory: cfg.EventHistory,
 				ExecDisabled: cfg.DisableExec, Settings: cfg.Settings, Stacks: cfg.Stacks,
 				ImageUpdates: cfg.ImageUpdates, AutoUpdates: cfg.AutoUpdates, Logger: cfg.Logger,
+				Notifications: cfg.Notifications, Notifier: cfg.Notifier,
 			}).Routes(r, guard)
 		})
 	})

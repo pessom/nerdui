@@ -338,6 +338,77 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/notifications/channels": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Notification channels
+         * @description Requires `settings:read` (#86, ADR-0034). Secrets are never returned; `secrets` names those set.
+         */
+        get: operations["listNotificationChannels"];
+        put?: never;
+        /**
+         * Add a notification channel
+         * @description Requires `settings:write`.
+         */
+        post: operations["createNotificationChannel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/channels/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Replace a notification channel
+         * @description Requires `settings:write`. Empty secrets keep the stored ones while the type is unchanged.
+         */
+        put: operations["updateNotificationChannel"];
+        post?: never;
+        /**
+         * Remove a notification channel
+         * @description Requires `settings:write`.
+         */
+        delete: operations["deleteNotificationChannel"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/notifications/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a test message
+         * @description Requires `settings:write`. Sends through the given settings, saved or not; with `id`, empty
+         *     secrets come from that channel. 502 when the channel refused the message.
+         */
+        post: operations["testNotificationChannel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/jobs": {
         parameters: {
             query?: never;
@@ -2004,6 +2075,52 @@ export interface components {
              */
             maxBatch: 0 | 1 | 3 | 5 | 10 | 20;
         };
+        /** @enum {string} */
+        NotificationKind: "image.update" | "autoupdate.updated" | "autoupdate.failed" | "autoupdate.pending" | "container.died" | "container.oom" | "job.failed";
+        /**
+         * @description Settings of a channel; which fields apply depends on the type. `secret`, `token`,
+         *     `password` and, for Slack and Discord, `url` are write-only.
+         */
+        NotificationConfig: {
+            url?: string;
+            /** @description HMAC-SHA256 key of the webhook's X-Nerdui-Signature */
+            secret?: string;
+            token?: string;
+            chatId?: string;
+            host?: string;
+            port?: number;
+            /** @enum {string} */
+            tls?: "starttls" | "tls" | "none";
+            username?: string;
+            password?: string;
+            from?: string;
+            /** @description Comma-separated addresses */
+            to?: string;
+        };
+        NotificationChannelInput: {
+            name: string;
+            /** @enum {string} */
+            type: "webhook" | "slack" | "discord" | "telegram" | "ntfy" | "gotify" | "email";
+            config: components["schemas"]["NotificationConfig"];
+            events: components["schemas"]["NotificationKind"][];
+            enabled: boolean;
+        };
+        NotificationChannel: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            /** @enum {string} */
+            type: "webhook" | "slack" | "discord" | "telegram" | "ntfy" | "gotify" | "email";
+            config: components["schemas"]["NotificationConfig"];
+            /** @description Write-only fields that are set */
+            secrets: string[];
+            events: components["schemas"]["NotificationKind"][];
+            enabled: boolean;
+            /** Format: date-time */
+            lastSentAt?: string;
+            /** @description Error of the newest delivery */
+            lastError?: string;
+        };
         NamespaceSpec: {
             /** @example lab */
             name: string;
@@ -3461,6 +3578,152 @@ export interface operations {
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
+        };
+    };
+    listNotificationChannels: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Channels and the event kinds they can subscribe to */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        channels: components["schemas"]["NotificationChannel"][];
+                        kinds: components["schemas"]["NotificationKind"][];
+                    };
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            501: components["responses"]["Error"];
+        };
+    };
+    createNotificationChannel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationChannelInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationChannel"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            501: components["responses"]["Error"];
+        };
+    };
+    updateNotificationChannel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationChannelInput"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NotificationChannel"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            501: components["responses"]["Error"];
+        };
+    };
+    deleteNotificationChannel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            501: components["responses"]["Error"];
+        };
+    };
+    testNotificationChannel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NotificationChannelInput"] & {
+                    /** Format: int64 */
+                    id?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description Sent */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        sent: boolean;
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            501: components["responses"]["Error"];
+            502: components["responses"]["Error"];
         };
     };
     listJobs: {
