@@ -43,6 +43,8 @@ func TestSpecFrom(t *testing.T) {
 			DNS:        []string{"1.1.1.1"},
 			ExtraHosts: []string{"db:10.0.0.9"},
 			ShmSize:    defaultShmSize,
+			Sysctls:    map[string]string{"net.ipv4.ip_unprivileged_port_start": "0"},
+			GroupAdd:   []string{"10"},
 		},
 		Mounts: []dockercompat.MountPoint{
 			{Type: "volume", Name: "data", Source: "/var/lib/nerdctl/x/volumes/default/data/_data", Destination: "/data", RW: true},
@@ -91,7 +93,7 @@ func TestSpecFrom(t *testing.T) {
 	oci.Process.Args = []string{"/bin/sh", "-c", "echo hi"}
 	oci.Process.Cwd = "/srv"
 	c.HostConfig.AutoRemove = true
-	c.HostConfig.Sysctls = map[string]string{"net.ipv4.ip_forward": "1"}
+	c.HostConfig.Sysctls["net.ipv4.ip_forward"] = "1"
 	labels["nerdctl/mac-address"] = "02:42:ac:11:00:02"
 	got, unsupported = specFrom(c, oci, img, "docker.io/library/nginx:1.27", labels)
 	if got.Entrypoint != "/bin/sh" || !reflect.DeepEqual(got.Command, []string{"-c", "echo hi"}) || got.Workdir != "/srv" {

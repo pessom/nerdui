@@ -80,7 +80,9 @@ func TestIntegrationRecreate(t *testing.T) {
 	var out bytes.Buffer
 	newID, err := c.Containers().Recreate(ctx, DefaultNamespace, name, s, RecreateOptions{}, &out)
 	if err != nil {
-		t.Fatalf("recreate: %v\n%s", err, out.String())
+		ss, _ := exec.Command("ss", "-ltnp").CombinedOutput()
+		ps, _ := exec.Command("nerdctl", "ps", "-a").CombinedOutput()
+		t.Fatalf("recreate: %v\n%s\nlisteners:\n%s\ncontainers:\n%s", err, out.String(), ss, ps)
 	}
 	if newID == cs.ID {
 		t.Fatal("recreate kept the container")

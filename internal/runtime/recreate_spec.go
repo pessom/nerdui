@@ -284,8 +284,13 @@ func specFrom(c *dockercompat.Container, oci *specs.Spec, img ocispec.ImageConfi
 	if len(hc.DNSOptions) > 0 || len(hc.DNSSearch) > 0 {
 		add("DNS options or search domains")
 	}
-	if len(hc.Sysctls) > 0 {
-		add("sysctls %s", strings.Join(slices.Sorted(maps.Keys(hc.Sysctls)), ", "))
+	sysctls := maps.Clone(hc.Sysctls)
+	// nerdctl lets unprivileged processes bind low ports in container networks by default.
+	if sysctls["net.ipv4.ip_unprivileged_port_start"] == "0" {
+		delete(sysctls, "net.ipv4.ip_unprivileged_port_start")
+	}
+	if len(sysctls) > 0 {
+		add("sysctls %s", strings.Join(slices.Sorted(maps.Keys(sysctls)), ", "))
 	}
 	if hc.PidMode == "host" || strings.HasPrefix(hc.PidMode, "container:") {
 		add("PID namespace %s", hc.PidMode)
@@ -319,9 +324,6 @@ func specFrom(c *dockercompat.Container, oci *specs.Spec, img ocispec.ImageConfi
 	}
 	if hc.PidsLimit > 0 {
 		add("PIDs limit %d", hc.PidsLimit)
-	}
-	if len(hc.GroupAdd) > 0 {
-		add("additional groups")
 	}
 	if len(hc.Annotations) > 0 {
 		add("annotations")
