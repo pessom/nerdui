@@ -57,6 +57,19 @@ type ImageUpdate struct {
 	SeenAt       int64
 }
 
+type NotificationChannel struct {
+	ID         int64
+	Name       string
+	Type       string
+	Config     string
+	Events     string
+	Enabled    int64
+	LastSentAt int64
+	LastError  string
+	CreatedAt  int64
+	UpdatedAt  int64
+}
+
 type Session struct {
 	TokenHash  []byte
 	UserID     int64

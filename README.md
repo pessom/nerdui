@@ -99,6 +99,7 @@ Details: [docs/development.md](docs/development.md).
 - [Architecture](docs/architecture.md)
 - [Development](docs/development.md)
 - [Deployment](docs/deployment.md)
+- [Notifications](docs/notifications.md)
 - [Release process](docs/release.md)
 - [NFR verification](docs/nfr.md)
 - [API (OpenAPI)](api/openapi.yaml)

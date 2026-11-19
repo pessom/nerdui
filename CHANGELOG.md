@@ -14,11 +14,13 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
   finds a newer image; a log of updates is under Settings → Image updates (#54).
 - Guards for automatic updates: a minimum time since a new image appeared, and approval when more
   updates than a threshold (5 by default) are due at once (#56).
+- Notifications: webhook, Slack, Discord, Telegram, ntfy, Gotify and email channels under
+  Settings → Notifications, each receiving the events it subscribes to, with a test message (#86).
 
 ### Upgrade notes
 
-- Database migrations 7 (automatic update log) and 8 (when new images were first seen) are
-  applied on start.
+- Database migrations 7 (automatic update log), 8 (when new images were first seen) and 9
+  (notification channels) are applied on start.
 
 ## [0.1.1] - 2026-11-19
 

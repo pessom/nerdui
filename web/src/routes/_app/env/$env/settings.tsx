@@ -5,12 +5,13 @@ import { Stack, Title } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi } from "@tanstack/react-router";
 import { envStatusQuery } from "../../../../api/queries";
+import { NotificationsSettingsCard } from "../../../../features/settings/NotificationsSettingsCard";
 import { ImageUpdatesSettingsCard } from "../../../../features/settings/ImageUpdatesSettingsCard";
 import { PrometheusSettingsCard } from "../../../../features/settings/PrometheusSettingsCard";
 
 const envRoute = getRouteApi("/_app/env/$env");
 
-/** Settings of the environment (#176, #53). */
+/** Settings of the environment (#176, #53) and notifications (#86). */
 export const Route = createFileRoute("/_app/env/$env/settings")({
   component: SettingsPage,
 });
@@ -25,6 +26,7 @@ function SettingsPage() {
       <Title order={2}>Settings</Title>
       <PrometheusSettingsCard env={env} />
       <ImageUpdatesSettingsCard env={env} namespace={namespace} />
+      <NotificationsSettingsCard />
     </Stack>
   );
 }
