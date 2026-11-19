@@ -83,6 +83,9 @@ type fakeRuntime struct {
 	createStart  bool
 	createID     string
 	createErr    error
+	spec         runtime.ContainerSpec
+	recreated    []runtime.CreateSpec
+	recreatePull bool
 }
 
 type actionCall struct {
@@ -175,6 +178,19 @@ func (f *fakeRuntime) Create(_ context.Context, _ string, spec runtime.CreateSpe
 	f.createStart = start
 	f.mu.Unlock()
 	_, _ = io.WriteString(out, "Created\n")
+	return f.createID, f.createErr
+}
+
+func (f *fakeRuntime) Spec(context.Context, string, string) (runtime.ContainerSpec, error) {
+	return f.spec, f.err
+}
+
+func (f *fakeRuntime) Recreate(_ context.Context, _, _ string, spec runtime.CreateSpec, opts runtime.RecreateOptions, out io.Writer) (string, error) {
+	f.mu.Lock()
+	f.recreated = append(f.recreated, spec)
+	f.recreatePull = opts.Pull
+	f.mu.Unlock()
+	_, _ = io.WriteString(out, "Recreated\n")
 	return f.createID, f.createErr
 }
 

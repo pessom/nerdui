@@ -93,6 +93,8 @@ func (h *Handler) runtimeRoutes(r chi.Router, g *authz.Guard) {
 	r.Method(http.MethodPost, "/containers", g.Protect(authz.ContainersWrite, h.createContainer))
 	r.Method(http.MethodPost, "/containers/command", g.Protect(authz.ContainersWrite, h.containerCommand))
 	r.Method(http.MethodGet, "/containers/{id}/inspect", g.Protect(authz.ContainersRead, h.inspectContainer))
+	r.Method(http.MethodGet, "/containers/{id}/spec", g.Protect(authz.ContainersRead, h.containerSpec))
+	r.Method(http.MethodPost, "/containers/{id}/recreate", g.Protect(authz.ContainersWrite, h.recreateContainer))
 	r.Method(http.MethodGet, "/containers/{id}/logs", g.Protect(authz.ContainersRead, h.containerLogsDownload))
 	r.Method(http.MethodGet, "/containers/{id}/logs/stream", g.Protect(authz.ContainersRead, h.containerLogsStream))
 	r.Method(http.MethodGet, "/containers/{id}/stats/stream", g.Protect(authz.ContainersRead, h.containerStatsStream))

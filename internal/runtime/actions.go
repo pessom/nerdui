@@ -6,8 +6,12 @@ package runtime
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"slices"
+	"strconv"
+	"strings"
 	"time"
 
 	containerd "github.com/containerd/containerd/v2/client"
@@ -18,6 +22,7 @@ import (
 	ncontainer "github.com/containerd/nerdctl/v2/pkg/cmd/container"
 	"github.com/containerd/nerdctl/v2/pkg/config"
 	"github.com/containerd/nerdctl/v2/pkg/containerutil"
+	"github.com/containerd/nerdctl/v2/pkg/ocihook"
 )
 
 // Action is a container lifecycle operation (#11, #12).
@@ -79,10 +84,10 @@ func (cc clientContainers) Do(ctx context.Context, namespace, id string, action 
 	case ActionStart:
 		err = containerutil.Start(ctx, c, false, false, cl, "", "", cfg, nerdctlCmd, nerdctlArgs)
 	case ActionStop:
-		err = containerutil.Stop(ctx, c, nil, "")
+		err = stop(ctx, c, namespace)
 	case ActionRestart:
 		// Same sequence as `nerdctl restart`.
-		if err = containerutil.Stop(ctx, c, nil, ""); err == nil {
+		if err = stop(ctx, c, namespace); err == nil {
 			err = containerutil.Start(ctx, c, false, false, cl, "", "", cfg, nerdctlCmd, nerdctlArgs)
 		}
 	case ActionKill:
@@ -184,4 +189,59 @@ const actionTimeout = 2 * time.Minute
 // abort a stop or remove halfway. The action is still bounded by actionTimeout.
 func ActionContext(ctx context.Context) (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.WithoutCancel(ctx), actionTimeout)
+}
+
+// stop stops a container like `nerdctl stop`: besides stopping the task, it ends nerdctl's
+// port reserver, the process that holds the container's published host ports. Without it a
+// stopped container keeps its ports until it is removed.
+func stop(ctx context.Context, c containerd.Container, namespace string) error {
+	if err := containerutil.Stop(ctx, c, nil, ""); err != nil {
+		return err
+	}
+	// The reserver is signaled, not awaited: wait until it is gone so the ports are free when
+	// this returns (a recreate creates the new container right after).
+	pid := portReserverPID(namespace, c.ID())
+	if err := ocihook.CleanupPortReserverProcess(namespace, c.ID()); err != nil {
+		return fmt.Errorf("release the ports of %s: %w", c.ID(), err)
+	}
+	if pid > 0 {
+		waitProcessGone(ctx, pid, 5*time.Second)
+	}
+	return nil
+}
+
+// portReserverPID reads the PID of nerdctl's port reserver of a container, 0 when it has none
+// (the path is nerdctl's: /run/nerdctl/<namespace>/<id>/port-reserver.pid).
+func portReserverPID(namespace, id string) int {
+	const base = "/run/nerdctl"
+	p := filepath.Clean(filepath.Join(base, namespace, id, "port-reserver.pid"))
+	if filepath.Base(namespace) != namespace || filepath.Base(id) != id || !strings.HasPrefix(p, base+string(os.PathSeparator)) {
+		return 0
+	}
+	b, err := os.ReadFile(p) //nolint:gosec // G304: checked to stay under /run/nerdctl
+	if err != nil {
+		return 0
+	}
+	pid, err := strconv.Atoi(strings.TrimSpace(string(b)))
+	if err != nil || pid <= 1 {
+		return 0
+	}
+	return pid
+}
+
+// waitProcessGone waits until a process has exited (gone, or a zombie whose sockets are
+// closed), at most timeout.
+func waitProcessGone(ctx context.Context, pid int, timeout time.Duration) {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) && ctx.Err() == nil {
+		stat, err := os.ReadFile(filepath.Join("/proc", strconv.Itoa(pid), "stat"))
+		if err != nil {
+			return
+		}
+		// "pid (comm) S ...": the state follows the last ')'.
+		if i := strings.LastIndexByte(string(stat), ')'); i > 0 && i+2 < len(stat) && stat[i+2] == 'Z' {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
 }

@@ -1810,6 +1810,67 @@ paths:
         "409": { $ref: "#/components/responses/Error" }
         "500": { $ref: "#/components/responses/Error" }
         "503": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/containers/{id}/spec:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - $ref: "#/components/parameters/Namespace"
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [containers]
+      operationId: getContainerSpec
+      summary: Settings to edit and recreate a container
+      description: |
+        Requires `containers:read` (#18, ADR-0031). Reconstructed from `nerdctl inspect`: values
+        equal to the image's defaults are left out. `unsupported` lists settings the create form
+        cannot express; while it is not empty, recreating is refused.
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ContainerSpec" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/containers/{id}/recreate:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - $ref: "#/components/parameters/Namespace"
+      - { name: id, in: path, required: true, schema: { type: string } }
+    post:
+      tags: [containers]
+      operationId: recreateContainer
+      summary: Recreate a container with edited settings (background job)
+      description: |
+        Requires `containers:write` and a compatible host nerdctl (#18, ADR-0031). With `pull`,
+        the image is pulled first (an update). The old container is stopped and renamed, the
+        new one created under the same name and started when the old one ran, then the old one
+        is removed; if creating or starting fails, the old container is restored. Refused (409)
+        for stack containers and containers with unsupported settings. The job's `result` has
+        `containerId`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RecreateContainerRequest" }
+      responses:
+        "202":
+          description: Job started
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [job]
+                properties:
+                  job: { $ref: "#/components/schemas/Job" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
   /api/v1/environments/{env}/containers/{id}/inspect:
     parameters:
       - $ref: "#/components/parameters/Env"
@@ -2304,6 +2365,25 @@ components:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
   schemas:
+    ContainerSpec:
+      type: object
+      required: [id, spec, unsupported, running]
+      properties:
+        id: { type: string }
+        spec:
+          allOf: [{ $ref: "#/components/schemas/CreateContainerRequest" }]
+        unsupported: { type: array, items: { type: string } }
+        running: { type: boolean }
+        stack: { type: string, description: Compose project managing the container }
+        imageChanged:
+          type: boolean
+          description: The tag points to another image than when the container was created
+    RecreateContainerRequest:
+      allOf:
+        - $ref: "#/components/schemas/CreateContainerRequest"
+        - type: object
+          properties:
+            pull: { type: boolean, description: Pull the image first (update) }
     ImageUpdateSettings:
       type: object
       required: [intervalSeconds]

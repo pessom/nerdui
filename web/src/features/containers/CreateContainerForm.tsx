@@ -33,6 +33,7 @@ import {
   secretsMasked,
   toRequest,
   type CreateForm,
+  type CreateRequest,
   type EnvRow,
   type LabelRow,
   type MountRow,
@@ -88,21 +89,32 @@ function Rows<T>({
   );
 }
 
+/** The request without the start flag, for recreating. */
+function withoutStart(r: CreateRequest): Omit<CreateRequest, "start"> {
+  const copy = { ...r };
+  delete copy.start;
+  return copy;
+}
+
 /** Create container form (#17): typed fields, the equivalent nerdctl command, a job. */
 export function CreateContainerForm({
   env,
   namespace,
   readOnly,
   onStarted,
+  recreate,
 }: {
   env: string;
   namespace: string;
   readOnly: boolean;
   onStarted: () => void;
+  /** Edit an existing container (#18): the form starts from its settings and recreates it. */
+  recreate?: { id: string; initial: CreateForm };
 }) {
   const queryClient = useQueryClient();
   const panel = useJobsPanel();
-  const [form, setForm] = useState<CreateForm>(emptyForm);
+  const [form, setForm] = useState<CreateForm>(recreate?.initial ?? emptyForm);
+  const [pull, setPull] = useState(false);
   const set = (patch: Partial<CreateForm>) => setForm((f) => ({ ...f, ...patch }));
   const { request, error: parseError } = toRequest(form);
   const [debounced] = useDebouncedValue(JSON.stringify(request), 400);
@@ -121,12 +133,20 @@ export function CreateContainerForm({
   });
   const create = useMutation({
     mutationFn: () =>
-      unwrap(
-        api.POST("/api/v1/environments/{env}/containers", {
-          params: { path: { env }, query: { namespace } },
-          body: request,
-        }),
-      ),
+      recreate
+        ? unwrap(
+            api.POST("/api/v1/environments/{env}/containers/{id}/recreate", {
+              params: { path: { env, id: recreate.id }, query: { namespace } },
+              // The new container runs when the old one did: "start" is not sent.
+              body: { ...withoutStart(request), pull },
+            }),
+          )
+        : unwrap(
+            api.POST("/api/v1/environments/{env}/containers", {
+              params: { path: { env }, query: { namespace } },
+              body: request,
+            }),
+          ),
     onSuccess: async ({ job }) => {
       await queryClient.invalidateQueries({ queryKey: keys.jobs });
       panel.open(job.id);
@@ -156,6 +176,7 @@ export function CreateContainerForm({
           <TextInput
             label="Name"
             placeholder="random if empty"
+            disabled={!!recreate}
             value={form.name}
             onChange={(e) => set({ name: e.currentTarget.value })}
           />
@@ -497,17 +518,31 @@ export function CreateContainerForm({
 
         {create.error && <Alert color="red">{create.error.message}</Alert>}
         <Group justify="space-between">
-          <Checkbox
-            label="Start the container after creating it"
-            checked={form.start}
-            onChange={(e) => set({ start: e.currentTarget.checked })}
-          />
+          {recreate ? (
+            <Checkbox
+              label="Pull the image first (update to the tag's newest image)"
+              checked={pull}
+              onChange={(e) => setPull(e.currentTarget.checked)}
+            />
+          ) : (
+            <Checkbox
+              label="Start the container after creating it"
+              checked={form.start}
+              onChange={(e) => set({ start: e.currentTarget.checked })}
+            />
+          )}
           <Button
             type="submit"
             loading={create.isPending}
             disabled={readOnly || !request.image || !!parseError || preview.isError}
           >
-            {form.start ? "Create and start" : "Create"}
+            {recreate
+              ? pull
+                ? "Pull and recreate"
+                : "Recreate"
+              : form.start
+                ? "Create and start"
+                : "Create"}
           </Button>
         </Group>
       </Stack>

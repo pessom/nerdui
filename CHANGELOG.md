@@ -17,6 +17,16 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 - **Container creation:** an Advanced section sets more networks, a static IPv4 address,
   privileged mode, added and dropped capabilities, devices, DNS servers and extra `/etc/hosts`
   entries, each validated and passed as its own `nerdctl create` argument (#18).
+- **Edit and update containers:** Edit on a container's page opens the create form with its
+  current settings; saving recreates it under the same name, optionally pulling the image first
+  (an update). The old container is renamed and removed only after the new one is created and
+  started; otherwise it is restored. Containers of stacks and containers with settings the form
+  cannot carry over are not recreated, with the reasons shown (#18, ADR-0031).
+
+### Fixed
+
+- Stopping or restarting a container from nerdui now releases its published host ports, as
+  `nerdctl stop` does; before, a stopped container kept them until it was removed.
 
 ### Upgrade notes
 
