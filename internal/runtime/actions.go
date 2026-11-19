@@ -6,8 +6,12 @@ package runtime
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"slices"
+	"strconv"
+	"strings"
 	"time"
 
 	containerd "github.com/containerd/containerd/v2/client"
@@ -194,8 +198,45 @@ func stop(ctx context.Context, c containerd.Container, namespace string) error {
 	if err := containerutil.Stop(ctx, c, nil, ""); err != nil {
 		return err
 	}
+	// The reserver is signaled, not awaited: wait until it is gone so the ports are free when
+	// this returns (a recreate creates the new container right after).
+	pid := portReserverPID(namespace, c.ID())
 	if err := ocihook.CleanupPortReserverProcess(namespace, c.ID()); err != nil {
 		return fmt.Errorf("release the ports of %s: %w", c.ID(), err)
 	}
+	if pid > 0 {
+		waitProcessGone(ctx, pid, 5*time.Second)
+	}
 	return nil
+}
+
+// portReserverPID reads the PID of nerdctl's port reserver of a container, 0 when it has none
+// (the path is nerdctl's: /run/nerdctl/<namespace>/<id>/port-reserver.pid).
+func portReserverPID(namespace, id string) int {
+	b, err := os.ReadFile(filepath.Join("/run/nerdctl", namespace, id, "port-reserver.pid")) //nolint:gosec // G304: namespace and container ID are validated containerd identifiers
+	if err != nil {
+		return 0
+	}
+	pid, err := strconv.Atoi(strings.TrimSpace(string(b)))
+	if err != nil || pid <= 1 {
+		return 0
+	}
+	return pid
+}
+
+// waitProcessGone waits until a process has exited (gone, or a zombie whose sockets are
+// closed), at most timeout.
+func waitProcessGone(ctx context.Context, pid int, timeout time.Duration) {
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) && ctx.Err() == nil {
+		stat, err := os.ReadFile(filepath.Join("/proc", strconv.Itoa(pid), "stat"))
+		if err != nil {
+			return
+		}
+		// "pid (comm) S ...": the state follows the last ')'.
+		if i := strings.LastIndexByte(string(stat), ')'); i > 0 && i+2 < len(stat) && stat[i+2] == 'Z' {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
 }
