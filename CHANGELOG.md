@@ -23,6 +23,11 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
   started; otherwise it is restored. Containers of stacks and containers with settings the form
   cannot carry over are not recreated, with the reasons shown (#18, ADR-0031).
 
+### Fixed
+
+- Stopping or restarting a container from nerdui now releases its published host ports, as
+  `nerdctl stop` does; before, a stopped container kept them until it was removed.
+
 ### Upgrade notes
 
 - Database migration 6 (image update results) runs automatically at start.

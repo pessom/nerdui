@@ -18,6 +18,7 @@ import (
 	ncontainer "github.com/containerd/nerdctl/v2/pkg/cmd/container"
 	"github.com/containerd/nerdctl/v2/pkg/config"
 	"github.com/containerd/nerdctl/v2/pkg/containerutil"
+	"github.com/containerd/nerdctl/v2/pkg/ocihook"
 )
 
 // Action is a container lifecycle operation (#11, #12).
@@ -79,10 +80,10 @@ func (cc clientContainers) Do(ctx context.Context, namespace, id string, action 
 	case ActionStart:
 		err = containerutil.Start(ctx, c, false, false, cl, "", "", cfg, nerdctlCmd, nerdctlArgs)
 	case ActionStop:
-		err = containerutil.Stop(ctx, c, nil, "")
+		err = stop(ctx, c, namespace)
 	case ActionRestart:
 		// Same sequence as `nerdctl restart`.
-		if err = containerutil.Stop(ctx, c, nil, ""); err == nil {
+		if err = stop(ctx, c, namespace); err == nil {
 			err = containerutil.Start(ctx, c, false, false, cl, "", "", cfg, nerdctlCmd, nerdctlArgs)
 		}
 	case ActionKill:
@@ -184,4 +185,17 @@ const actionTimeout = 2 * time.Minute
 // abort a stop or remove halfway. The action is still bounded by actionTimeout.
 func ActionContext(ctx context.Context) (context.Context, context.CancelFunc) {
 	return context.WithTimeout(context.WithoutCancel(ctx), actionTimeout)
+}
+
+// stop stops a container like `nerdctl stop`: besides stopping the task, it ends nerdctl's
+// port reserver, the process that holds the container's published host ports. Without it a
+// stopped container keeps its ports until it is removed.
+func stop(ctx context.Context, c containerd.Container, namespace string) error {
+	if err := containerutil.Stop(ctx, c, nil, ""); err != nil {
+		return err
+	}
+	if err := ocihook.CleanupPortReserverProcess(namespace, c.ID()); err != nil {
+		return fmt.Errorf("release the ports of %s: %w", c.ID(), err)
+	}
+	return nil
 }

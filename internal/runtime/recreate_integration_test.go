@@ -8,6 +8,7 @@ package runtime
 import (
 	"bytes"
 	"context"
+	"net"
 	"os/exec"
 	"slices"
 	"strconv"
@@ -106,4 +107,33 @@ func TestIntegrationRecreate(t *testing.T) {
 	if got := strings.TrimSpace(string(id)); got != newID+" true" {
 		t.Errorf("after rollback: %q, want %s running\n%s", got, newID, out.String())
 	}
+}
+
+// TestIntegrationStopReleasesPorts stops a container through nerdui and finds its published
+// host port free, as after `nerdctl stop` (nerdctl's port reserver is ended).
+func TestIntegrationStopReleasesPorts(t *testing.T) {
+	ncfg, _, err := LoadNerdctlConfig()
+	if err != nil {
+		t.Fatal(err)
+	}
+	c := New(DefaultAddress, DefaultNamespace, WithNerdctlConfig(ncfg), WithNerdctl("nerdctl", false))
+	t.Cleanup(func() { _ = c.Close() })
+	name := "it-stop-ports-" + strconv.FormatInt(time.Now().UnixNano()%1e8, 36)
+	t.Cleanup(func() { _ = exec.Command("nerdctl", "rm", "-f", name).Run() })
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	out, err := exec.Command("nerdctl", "run", "-d", "--name", name, "-p", "127.0.0.1:18096:80",
+		"docker.io/library/alpine:3", "sleep", "600").Output()
+	if err != nil {
+		t.Fatalf("nerdctl run: %v", err)
+	}
+	if err := c.Containers().Do(ctx, DefaultNamespace, strings.TrimSpace(string(out)), ActionStop, ActionOptions{}); err != nil {
+		t.Fatal(err)
+	}
+	ln, err := net.Listen("tcp", "127.0.0.1:18096")
+	if err != nil {
+		ss, _ := exec.Command("ss", "-ltnp").CombinedOutput()
+		t.Fatalf("port still held after stop: %v\n%s", err, ss)
+	}
+	_ = ln.Close()
 }
