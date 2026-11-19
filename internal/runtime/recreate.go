@@ -65,6 +65,16 @@ func (cc clientContainers) Recreate(ctx context.Context, namespace, ref string, 
 			return "", err
 		}
 	}
+	// A stopped task keeps its network (CNI port mappings in iptables, which nerdctl counts as
+	// allocated ports) until it is deleted: deleting it runs nerdctl's post-stop hook, which
+	// tears the network down. Starting a container deletes the old task anyway.
+	if c, err := cl.LoadContainer(nctx, oldID); err == nil {
+		if t, err := c.Task(nctx, nil); err == nil {
+			if _, err := t.Delete(nctx); err != nil && !errdefs.IsNotFound(err) {
+				_, _ = fmt.Fprintf(out, "Could not release the previous container's network: %v\r\n", err)
+			}
+		}
+	}
 	parked := spec.Name + "-nerdui-old-" + strconv.FormatInt(time.Now().Unix(), 36)
 	if len(parked) > 128 {
 		parked = "nerdui-old-" + oldID[:12]
