@@ -36,8 +36,8 @@ update checks.
 ### Upgrade notes
 
 - Database migration 6 (image update results) runs automatically at start, with a backup.
-- Containers stopped from nerdui 0.1.0 may still hold their published ports: start and stop
-  them again, or restart them, to release the ports.
+- A container stopped from nerdui 0.1.0 may still hold its published ports: press Stop on it
+  again after upgrading (or run `nerdctl stop` on it) to release them.
 
 ## [0.1.0] - 2026-11-18
 
