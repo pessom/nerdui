@@ -98,6 +98,11 @@ func TestComposeArgs(t *testing.T) {
 			t.Errorf("%s: %q %v", op, got, err)
 		}
 	}
+	got, err = ComposeArgs("app", "/srv/app", ComposePull, ComposeOptions{Services: []string{"web", "db_1"}})
+	want = []string{"compose", "--project-name=app", "--project-directory=/srv/app", "pull", "web", "db_1"}
+	if err != nil || !slices.Equal(got, want) {
+		t.Errorf("pull services: %q %v", got, err)
+	}
 	bad := []struct {
 		project, dir, op string
 		opts             ComposeOptions
@@ -108,6 +113,8 @@ func TestComposeArgs(t *testing.T) {
 		{"app", "/srv/app", ComposeUp, ComposeOptions{Volumes: true}},
 		{"app", "/srv/app", ComposeStop, ComposeOptions{Pull: true}},
 		{"app", "/srv/app", ComposeRestart, ComposeOptions{RemoveOrphans: true}},
+		{"app", "/srv/app", ComposeUp, ComposeOptions{Services: []string{"--build"}}},
+		{"app", "/srv/app", ComposeStop, ComposeOptions{Services: []string{"web"}}},
 	}
 	for _, b := range bad {
 		if _, err := ComposeArgs(b.project, b.dir, b.op, b.opts); !errdefs.IsInvalidArgument(err) {

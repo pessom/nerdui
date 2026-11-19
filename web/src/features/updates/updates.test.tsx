@@ -95,6 +95,33 @@ describe("image updates", () => {
         return json(200, { intervalSeconds: interval });
       },
       "GET /api/v1/environments/local/image-updates": () => json(200, overview(true)),
+      "GET /api/v1/environments/local/auto-updates": () =>
+        json(200, {
+          entries: [
+            {
+              id: 2,
+              namespace: "default",
+              kind: "container",
+              name: "web",
+              refs: ["docker.io/library/nginx:1"],
+              status: "skipped",
+              message: "recreating would lose settings: tmpfs",
+              startedAt: "2027-03-01T10:00:00Z",
+              finishedAt: "2027-03-01T10:00:00Z",
+            },
+            {
+              id: 1,
+              namespace: "default",
+              kind: "stack",
+              name: "app",
+              refs: ["docker.io/library/redis:7"],
+              status: "updated",
+              jobId: "j1",
+              startedAt: "2027-02-28T10:00:00Z",
+              finishedAt: "2027-02-28T10:01:00Z",
+            },
+          ],
+        }),
     });
     renderApp("/env/local/settings");
 
@@ -105,5 +132,10 @@ describe("image updates", () => {
     fireEvent.click(select);
     fireEvent.click(await screen.findByRole("option", { name: "Every day", hidden: true }));
     await waitFor(() => expect(interval).toBe(86400));
+
+    const log = within(card).getByRole("region", { name: "Automatic updates" });
+    expect(await within(log).findByText("Stack app")).toBeInTheDocument();
+    expect(within(log).getByText("recreating would lose settings: tmpfs")).toBeInTheDocument();
+    expect(within(log).getByText("updated")).toBeInTheDocument();
   });
 });

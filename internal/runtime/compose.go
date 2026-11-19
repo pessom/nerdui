@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"sort"
 	"strings"
@@ -164,7 +165,12 @@ type ComposeOptions struct {
 	RemoveOrphans bool
 	// Pull pulls images before up (`up --pull always`).
 	Pull bool
+	// Services limits up and pull to these services (#54); empty means all.
+	Services []string
 }
+
+// serviceName matches compose service names (compose-go: [a-zA-Z0-9._-]).
+var serviceName = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9._-]*$`)
 
 // ComposeArgs returns the `nerdctl compose` arguments of an operation on project in dir, after
 // the global flags. The project is the stack name; the directory gives the default files.
@@ -197,10 +203,17 @@ func ComposeArgs(project, dir, op string, opts ComposeOptions) ([]string, error)
 		return nil, fmt.Errorf("%w: unknown stack operation %q", errdefs.ErrInvalidArgument, op)
 	}
 	if (opts.Volumes && op != ComposeDown) || (opts.Pull && op != ComposeUp) ||
-		(opts.RemoveOrphans && op != ComposeUp && op != ComposeDown) {
+		(opts.RemoveOrphans && op != ComposeUp && op != ComposeDown) ||
+		(len(opts.Services) > 0 && op != ComposeUp && op != ComposePull) {
 		return nil, fmt.Errorf("%w: option not supported by %s", errdefs.ErrInvalidArgument, op)
 	}
-	return args, nil
+	for _, svc := range opts.Services {
+		if !serviceName.MatchString(svc) {
+			return nil, fmt.Errorf("%w: invalid service name %q", errdefs.ErrInvalidArgument, svc)
+		}
+	}
+	// Validated names cannot start with "-", so they are never read as flags.
+	return append(args, opts.Services...), nil
 }
 
 func (cc clientCompose) Run(ctx context.Context, namespace, project, dir, op string, opts ComposeOptions, out io.Writer) error {

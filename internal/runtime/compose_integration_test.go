@@ -162,6 +162,12 @@ volumes:
 	if got := states(); !slices.Equal(got, []string{"web:" + StateRunning}) {
 		t.Errorf("after start: %v", got)
 	}
+	// Automatic updates pull and redeploy only the opted-in services (#54).
+	run(ComposePull, ComposeOptions{Services: []string{"web"}})
+	run(ComposeUp, ComposeOptions{Services: []string{"web"}})
+	if got := states(); !slices.Equal(got, []string{"web:" + StateRunning}) {
+		t.Errorf("after up web: %v", got)
+	}
 	run(ComposeDown, ComposeOptions{})
 	if got := states(); len(got) != 0 || !volume() {
 		t.Errorf("after down: %v, volume kept %v", got, volume())

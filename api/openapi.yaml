@@ -2032,6 +2032,34 @@ paths:
         "404": { $ref: "#/components/responses/Error" }
         "501": { $ref: "#/components/responses/Error" }
         "503": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/auto-updates:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - $ref: "#/components/parameters/Namespace"
+    get:
+      tags: [containers]
+      operationId: listAutoUpdates
+      summary: Log of automatic updates of a namespace
+      description: |
+        Requires `containers:read` (#54, ADR-0032). Containers and compose services labeled
+        `nerdui.auto-update=true` are pulled and recreated after each scheduled image update check
+        that finds a newer image. Newest first, at most 100 entries; kept for 90 days.
+      responses:
+        "200":
+          description: Log entries
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [entries]
+                properties:
+                  entries:
+                    type: array
+                    items: { $ref: "#/components/schemas/AutoUpdateEntry" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
   /api/v1/environments/{env}/image-updates/check:
     parameters:
       - $ref: "#/components/parameters/Env"
@@ -2428,6 +2456,20 @@ components:
         images:
           type: array
           items: { $ref: "#/components/schemas/ImageUpdateStatus" }
+    AutoUpdateEntry:
+      type: object
+      required: [id, namespace, kind, name, refs, status, startedAt, finishedAt]
+      properties:
+        id: { type: integer, format: int64 }
+        namespace: { type: string }
+        kind: { type: string, enum: [container, stack] }
+        name: { type: string, description: Container name or stack name }
+        refs: { type: array, items: { type: string }, description: Image references updated }
+        status: { type: string, enum: [updated, failed, skipped] }
+        message: { type: string, description: Why the update failed or was skipped }
+        jobId: { type: string, description: The job that ran the update (kept for an hour) }
+        startedAt: { type: string, format: date-time }
+        finishedAt: { type: string, format: date-time }
     NamespaceSpec:
       type: object
       required: [name]

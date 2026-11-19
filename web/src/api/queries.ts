@@ -304,6 +304,21 @@ export const imageUpdatesQuery = (env: string, namespace: string) =>
     retry: false,
   });
 
+export type AutoUpdateEntry = components["schemas"]["AutoUpdateEntry"];
+
+/** The log of automatic updates of a namespace (#54). */
+export const autoUpdatesQuery = (env: string, namespace: string) =>
+  queryOptions({
+    queryKey: ["env", env, "auto-updates", namespace] as const,
+    queryFn: () =>
+      unwrap(
+        api.GET("/api/v1/environments/{env}/auto-updates", {
+          params: { path: { env }, query: { namespace } },
+        }),
+      ),
+    retry: false,
+  });
+
 /** Image update status by reference; empty while loading or when checks are unavailable. */
 export function updatesByRef(o?: ImageUpdateOverview): Map<string, ImageUpdateStatus> {
   return new Map((o?.images ?? []).map((s) => [s.ref, s]));

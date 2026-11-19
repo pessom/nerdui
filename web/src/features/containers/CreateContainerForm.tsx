@@ -16,6 +16,7 @@ import {
   Select,
   SimpleGrid,
   Stack,
+  Switch,
   Text,
   TagsInput,
   TextInput,
@@ -395,6 +396,13 @@ export function CreateContainerForm({
             />
           )}
         </SimpleGrid>
+
+        <Switch
+          label="Update automatically"
+          description="Pull and recreate the container when a scheduled check finds a newer image for its tag (label nerdui.auto-update=true)"
+          checked={form.autoUpdate}
+          onChange={(e) => set({ autoUpdate: e.currentTarget.checked })}
+        />
 
         <Accordion variant="contained">
           <Accordion.Item value="advanced">

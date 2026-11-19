@@ -122,3 +122,30 @@ func (h *Handler) putImageUpdateSettings(w http.ResponseWriter, r *http.Request)
 	h.log().Info("image update settings saved", "environment", env, "interval", time.Duration(in.IntervalSeconds)*time.Second)
 	httpjson.Write(w, http.StatusOK, in)
 }
+
+// AutoUpdates is the log of automatic updates (#54, ADR-0032); *updates.Updater implements it.
+type AutoUpdates interface {
+	Log(ctx context.Context, env, namespace string, limit int) ([]updates.Entry, error)
+}
+
+// autoUpdatesLimit is the number of log entries returned.
+const autoUpdatesLimit = 100
+
+// GET /api/v1/environments/{env}/auto-updates?namespace=
+func (h *Handler) listAutoUpdates(w http.ResponseWriter, r *http.Request) {
+	if h.AutoUpdates == nil {
+		httpjson.WriteError(w, http.StatusNotImplemented, httpjson.CodeUnavailable, "automatic updates are not available")
+		return
+	}
+	ns, err := Namespace(r)
+	if err != nil {
+		httpjson.WriteErr(w, r, h.Logger, err)
+		return
+	}
+	entries, err := h.AutoUpdates.Log(r.Context(), EnvFrom(r.Context()).ID, ns, autoUpdatesLimit)
+	if err != nil {
+		httpjson.WriteErr(w, r, h.Logger, err)
+		return
+	}
+	httpjson.Write(w, http.StatusOK, map[string]any{"entries": entries})
+}

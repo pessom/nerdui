@@ -40,3 +40,4 @@ We record significant architectural decisions as ADRs
 | 0029 | [Image details cache](0029-image-details-cache.md) | Accepted |
 | 0030 | [Image update checks](0030-image-update-checks.md) | Accepted |
 | 0031 | [Editing and recreating containers](0031-container-recreate.md) | Accepted |
+| 0032 | [Automatic updates](0032-automatic-updates.md) | Accepted |
