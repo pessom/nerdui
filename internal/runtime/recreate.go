@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"strconv"
 	"time"
 
@@ -73,6 +74,18 @@ func (cc clientContainers) Recreate(ctx context.Context, namespace, ref string, 
 		return "", fmt.Errorf("rename %s: %w", spec.Name, classify(err))
 	}
 
+	// Published host ports must be free before nerdctl allocates them again.
+	if !waitPortsFree(ctx, cur.Spec.Ports, 10*time.Second, out) {
+		if c, err := cl.LoadContainer(nctx, oldID); err == nil {
+			if t, err := c.Task(nctx, nil); err == nil {
+				if st, err := t.Status(nctx); err == nil {
+					_, _ = fmt.Fprintf(out, "The previous container's task is %s\r\n", st.Status)
+				}
+			} else {
+				_, _ = fmt.Fprintf(out, "The previous container has no task: %v\r\n", err)
+			}
+		}
+	}
 	newID, err := cc.Create(ctx, namespace, spec, cur.Running, out)
 	if err != nil {
 		_, _ = fmt.Fprintf(out, "\r\n\x1b[1;31mRecreating failed: %v\x1b[0m\r\n\x1b[1mRestoring the previous container\x1b[0m\r\n", err)
@@ -101,4 +114,54 @@ func (cc clientContainers) restart(ctx context.Context, namespace, id string, ru
 	if err := cc.Do(ctx, namespace, id, ActionStart, ActionOptions{}); err != nil && !errdefs.IsFailedPrecondition(err) {
 		_, _ = fmt.Fprintf(out, "Could not start the previous container again: %v\r\n", err)
 	}
+}
+
+// waitPortsFree waits until the published host ports of the old container can be bound,
+// at most timeout, and reports those still in use.
+func waitPortsFree(ctx context.Context, ports []PortSpec, timeout time.Duration, out io.Writer) bool {
+	deadline := time.Now().Add(timeout)
+	free := true
+	for _, p := range ports {
+		if p.HostPort == 0 {
+			continue
+		}
+		addr := net.JoinHostPort(p.HostIP, strconv.Itoa(p.HostPort))
+		for {
+			err := tryBind(ctx, p.Protocol, addr)
+			if err == nil {
+				break
+			}
+			if time.Now().After(deadline) || ctx.Err() != nil {
+				_, _ = fmt.Fprintf(out, "Port %s/%s is still in use: %v\r\n", addr, protoOr(p.Protocol), err)
+				free = false
+				break
+			}
+			time.Sleep(50 * time.Millisecond)
+		}
+	}
+	return free
+}
+
+func protoOr(p string) string {
+	if p == "" {
+		return "tcp"
+	}
+	return p
+}
+
+// tryBind binds and releases an address.
+func tryBind(ctx context.Context, proto, addr string) error {
+	var lc net.ListenConfig
+	if proto == "udp" {
+		c, err := lc.ListenPacket(ctx, "udp", addr)
+		if err == nil {
+			_ = c.Close()
+		}
+		return err
+	}
+	l, err := lc.Listen(ctx, "tcp", addr)
+	if err == nil {
+		_ = l.Close()
+	}
+	return err
 }

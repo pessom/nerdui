@@ -213,7 +213,12 @@ func stop(ctx context.Context, c containerd.Container, namespace string) error {
 // portReserverPID reads the PID of nerdctl's port reserver of a container, 0 when it has none
 // (the path is nerdctl's: /run/nerdctl/<namespace>/<id>/port-reserver.pid).
 func portReserverPID(namespace, id string) int {
-	b, err := os.ReadFile(filepath.Join("/run/nerdctl", namespace, id, "port-reserver.pid")) //nolint:gosec // G304: namespace and container ID are validated containerd identifiers
+	const base = "/run/nerdctl"
+	p := filepath.Clean(filepath.Join(base, namespace, id, "port-reserver.pid"))
+	if filepath.Base(namespace) != namespace || filepath.Base(id) != id || !strings.HasPrefix(p, base+string(os.PathSeparator)) {
+		return 0
+	}
+	b, err := os.ReadFile(p) //nolint:gosec // G304: checked to stay under /run/nerdctl
 	if err != nil {
 		return 0
 	}
