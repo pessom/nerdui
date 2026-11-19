@@ -1611,6 +1611,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/environments/{env}/auto-updates": {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Log of automatic updates of a namespace
+         * @description Requires `containers:read` (#54, ADR-0032). Containers and compose services labeled
+         *     `nerdui.auto-update=true` are pulled and recreated after each scheduled image update check
+         *     that finds a newer image. Newest first, at most 100 entries; kept for 90 days.
+         */
+        get: operations["listAutoUpdates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/environments/{env}/image-updates/check": {
         parameters: {
             query?: never;
@@ -1872,6 +1900,27 @@ export interface components {
             nextCheck?: string;
             running: boolean;
             images: components["schemas"]["ImageUpdateStatus"][];
+        };
+        AutoUpdateEntry: {
+            /** Format: int64 */
+            id: number;
+            namespace: string;
+            /** @enum {string} */
+            kind: "container" | "stack";
+            /** @description Container name or stack name */
+            name: string;
+            /** @description Image references updated */
+            refs: string[];
+            /** @enum {string} */
+            status: "updated" | "failed" | "skipped";
+            /** @description Why the update failed or was skipped */
+            message?: string;
+            /** @description The job that ran the update (kept for an hour) */
+            jobId?: string;
+            /** Format: date-time */
+            startedAt: string;
+            /** Format: date-time */
+            finishedAt: string;
         };
         NamespaceSpec: {
             /** @example lab */
@@ -5182,6 +5231,38 @@ export interface operations {
             404: components["responses"]["Error"];
             501: components["responses"]["Error"];
             503: components["responses"]["Error"];
+        };
+    };
+    listAutoUpdates: {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Log entries */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        entries: components["schemas"]["AutoUpdateEntry"][];
+                    };
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            501: components["responses"]["Error"];
         };
     };
     checkImageUpdates: {

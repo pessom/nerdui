@@ -61,6 +61,8 @@ type Checker struct {
 	Store        Store
 	Logger       *slog.Logger
 	Now          func() time.Time
+	// AfterCheck runs after each successful scheduled check, e.g. Updater.Run (#54).
+	AfterCheck func(ctx context.Context, env *environment.Environment) error
 
 	mu      sync.Mutex
 	running map[string]bool
@@ -156,9 +158,18 @@ func (c *Checker) Run(ctx context.Context) {
 		case <-timer.C:
 		}
 		for _, env := range c.Environments.List() {
-			if c.due(ctx, env.ID) {
-				if _, err := c.Check(ctx, env, ""); err != nil && !errors.Is(err, ErrBusy) && ctx.Err() == nil {
+			if !c.due(ctx, env.ID) {
+				continue
+			}
+			if _, err := c.Check(ctx, env, ""); err != nil {
+				if !errors.Is(err, ErrBusy) && ctx.Err() == nil {
 					c.log().Warn("image update check failed", "environment", env.ID, "error", err)
+				}
+				continue
+			}
+			if c.AfterCheck != nil {
+				if err := c.AfterCheck(ctx, env); err != nil && ctx.Err() == nil {
+					c.log().Warn("automatic updates failed", "environment", env.ID, "error", err)
 				}
 			}
 		}

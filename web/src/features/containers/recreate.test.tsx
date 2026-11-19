@@ -30,6 +30,15 @@ describe("container settings round trip", () => {
     const { request } = toRequest(fromRequest(spec));
     expect(request).toEqual({ ...spec, start: true });
   });
+
+  it("maps the auto-update label to the switch", () => {
+    const auto = { ...spec, labels: { app: "web", "nerdui.auto-update": "true" } };
+    const form = fromRequest(auto);
+    expect(form.autoUpdate).toBe(true);
+    expect(form.labels).toEqual([{ key: "app", value: "web" }]);
+    expect(toRequest(form).request.labels).toEqual(auto.labels);
+    expect(toRequest({ ...form, autoUpdate: false }).request.labels).toEqual({ app: "web" });
+  });
 });
 
 describe("edit container page", () => {

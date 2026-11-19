@@ -120,8 +120,16 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 		}
 	}
 
-	// Image update checks (#53) on each environment's schedule.
-	imageUpdates := &updates.Checker{Environments: envs, Store: st.Write(), Logger: logger}
+	// Background jobs (#126) are canceled and awaited when serving ends.
+	jobManager := jobs.NewManager()
+	defer jobManager.Close()
+	stackService := &stacks.Service{
+		Dir: cfg.EffectiveStacksDir(), Registry: st.Read(), Writer: st.Write(), ScanDirs: cfg.StacksScanDirs,
+	}
+	// Image update checks (#53) on each environment's schedule, each followed by the automatic
+	// updates of opted-in containers and stacks (#54).
+	autoUpdates := &updates.Updater{Store: st.Write(), Jobs: jobManager, Stacks: stackService}
+	imageUpdates := &updates.Checker{Environments: envs, Store: st.Write(), Logger: logger, AfterCheck: autoUpdates.Run}
 	checks.Go(func() { imageUpdates.Run(checkCtx) })
 
 	// Hijacked WebSocket connections are neither tracked nor closed by Shutdown; their
@@ -129,9 +137,6 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 	// end with "going away" (ADR-0007).
 	streamsCtx, cancelStreams := context.WithCancel(context.WithoutCancel(ctx))
 	defer cancelStreams()
-	// Background jobs (#126) are canceled and awaited when serving ends.
-	jobManager := jobs.NewManager()
-	defer jobManager.Close()
 	var eventHistory api.EventHistory
 	if cfg.EventsRetention > 0 {
 		eventHistory = st.Read()
@@ -140,10 +145,9 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 		Handler: server.New(server.Config{
 			Auth: authSvc, Environments: envs, UI: web.Dist(), Jobs: jobManager,
 			EventHistory: eventHistory, DisableExec: cfg.DisableExec, Settings: st.Write(),
-			Stacks: &stacks.Service{
-				Dir: cfg.EffectiveStacksDir(), Registry: st.Read(), Writer: st.Write(), ScanDirs: cfg.StacksScanDirs,
-			},
+			Stacks:       stackService,
 			ImageUpdates: imageUpdates,
+			AutoUpdates:  autoUpdates,
 			Logger:       logger,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,

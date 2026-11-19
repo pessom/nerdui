@@ -20,6 +20,21 @@ type ApiKey struct {
 	LastUsedAt sql.NullInt64
 }
 
+type AutoUpdate struct {
+	ID          int64
+	Environment string
+	Namespace   string
+	Kind        string
+	Name        string
+	Refs        string
+	Digests     string
+	Status      string
+	Message     string
+	JobID       string
+	StartedAt   int64
+	FinishedAt  int64
+}
+
 type Event struct {
 	ID          int64
 	Environment string

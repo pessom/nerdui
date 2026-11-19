@@ -51,7 +51,9 @@ type Config struct {
 	Stacks *stacks.Service
 	// ImageUpdates checks images for newer registry digests (#53); nil disables it.
 	ImageUpdates api.ImageUpdates
-	Logger       *slog.Logger
+	// AutoUpdates is the log of automatic updates (#54); nil disables it.
+	AutoUpdates api.AutoUpdates
+	Logger      *slog.Logger
 }
 
 // VersionResponse is returned by GET /api/v1/version. Keep in sync with api/openapi.yaml.
@@ -105,7 +107,7 @@ func New(cfg Config) http.Handler {
 			(&api.Handler{
 				Envs: cfg.Environments, Jobs: cfg.Jobs, EventHistory: cfg.EventHistory,
 				ExecDisabled: cfg.DisableExec, Settings: cfg.Settings, Stacks: cfg.Stacks,
-				ImageUpdates: cfg.ImageUpdates, Logger: cfg.Logger,
+				ImageUpdates: cfg.ImageUpdates, AutoUpdates: cfg.AutoUpdates, Logger: cfg.Logger,
 			}).Routes(r, guard)
 		})
 	})

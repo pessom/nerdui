@@ -57,6 +57,15 @@ export function parseArgs(line: string): { args: string[]; error?: string } {
   return { args };
 }
 
+/** Opts a container in to automatic updates (#54, ADR-0032). */
+export const AUTO_UPDATE_LABEL = "nerdui.auto-update";
+
+/** Whether labels opt in to automatic updates, as the server reads them. */
+export function autoUpdateEnabled(labels?: Record<string, string> | null): boolean {
+  const v = labels?.[AUTO_UPDATE_LABEL]?.trim().toLowerCase();
+  return v === "true" || v === "1" || v === "yes" || v === "on";
+}
+
 export interface PortRow {
   hostIp: string;
   hostPort: string;
@@ -96,6 +105,8 @@ export interface CreateForm {
   restart: "no" | "always" | "unless-stopped" | "on-failure";
   retries: string;
   labels: LabelRow[];
+  /** Pull and recreate when the image's tag gets a newer image (#54): the nerdui.auto-update label. */
+  autoUpdate: boolean;
   start: boolean;
   // Advanced (#18)
   extraNetworks: string[];
@@ -125,6 +136,7 @@ export const emptyForm: CreateForm = {
   restart: "unless-stopped",
   retries: "",
   labels: [],
+  autoUpdate: false,
   start: true,
   extraNetworks: [],
   ip: "",
@@ -176,9 +188,12 @@ export function toRequest(f: CreateForm): { request: CreateRequest; error?: stri
   if (f.memoryMiB.trim()) request.memoryBytes = Math.round(Number(f.memoryMiB) * 1024 * 1024);
   request.restart =
     f.restart === "on-failure" && f.retries.trim() ? `on-failure:${f.retries.trim()}` : f.restart;
-  const labels = Object.fromEntries(
-    f.labels.filter((l) => l.key.trim()).map((l) => [l.key.trim(), l.value]),
+  const labels: Record<string, string> = Object.fromEntries(
+    f.labels
+      .filter((l) => l.key.trim() && l.key.trim() !== AUTO_UPDATE_LABEL)
+      .map((l) => [l.key.trim(), l.value]),
   );
+  if (f.autoUpdate) labels[AUTO_UPDATE_LABEL] = "true";
   if (Object.keys(labels).length) request.labels = labels;
   const list = (k: "extraNetworks" | "capAdd" | "capDrop" | "devices" | "dns" | "extraHosts") => {
     const v = f[k].map((x) => x.trim()).filter(Boolean);
@@ -247,7 +262,10 @@ export function fromRequest(r: CreateRequest): CreateForm {
       ? (policy as CreateForm["restart"])
       : "no",
     retries: retries ?? "",
-    labels: Object.entries(r.labels ?? {}).map(([key, value]) => ({ key, value })),
+    labels: Object.entries(r.labels ?? {})
+      .filter(([key]) => key !== AUTO_UPDATE_LABEL)
+      .map(([key, value]) => ({ key, value })),
+    autoUpdate: autoUpdateEnabled(r.labels),
     start: true,
     extraNetworks: r.extraNetworks ?? [],
     ip: r.ip ?? "",

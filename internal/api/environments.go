@@ -42,6 +42,8 @@ type Handler struct {
 	Stacks *stacks.Service
 	// ImageUpdates checks images for newer registry digests (#53); nil disables it.
 	ImageUpdates ImageUpdates
+	// AutoUpdates is the log of automatic updates (#54); nil disables it.
+	AutoUpdates AutoUpdates
 	// PrometheusHTTP is the HTTP client for Prometheus; nil uses a default with a timeout.
 	PrometheusHTTP *http.Client
 	Logger         *slog.Logger
@@ -64,6 +66,7 @@ func (h *Handler) Routes(r chi.Router, g *authz.Guard) {
 		// Update checks only ask registries: they work in read-only mode too (#53).
 		r.Method(http.MethodGet, "/image-updates", g.Protect(authz.ImagesRead, h.listImageUpdates))
 		r.Method(http.MethodPost, "/image-updates/check", g.Protect(authz.ImagesRead, h.checkImageUpdates))
+		r.Method(http.MethodGet, "/auto-updates", g.Protect(authz.ContainersRead, h.listAutoUpdates))
 		// Adopting and forgetting stacks change files and the database, not containerd.
 		r.Method(http.MethodGet, "/stack-candidates", g.Protect(authz.StacksRead, h.stackCandidates))
 		r.Method(http.MethodPost, "/stacks/adopt", g.Protect(authz.StacksWrite, h.adoptStack))
