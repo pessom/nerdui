@@ -22,7 +22,7 @@ func (q *Queries) LastImageUpdateCheck(ctx context.Context, environment string) 
 
 const listImageUpdates = `-- name: ListImageUpdates :many
 
-SELECT environment, ref, remote_digest, error, checked_at FROM image_updates WHERE environment = ? ORDER BY ref
+SELECT environment, ref, remote_digest, error, checked_at, seen_at FROM image_updates WHERE environment = ? ORDER BY ref
 `
 
 // SPDX-FileCopyrightText: 2026 The nerdui Authors
@@ -42,6 +42,7 @@ func (q *Queries) ListImageUpdates(ctx context.Context, environment string) ([]I
 			&i.RemoteDigest,
 			&i.Error,
 			&i.CheckedAt,
+			&i.SeenAt,
 		); err != nil {
 			return nil, err
 		}
@@ -57,10 +58,13 @@ func (q *Queries) ListImageUpdates(ctx context.Context, environment string) ([]I
 }
 
 const setImageUpdate = `-- name: SetImageUpdate :exec
-INSERT INTO image_updates (environment, ref, remote_digest, error, checked_at)
-VALUES (?1, ?2, ?3, ?4, ?5)
+INSERT INTO image_updates (environment, ref, remote_digest, error, checked_at, seen_at)
+VALUES (?1, ?2, ?3, ?4, ?5, ?5)
 ON CONFLICT (environment, ref) DO UPDATE SET
-    remote_digest = excluded.remote_digest,
+    remote_digest = CASE WHEN excluded.remote_digest = '' THEN image_updates.remote_digest ELSE excluded.remote_digest END,
+    seen_at = CASE
+        WHEN excluded.remote_digest = '' OR excluded.remote_digest = image_updates.remote_digest THEN image_updates.seen_at
+        ELSE excluded.checked_at END,
     error = excluded.error,
     checked_at = excluded.checked_at
 `
@@ -73,6 +77,8 @@ type SetImageUpdateParams struct {
 	CheckedAt    int64
 }
 
+// A failed check keeps the last digest and when it was first seen (#56); a new digest restarts
+// seen_at.
 func (q *Queries) SetImageUpdate(ctx context.Context, arg SetImageUpdateParams) error {
 	_, err := q.db.ExecContext(ctx, setImageUpdate,
 		arg.Environment,

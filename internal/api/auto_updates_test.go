@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -69,7 +70,7 @@ func TestAutoUpdates(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	plan, err := u.Plan(ctx, env)
+	plan, err := u.Plan(ctx, env, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -146,5 +147,107 @@ func TestAutoEnabled(t *testing.T) {
 		if got := updates.AutoEnabled(map[string]string{updates.Label: v}); got != want {
 			t.Errorf("%q: %v", v, got)
 		}
+	}
+}
+
+func TestAutoUpdateGuards(t *testing.T) {
+	ctx := context.Background()
+	on := map[string]string{updates.Label: "true"}
+	rt := &fakeRuntime{
+		ns:     []string{"default"},
+		images: []runtime.Image{{Name: "docker.io/library/nginx:1", Digest: "sha256:old"}},
+		containers: []runtime.Container{
+			{ID: "1", Name: "a", Image: "docker.io/library/nginx:1", Labels: on},
+			{ID: "2", Name: "b", Image: "docker.io/library/nginx:1", Labels: on},
+			{ID: "3", Name: "c", Image: "docker.io/library/nginx:1", Labels: on},
+		},
+		remote: map[string]string{"docker.io/library/nginx:1": "sha256:new"},
+		spec:   runtime.ContainerSpec{Spec: runtime.CreateSpec{Image: "docker.io/library/nginx:1"}},
+	}
+	recreated := func() int {
+		rt.mu.Lock()
+		defer rt.mu.Unlock()
+		return len(rt.recreated)
+	}
+	st, err := store.Open(ctx, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	env := environment.Local(rt, "default")
+	envs := environment.NewRegistry(env)
+	m := jobs.NewManager()
+	t.Cleanup(m.Close)
+	t0 := time.Now()
+	now := t0
+	clock := func() time.Time { return now }
+	checker := &updates.Checker{Environments: envs, Store: st.Write(), Now: clock}
+	u := &updates.Updater{Store: st.Write(), Jobs: m, Now: clock}
+	if _, err := checker.Check(ctx, env, ""); err != nil {
+		t.Fatal(err)
+	}
+
+	admin := func(*http.Request) (authz.Subject, bool) { return authz.Subject{Role: authz.RoleAdmin}, true }
+	r := chi.NewRouter()
+	r.Route("/api/v1", func(r chi.Router) {
+		(&Handler{Envs: envs, Jobs: m, AutoUpdates: u}).Routes(r, authz.NewGuard(authz.AdminOnly{}, admin, nil))
+	})
+	var set updates.AutoSettings
+	if rec := do(t, r, "/api/v1/environments/local/settings/auto-updates", &set); rec.Code != http.StatusOK || set != (updates.AutoSettings{MaxBatch: 5}) {
+		t.Fatalf("defaults: %d %s", rec.Code, rec.Body)
+	}
+	if rec := send(t, r, http.MethodPut, "/api/v1/environments/local/settings/auto-updates", `{"delaySeconds":60,"maxBatch":0}`); rec.Code != http.StatusBadRequest {
+		t.Errorf("invalid delay: %d", rec.Code)
+	}
+
+	// A digest seen less than the delay ago is not applied.
+	if rec := send(t, r, http.MethodPut, "/api/v1/environments/local/settings/auto-updates", `{"delaySeconds":3600,"maxBatch":0}`); rec.Code != http.StatusOK {
+		t.Fatalf("save: %d %s", rec.Code, rec.Body)
+	}
+	now = t0.Add(30 * time.Minute)
+	if err := u.Run(ctx, env); err != nil || recreated() != 0 {
+		t.Fatalf("before the delay: %v, %d recreated", err, recreated())
+	}
+	// A failed check keeps when the digest was first seen.
+	now = t0.Add(90 * time.Minute)
+	rt.remote = map[string]string{}
+	if _, err := checker.Check(ctx, env, ""); err != nil {
+		t.Fatal(err)
+	}
+	rt.remote = map[string]string{"docker.io/library/nginx:1": "sha256:new"}
+	if _, err := checker.Check(ctx, env, ""); err != nil {
+		t.Fatal(err)
+	}
+	now = t0.Add(2 * time.Hour)
+	if err := u.Run(ctx, env); err != nil || recreated() != 3 {
+		t.Fatalf("after the delay: %v, %d recreated", err, recreated())
+	}
+
+	// More updates than maxBatch wait for approval.
+	if rec := send(t, r, http.MethodPut, "/api/v1/environments/local/settings/auto-updates", `{"delaySeconds":0,"maxBatch":1}`); rec.Code != http.StatusOK {
+		t.Fatalf("save: %d %s", rec.Code, rec.Body)
+	}
+	if err := u.Run(ctx, env); err != nil || recreated() != 3 {
+		t.Fatalf("over the threshold: %v, %d recreated", err, recreated())
+	}
+	var log AutoUpdatesLog
+	if rec := do(t, r, "/api/v1/environments/local/auto-updates?namespace=default", &log); rec.Code != http.StatusOK || log.Pending == nil || len(log.Pending.Targets) != 3 {
+		t.Fatalf("pending: %d %s", rec.Code, rec.Body)
+	}
+	if rec := send(t, r, http.MethodPost, "/api/v1/environments/local/auto-updates/approve", ``); rec.Code != http.StatusAccepted {
+		t.Fatalf("approve: %d %s", rec.Code, rec.Body)
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	for recreated() != 6 && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if recreated() != 6 {
+		t.Fatalf("approved: %d recreated", recreated())
+	}
+	if _, ok := u.PendingFor("local"); ok {
+		t.Error("still pending")
+	}
+	if rec := send(t, r, http.MethodPost, "/api/v1/environments/local/auto-updates/approve", ``); rec.Code != http.StatusConflict {
+		t.Errorf("approve nothing: %d", rec.Code)
 	}
 }

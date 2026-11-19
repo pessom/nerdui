@@ -54,6 +54,7 @@ type ImageUpdate struct {
 	RemoteDigest string
 	Error        string
 	CheckedAt    int64
+	SeenAt       int64
 }
 
 type Session struct {

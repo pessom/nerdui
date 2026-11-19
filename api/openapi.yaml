@@ -2049,16 +2049,36 @@ paths:
           description: Log entries
           content:
             application/json:
-              schema:
-                type: object
-                required: [entries]
-                properties:
-                  entries:
-                    type: array
-                    items: { $ref: "#/components/schemas/AutoUpdateEntry" }
+              schema: { $ref: "#/components/schemas/AutoUpdatesLog" }
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/auto-updates/approve:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+    post:
+      tags: [containers]
+      operationId: approveAutoUpdates
+      summary: Apply automatic updates waiting for approval
+      description: |
+        Requires `settings:write` (#56, ADR-0033). When a scheduled check finds more due updates
+        than `maxBatch`, none is applied until approved. They are planned again and started in the
+        background; each runs as a job and is logged.
+      responses:
+        "202":
+          description: Started
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [updates]
+                properties:
+                  updates: { type: integer }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
         "501": { $ref: "#/components/responses/Error" }
   /api/v1/environments/{env}/image-updates/check:
     parameters:
@@ -2123,6 +2143,45 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/ImageUpdateSettings" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/settings/auto-updates:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+    get:
+      tags: [settings]
+      operationId: getAutoUpdateSettings
+      summary: Guards of automatic updates
+      description: "Requires `settings:read` (#56). Default: no delay, approval above 5 updates."
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AutoUpdateSettings" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
+    put:
+      tags: [settings]
+      operationId: putAutoUpdateSettings
+      summary: Set the guards of automatic updates
+      description: "Requires `settings:write`."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/AutoUpdateSettings" }
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AutoUpdateSettings" }
         "400": { $ref: "#/components/responses/Error" }
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
@@ -2470,6 +2529,45 @@ components:
         jobId: { type: string, description: The job that ran the update (kept for an hour) }
         startedAt: { type: string, format: date-time }
         finishedAt: { type: string, format: date-time }
+    AutoUpdatesLog:
+      type: object
+      required: [entries]
+      properties:
+        entries:
+          type: array
+          items: { $ref: "#/components/schemas/AutoUpdateEntry" }
+        pending: { $ref: "#/components/schemas/AutoUpdatePending" }
+    AutoUpdatePending:
+      type: object
+      description: Updates of the environment (all namespaces) waiting for approval
+      required: [since, targets]
+      properties:
+        since: { type: string, format: date-time }
+        targets:
+          type: array
+          items:
+            type: object
+            required: [kind, namespace, name, refs]
+            properties:
+              kind: { type: string, enum: [container, stack] }
+              namespace: { type: string }
+              name: { type: string }
+              services: { type: array, items: { type: string } }
+              refs: { type: array, items: { type: string } }
+    AutoUpdateSettings:
+      type: object
+      required: [delaySeconds, maxBatch]
+      additionalProperties: false
+      properties:
+        delaySeconds:
+          type: integer
+          format: int64
+          enum: [0, 3600, 21600, 86400, 259200, 604800]
+          description: How long a new image must have been seen in the registry before it is applied
+        maxBatch:
+          type: integer
+          enum: [0, 1, 3, 5, 10, 20]
+          description: More due updates than this wait for approval; 0 never asks
     NamespaceSpec:
       type: object
       required: [name]
