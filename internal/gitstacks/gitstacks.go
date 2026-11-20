@@ -150,7 +150,13 @@ func (s *Service) options(ctx context.Context, url, ref string, credentialID *in
 // empty). It returns the file's repository-relative path. The file must be a regular file:
 // a symlink could point outside the clone.
 func composeIn(clone, rel string) (string, error) {
-	p := filepath.Join(clone, filepath.FromSlash(rel))
+	p := filepath.Clean(clone)
+	if rel != "" {
+		var err error
+		if p, err = inside(clone, filepath.FromSlash(rel)); err != nil {
+			return "", err
+		}
+	}
 	fi, err := os.Lstat(p)
 	if err != nil {
 		return "", fmt.Errorf("%w: %q is not in the repository", errdefs.ErrInvalidArgument, rel)
@@ -176,12 +182,26 @@ func composeIn(clone, rel string) (string, error) {
 	return rel, nil
 }
 
+// inside returns base/rel, cleaned, when it is below base (defense in depth: names and paths
+// are validated before).
+func inside(base, rel string) (string, error) {
+	base = filepath.Clean(base)
+	p := filepath.Clean(filepath.Join(base, rel))
+	if !strings.HasPrefix(p, base+string(os.PathSeparator)) {
+		return "", fmt.Errorf("%w: %q is outside %s", errdefs.ErrInvalidArgument, rel, base)
+	}
+	return p, nil
+}
+
 // clonePath returns <Dir>/<name>.
 func (s *Service) clonePath(name string) (string, error) {
 	if err := identifiers.ValidateDockerCompat(name); err != nil {
 		return "", fmt.Errorf("%w: stack name: %w", errdefs.ErrInvalidArgument, err)
 	}
-	return filepath.Join(s.Dir, name), nil
+	if filepath.Base(name) != name {
+		return "", fmt.Errorf("%w: stack name %q", errdefs.ErrInvalidArgument, name)
+	}
+	return inside(s.Dir, name)
 }
 
 // Create clones the repository and registers the stack. The request must have passed Check.
@@ -203,7 +223,7 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (stacks.Definit
 	} else if !errors.Is(err, fs.ErrNotExist) {
 		return stacks.Definition{}, err
 	}
-	tmp, err := os.MkdirTemp(s.Dir, ".clone-"+req.Name+"-")
+	tmp, err := os.MkdirTemp(s.Dir, ".clone-")
 	if err != nil {
 		return stacks.Definition{}, err
 	}
