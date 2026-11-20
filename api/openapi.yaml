@@ -1808,6 +1808,115 @@ paths:
         "409": { $ref: "#/components/responses/Error" }
         "501": { $ref: "#/components/responses/Error" }
         "503": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/stacks/{name}/git/auto:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - name: name
+        in: path
+        required: true
+        schema: { type: string }
+    put:
+      tags: [stacks]
+      operationId: setGitStackAuto
+      summary: Automatic updates of a Git stack
+      description: |
+        Requires `stacks:deploy`. Sets what happens when polling or the webhook finds a new commit
+        (#38, #39): `off`, `notify` (a `git.update` notification) or `deploy` (pull, then
+        `compose up --remove-orphans` in every namespace where the project has containers; a
+        stack without containers is only pulled). `pollInterval` is one of 0 (no polling), 60,
+        300, 900, 3600, 21600 or 86400 seconds.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GitAutoRequest" }
+      responses:
+        "204": { description: Saved }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "415": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/stacks/{name}/git/webhook:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - name: name
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      tags: [stacks]
+      operationId: createGitStackWebhook
+      summary: Create or replace the webhook of a Git stack
+      description: |
+        Requires `stacks:deploy`. Returns the webhook path with a new secret token, shown only
+        once (nerdui stores its hash); a previous token stops working.
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [path]
+                properties:
+                  path: { type: string, example: /api/v1/hooks/git/3q2-7wE... }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [stacks]
+      operationId: deleteGitStackWebhook
+      summary: Remove the webhook of a Git stack
+      description: Requires `stacks:deploy`.
+      responses:
+        "204": { description: Removed }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
+  /api/v1/hooks/git/{token}:
+    parameters:
+      - name: token
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      tags: [git]
+      operationId: gitStackWebhook
+      summary: Push webhook of a Git stack
+      description: |
+        Public: the secret token in the path is the credential (#38, ADR-0040). Point a push
+        webhook of GitHub, GitLab, Gitea or any CI here. A JSON body with a `ref` other than the
+        stack's ref is ignored, as are events other than pushes (`X-GitHub-Event`,
+        `X-Gitea-Event`, `X-Gitlab-Event`); GitHub's `ping` answers `pong`. Otherwise the remote
+        is checked in the background and a new commit is announced or deployed according to the
+        stack's automatic update setting; 409 while it is `off`.
+      security: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ref: { type: string, example: refs/heads/main }
+      responses:
+        "200":
+          description: Ignored, or a ping
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GitWebhookResult" }
+        "202":
+          description: The check started
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GitWebhookResult" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
   /api/v1/environments/{env}/stacks/{name}/{op}:
     parameters:
       - $ref: "#/components/parameters/Env"
@@ -3188,7 +3297,7 @@ components:
         userAgent: { type: string }
     NotificationKind:
       type: string
-      enum: [image.update, autoupdate.updated, autoupdate.failed, autoupdate.pending, container.died, container.oom, job.failed]
+      enum: [image.update, autoupdate.updated, autoupdate.failed, autoupdate.pending, container.died, container.oom, job.failed, git.update]
     NotificationConfig:
       type: object
       description: |
@@ -3831,7 +3940,7 @@ components:
     GitInfo:
       type: object
       description: The repository of a Git stack (#37)
-      required: [url, ref, fullRef, composePath, commit, pulledAt]
+      required: [url, ref, fullRef, composePath, commit, pulledAt, autoUpdate, pollInterval, webhook]
       properties:
         url: { type: string }
         ref: { type: string, description: Branch or tag as entered; empty for the default branch }
@@ -3840,7 +3949,25 @@ components:
         credentialId: { type: integer, format: int64 }
         commit: { $ref: "#/components/schemas/GitCommit" }
         pulledAt: { type: string, format: date-time }
-        lastError: { type: string, description: Error of the newest failed pull }
+        lastError: { type: string, description: Error of the newest failed pull or check }
+        autoUpdate: { type: string, enum: ["off", notify, deploy], description: What happens on a new commit found by polling or the webhook }
+        pollInterval: { type: integer, format: int64, description: Seconds between checks of the remote; 0 without polling }
+        webhook: { type: boolean, description: The stack has a webhook }
+        checkedAt: { type: string, format: date-time, description: Last check of the remote }
+        remoteCommit: { type: string, description: Newest remote commit when it is not checked out }
+    GitAutoRequest:
+      type: object
+      required: [autoUpdate, pollInterval]
+      additionalProperties: false
+      properties:
+        autoUpdate: { type: string, enum: ["off", notify, deploy] }
+        pollInterval: { type: integer, format: int64, enum: [0, 60, 300, 900, 3600, 21600, 86400] }
+    GitWebhookResult:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [accepted, ignored, pong] }
+        reason: { type: string }
     GitStackRequest:
       type: object
       required: [name, url]

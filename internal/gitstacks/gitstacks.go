@@ -16,6 +16,7 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/containerd/errdefs"
@@ -35,6 +36,10 @@ type Store interface {
 	SetGitStackCommit(ctx context.Context, arg db.SetGitStackCommitParams) error
 	SetGitStackError(ctx context.Context, arg db.SetGitStackErrorParams) error
 	DeleteGitStack(ctx context.Context, name string) (int64, error)
+	SetGitStackAuto(ctx context.Context, arg db.SetGitStackAutoParams) (int64, error)
+	SetGitStackWebhook(ctx context.Context, arg db.SetGitStackWebhookParams) (int64, error)
+	GetGitStackByWebhook(ctx context.Context, webhookHash string) (db.GitStack, error)
+	SetGitStackChecked(ctx context.Context, arg db.SetGitStackCheckedParams) error
 
 	ListGitCredentials(ctx context.Context) ([]db.GitCredential, error)
 	GetGitCredential(ctx context.Context, id int64) (db.GitCredential, error)
@@ -58,6 +63,8 @@ type Service struct {
 	// AllowFile permits file:// URLs (tests).
 	AllowFile bool
 	Now       func() time.Time
+
+	locks sync.Map // stack name → *sync.Mutex: one pull of a clone at a time
 }
 
 func (s *Service) now() time.Time {
@@ -278,6 +285,9 @@ func (s *Service) Get(ctx context.Context, name string) (db.GitStack, error) {
 // Pull fetches the ref and checks out its newest commit, keeping untracked files. A failure
 // is recorded on the stack; the checked-out commit stays.
 func (s *Service) Pull(ctx context.Context, name string) (before, after gitrepo.Commit, def stacks.Definition, err error) {
+	mu, _ := s.locks.LoadOrStore(name, &sync.Mutex{})
+	mu.(*sync.Mutex).Lock()
+	defer mu.(*sync.Mutex).Unlock()
 	row, err := s.Get(ctx, name)
 	if err != nil {
 		return before, after, def, err

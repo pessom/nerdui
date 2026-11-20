@@ -69,6 +69,9 @@ const web = {
     },
     pulledAt: "2027-03-01T10:00:00Z",
     lastError: "authentication required",
+    autoUpdate: "off",
+    pollInterval: 0,
+    webhook: false,
   },
 };
 
@@ -266,5 +269,58 @@ describe("Git credentials", () => {
         .find((c) => c.method === "DELETE" && c.path === "/api/v1/git/known-hosts")
         ?.query.get("host"),
     ).toBe("github.com:22");
+  });
+});
+
+describe("Git stack automatic updates", () => {
+  it("saves the mode and interval and shows a new webhook URL once", async () => {
+    let git: Record<string, unknown> = { ...web.git, lastError: undefined };
+    const { calls } = fakeApi({
+      ...signedIn,
+      [`GET ${base}/web`]: () => json(200, { ...web, git }),
+      [`PUT ${base}/web/git/auto`]: (c) => {
+        git = { ...git, ...(c.body as object) };
+        return new Response(null, { status: 204 });
+      },
+      [`POST ${base}/web/git/webhook`]: () => {
+        git = { ...git, webhook: true };
+        return json(201, { path: "/api/v1/hooks/git/tok123" });
+      },
+      [`DELETE ${base}/web/git/webhook`]: () => {
+        git = { ...git, webhook: false };
+        return new Response(null, { status: 204 });
+      },
+    });
+    renderApp("/env/local/stacks/web");
+
+    const auto = await screen.findByRole("region", { name: "Automatic updates" });
+    const interval = within(auto).getByLabelText("Check the repository", { selector: "input" });
+    expect(interval).toBeDisabled();
+    fireEvent.click(within(auto).getByLabelText("On a new commit", { selector: "input" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Pull and redeploy", hidden: true }));
+    await waitFor(() =>
+      expect(calls.find((c) => c.path === `${base}/web/git/auto`)?.body).toEqual({
+        autoUpdate: "deploy",
+        pollInterval: 0,
+      }),
+    );
+    await waitFor(() => expect(interval).toBeEnabled());
+    fireEvent.click(interval);
+    fireEvent.click(await screen.findByRole("option", { name: "Every 15 minutes", hidden: true }));
+    await waitFor(() =>
+      expect(calls.filter((c) => c.path === `${base}/web/git/auto`).at(-1)?.body).toEqual({
+        autoUpdate: "deploy",
+        pollInterval: 900,
+      }),
+    );
+
+    fireEvent.click(within(auto).getByRole("button", { name: "Create webhook" }));
+    expect(await within(auto).findByLabelText("Webhook URL")).toHaveTextContent(
+      `${window.location.origin}/api/v1/hooks/git/tok123`,
+    );
+    expect(await within(auto).findByText("active")).toBeInTheDocument();
+    fireEvent.click(within(auto).getByRole("button", { name: "Remove" }));
+    expect(await within(auto).findByRole("button", { name: "Create webhook" })).toBeInTheDocument();
+    expect(within(auto).queryByLabelText("Webhook URL")).not.toBeInTheDocument();
   });
 });

@@ -24,6 +24,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport"
 	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 	gitssh "github.com/go-git/go-git/v5/plumbing/transport/ssh"
+	"github.com/go-git/go-git/v5/storage/memory"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -344,6 +345,36 @@ func Update(ctx context.Context, dir, fullRef string, o Options) (Commit, Commit
 	}
 	after, err := commitOf(repo, hash)
 	return before, after, err
+}
+
+// RemoteHead asks the remote for the commit its full ref points to, without fetching objects
+// (git ls-remote). For an annotated tag it is the tagged commit.
+func RemoteHead(ctx context.Context, fullRef string, o Options) (string, error) {
+	if err := ValidateURL(o.URL, o.AllowFile); err != nil {
+		return "", err
+	}
+	auth, err := o.auth(ctx)
+	if err != nil {
+		return "", err
+	}
+	remote := git.NewRemote(memory.NewStorage(), &config.RemoteConfig{Name: "origin", URLs: []string{o.URL}})
+	refs, err := remote.ListContext(ctx, &git.ListOptions{Auth: auth, PeelingOption: git.AppendPeeled})
+	if err != nil {
+		return "", clean(err, o)
+	}
+	var hash string
+	for _, r := range refs {
+		switch r.Name().String() {
+		case fullRef + "^{}": // the commit of an annotated tag
+			return r.Hash().String(), nil
+		case fullRef:
+			hash = r.Hash().String()
+		}
+	}
+	if hash == "" {
+		return "", fmt.Errorf("%w: %s is not in %s any more", errdefs.ErrNotFound, fullRef, o.URL)
+	}
+	return hash, nil
 }
 
 // trackedFiles lists the paths of files in the trees of the given commits.

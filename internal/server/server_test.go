@@ -286,6 +286,7 @@ func TestRouteAuthorization(t *testing.T) {
 		"GET /api/v1/setup":                  "public",
 		"POST /api/v1/setup":                 "public",
 		"POST /api/v1/auth/login":            "public",
+		"POST /api/v1/hooks/git/{token}":     "public",
 		"POST /api/v1/auth/login/mfa":        "public",
 		"GET /api/v1/auth/mfa":               "session:self",
 		"POST /api/v1/auth/mfa/setup":        "session:self",
@@ -356,6 +357,9 @@ func TestRouteAuthorization(t *testing.T) {
 		"POST /api/v1/environments/{env}/stacks/git":                   "stacks:write",
 		"POST /api/v1/environments/{env}/stacks/{name}/git/pull":       "stacks:deploy",
 		"DELETE /api/v1/environments/{env}/stacks/{name}/git":          "stacks:write",
+		"PUT /api/v1/environments/{env}/stacks/{name}/git/auto":        "stacks:deploy",
+		"POST /api/v1/environments/{env}/stacks/{name}/git/webhook":    "stacks:deploy",
+		"DELETE /api/v1/environments/{env}/stacks/{name}/git/webhook":  "stacks:deploy",
 		"GET /api/v1/git/credentials":                                  "stacks:read",
 		"POST /api/v1/git/credentials":                                 "settings:write",
 		"PUT /api/v1/git/credentials/{id}":                             "settings:write",
@@ -488,5 +492,17 @@ func TestAPISpecIsPublic(t *testing.T) {
 	_ = resp.Body.Close()
 	if resp.StatusCode != http.StatusFound || resp.Header.Get("Location") != "/api-docs" {
 		t.Errorf("/api/docs: %d %q", resp.StatusCode, resp.Header.Get("Location"))
+	}
+}
+
+func TestRedactPath(t *testing.T) {
+	for in, want := range map[string]string{
+		"/api/v1/hooks/git/s3cr3t":   "/api/v1/hooks/git/<token>",
+		"/api/v1/hooks/git/":         "/api/v1/hooks/git/",
+		"/api/v1/environments/local": "/api/v1/environments/local",
+	} {
+		if got := redactPath(in); got != want {
+			t.Errorf("%s: %s", in, got)
+		}
 	}
 }

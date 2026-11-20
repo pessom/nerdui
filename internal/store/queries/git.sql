@@ -39,11 +39,28 @@ VALUES (@name, @url, @ref, @full_ref, @compose_path, @credential_id, @commit_has
 -- name: SetGitStackCommit :exec
 UPDATE git_stacks
 SET commit_hash = @commit_hash, commit_message = @commit_message, commit_author = @commit_author,
-    commit_at = @commit_at, pulled_at = @now, last_error = ''
+    commit_at = @commit_at, pulled_at = @now, last_error = '',
+    remote_hash = CASE WHEN remote_hash = @commit_hash THEN '' ELSE remote_hash END
 WHERE name = @name;
 
 -- name: SetGitStackError :exec
 UPDATE git_stacks SET last_error = @error WHERE name = @name;
+
+-- name: SetGitStackAuto :execrows
+UPDATE git_stacks SET auto_update = @auto_update, poll_interval = @poll_interval WHERE name = @name;
+
+-- name: SetGitStackWebhook :execrows
+UPDATE git_stacks SET webhook_hash = @webhook_hash WHERE name = @name;
+
+-- name: GetGitStackByWebhook :one
+SELECT * FROM git_stacks WHERE webhook_hash = ? AND webhook_hash != '';
+
+-- name: SetGitStackChecked :exec
+UPDATE git_stacks
+SET checked_at = @now,
+    remote_hash = CASE WHEN @remote_hash = commit_hash THEN '' ELSE @remote_hash END,
+    last_error = @error
+WHERE name = @name;
 
 -- name: DeleteGitStack :execrows
 DELETE FROM git_stacks WHERE name = ?;

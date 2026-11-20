@@ -24,6 +24,7 @@ import { api, unwrap, unwrapEmpty } from "../../api/client";
 import { keys, type Stack as StackT } from "../../api/queries";
 import { useJobsPanel } from "../jobs/JobsContext";
 import { formatTime, usePreferences } from "../preferences/context";
+import { GitAutoUpdate } from "./GitAutoUpdate";
 import { webURL } from "./gitUrl";
 
 type GitInfo = NonNullable<StackT["git"]>;
@@ -180,6 +181,7 @@ export function GitStackPanel({
           </Text>
         </Alert>
       )}
+      <GitAutoUpdate env={env} namespace={namespace} name={name} git={git} />
       <Modal opened={removing} onClose={closeRemove} title={`Remove stack ${name}`}>
         <form
           onSubmit={(e) => {

@@ -32,12 +32,15 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 - Git stacks: create a stack from a Git repository ("From Git" on the Stacks page), pull it with
   an optional redeploy, and keep `.env` local; tokens and SSH keys for private repositories,
   including generated deploy keys, are saved under Settings → Git credentials (#37, #93).
+- Automatic updates of Git stacks: a push webhook for GitHub, GitLab, Gitea or CI, and polling
+  of the repository, either announce new commits (`git.update` notification) or pull and
+  redeploy the stack where it runs (#38, #39).
 
 ### Upgrade notes
 
 - Database migrations 7 (automatic update log), 8 (when new images were first seen), 9
-  (notification channels), 10 (audit log), 11 (two-factor authentication) and 12 (Git stacks)
-  are applied on start.
+  (notification channels), 10 (audit log), 11 (two-factor authentication), 12 (Git stacks) and 13
+  (automatic updates of Git stacks) are applied on start.
 
 ## [0.1.1] - 2026-11-19
 

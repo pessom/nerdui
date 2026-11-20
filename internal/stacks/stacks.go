@@ -77,8 +77,18 @@ type GitInfo struct {
 	CredentialID *int64         `json:"credentialId,omitempty"`
 	Commit       gitrepo.Commit `json:"commit"`
 	PulledAt     time.Time      `json:"pulledAt"`
-	// LastError of the newest failed pull; the checked-out commit stays.
+	// LastError of the newest failed pull or check; the checked-out commit stays.
 	LastError string `json:"lastError,omitempty"`
+	// AutoUpdate says what happens on a new commit found by polling or the webhook (#38, #39):
+	// off, notify or deploy. PollInterval is in seconds, 0 without polling.
+	AutoUpdate   string `json:"autoUpdate"`
+	PollInterval int64  `json:"pollInterval"`
+	// Webhook is true when the stack has a webhook token.
+	Webhook bool `json:"webhook"`
+	// CheckedAt is the last check of the remote; RemoteCommit the newest remote commit when it
+	// is not checked out.
+	CheckedAt    *time.Time `json:"checkedAt,omitempty"`
+	RemoteCommit string     `json:"remoteCommit,omitempty"`
 }
 
 // GitInfoFrom converts a stored Git stack.
@@ -90,6 +100,12 @@ func GitInfoFrom(r db.GitStack) *GitInfo {
 			Date: time.UnixMilli(r.CommitAt).UTC(),
 		},
 		PulledAt: time.UnixMilli(r.PulledAt).UTC(), LastError: r.LastError,
+		AutoUpdate: r.AutoUpdate, PollInterval: r.PollInterval, Webhook: r.WebhookHash != "",
+		RemoteCommit: r.RemoteHash,
+	}
+	if r.CheckedAt > 0 {
+		t := time.UnixMilli(r.CheckedAt).UTC()
+		g.CheckedAt = &t
 	}
 	if r.CredentialID.Valid {
 		id := r.CredentialID.Int64
