@@ -16,6 +16,7 @@ import (
 
 	"github.com/pessom/nerdui/internal/authz"
 	"github.com/pessom/nerdui/internal/httpjson"
+	"github.com/pessom/nerdui/internal/proxy"
 )
 
 type client struct {
@@ -177,6 +178,29 @@ func TestInsecureCookieWithoutTLS(t *testing.T) {
 	}
 	if resp.Cookies()[0].Secure {
 		t.Error("Secure cookie set although TLS is disabled")
+	}
+}
+
+// Behind a trusted proxy that terminates TLS, the cookie is Secure even with --tls=false (#112).
+func TestSecureCookieBehindProxy(t *testing.T) {
+	e := newEnv(t, false)
+	trusted, _ := proxy.ParsePrefixes([]string{"127.0.0.1", "::1"})
+	r := chi.NewRouter()
+	r.Use(proxy.Middleware(trusted))
+	r.Route("/api/v1", func(r chi.Router) {
+		e.svc.Routes(r, authz.NewGuard(authz.AdminOnly{}, SubjectFromRequest, nil))
+	})
+	srv := httptest.NewServer(r)
+	t.Cleanup(srv.Close)
+	c := &client{t: t, base: srv.URL, http: srv.Client()}
+	resp, body := c.do(http.MethodPost, "/api/v1/setup",
+		`{"token":"`+e.setupToken(t)+`","username":"admin","password":"`+goodPassword+`"}`,
+		map[string]string{"X-Forwarded-Proto": "https", "X-Forwarded-For": "203.0.113.7"})
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("setup: %d %s", resp.StatusCode, body)
+	}
+	if !resp.Cookies()[0].Secure {
+		t.Error("cookie not Secure behind an HTTPS proxy")
 	}
 }
 

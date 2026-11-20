@@ -131,8 +131,9 @@ nerdui serves **HTTPS on port 9443** by default ([ADR-0005](adr/0005-authenticat
 
 - **Your own certificate.** `--tls-cert /path/fullchain.pem --tls-key /path/privkey.pem`. Files are
   re-read when they change (e.g. certbot renewals), no restart needed.
-- **Behind a reverse proxy** that terminates TLS (Caddy, Traefik, nginx): `--tls=false` and bind
-  to localhost (`--listen 127.0.0.1:9443`). Never expose plain HTTP to the network.
+- **Behind a reverse proxy** that terminates TLS (Caddy, Traefik, nginx): `--tls=false`, bind
+  to localhost (`--listen 127.0.0.1:9443`) and trust the proxy (`--trusted-proxies 127.0.0.1,::1`).
+  Never expose plain HTTP to the network. Examples: [reverse-proxy.md](reverse-proxy.md).
 
 ## First run and account recovery
 

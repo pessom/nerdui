@@ -24,6 +24,7 @@ import (
 	"github.com/pessom/nerdui/internal/events"
 	"github.com/pessom/nerdui/internal/jobs"
 	"github.com/pessom/nerdui/internal/notify"
+	"github.com/pessom/nerdui/internal/proxy"
 	"github.com/pessom/nerdui/internal/runtime"
 	"github.com/pessom/nerdui/internal/server"
 	"github.com/pessom/nerdui/internal/stacks"
@@ -80,9 +81,19 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 		}
 		ln = tls.NewListener(ln, tlsCfg)
 		scheme = "https"
-	} else {
-		logger.Warn("TLS is disabled: passwords and terminal sessions travel unencrypted; " +
-			"use --tls=false only behind a TLS-terminating reverse proxy")
+	}
+	trusted, err := proxy.ParsePrefixes(cfg.TrustedProxies) // validated with the config
+	if err != nil {
+		_ = ln.Close()
+		return err
+	}
+	switch {
+	case !cfg.TLS && len(trusted) == 0:
+		logger.Warn("TLS is disabled and no --trusted-proxies are set: passwords and terminal sessions " +
+			"travel unencrypted unless a reverse proxy terminates TLS; set --trusted-proxies to its address " +
+			"so session cookies are marked Secure and client addresses are logged")
+	case len(trusted) > 0:
+		logger.Info("trusting X-Forwarded-* headers", "proxies", cfg.TrustedProxies)
 	}
 
 	authSvc, err := auth.New(ctx, st, auth.Options{SecureCookie: cfg.TLS, Logger: logger})
@@ -167,7 +178,7 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 	}
 	srv := &http.Server{
 		Handler: server.New(server.Config{
-			Auth: authSvc, Environments: envs, UI: web.Dist(), Jobs: jobManager,
+			Auth: authSvc, Environments: envs, UI: web.Dist(), Jobs: jobManager, TrustedProxies: trusted,
 			EventHistory: eventHistory, DisableExec: cfg.DisableExec, Settings: st.Write(),
 			Stacks:        stackService,
 			ImageUpdates:  imageUpdates,

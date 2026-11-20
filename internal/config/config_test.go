@@ -97,11 +97,12 @@ func TestValidate(t *testing.T) {
 	bad.StacksScanDirs = []string{"rel"}
 	bad.LogLevel = "loud"
 	bad.Namespace = " "
+	bad.TrustedProxies = []string{"proxy.local"}
 	err := bad.Validate()
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	for _, want := range []string{"--listen", "--data-dir", "--stacks-scan-dirs", "--log-level", "--namespace"} {
+	for _, want := range []string{"--listen", "--data-dir", "--stacks-scan-dirs", "--log-level", "--namespace", "--trusted-proxies"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("error %q does not mention %s", err, want)
 		}
