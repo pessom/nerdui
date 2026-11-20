@@ -338,6 +338,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Audit log
+         * @description Requires `audit:read` (#79, ADR-0036). State-changing requests, terminal sessions,
+         *     authorization denials, setup and logins, newest first. Request bodies are not recorded.
+         */
+        get: operations["listAudit"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/audit/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export the audit log as CSV
+         * @description Requires `audit:read`. All matching entries (up to 100000), newest first.
+         */
+        get: operations["exportAudit"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/notifications/channels": {
         parameters: {
             query?: never;
@@ -2075,6 +2116,32 @@ export interface components {
              */
             maxBatch: 0 | 1 | 3 | 5 | 10 | 20;
         };
+        AuditEntry: {
+            /** Format: int64 */
+            id: number;
+            /** Format: date-time */
+            at: string;
+            user?: string;
+            /** @description The request used an API key */
+            apiKey?: boolean;
+            /** @description Permission used, e.g. containers:write, or auth:login / auth:setup */
+            action: string;
+            method?: string;
+            /** @description Route pattern, e.g. /api/v1/environments/{env}/containers/{id}/recreate */
+            path?: string;
+            environment?: string;
+            namespace?: string;
+            /** @description Route parameters other than the environment */
+            object?: string;
+            /** @description HTTP status */
+            status?: number;
+            /** @enum {string} */
+            result: "ok" | "failed" | "denied" | "accepted";
+            message?: string;
+            jobId?: string;
+            clientIp?: string;
+            userAgent?: string;
+        };
         /** @enum {string} */
         NotificationKind: "image.update" | "autoupdate.updated" | "autoupdate.failed" | "autoupdate.pending" | "container.died" | "container.oom" | "job.failed";
         /**
@@ -3578,6 +3645,75 @@ export interface operations {
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
+        };
+    };
+    listAudit: {
+        parameters: {
+            query?: {
+                /** @description Exact username */
+                user?: string;
+                result?: "ok" | "failed" | "denied" | "accepted";
+                /** @description Text in the path */
+                q?: string;
+                since?: string;
+                until?: string;
+                /** @description Entries older than this ID (paging) */
+                before?: number;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Entries */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        entries: components["schemas"]["AuditEntry"][];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            501: components["responses"]["Error"];
+        };
+    };
+    exportAudit: {
+        parameters: {
+            query?: {
+                /** @description Exact username */
+                user?: string;
+                result?: "ok" | "failed" | "denied" | "accepted";
+                /** @description Text in the path */
+                q?: string;
+                since?: string;
+                until?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description CSV file */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            501: components["responses"]["Error"];
         };
     };
     listNotificationChannels: {

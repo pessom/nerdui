@@ -20,6 +20,7 @@ import (
 
 	apispec "github.com/pessom/nerdui/api"
 	"github.com/pessom/nerdui/internal/api"
+	"github.com/pessom/nerdui/internal/audit"
 	"github.com/pessom/nerdui/internal/auth"
 	"github.com/pessom/nerdui/internal/authz"
 	"github.com/pessom/nerdui/internal/environment"
@@ -62,7 +63,9 @@ type Config struct {
 	// disables them.
 	Notifications api.NotificationStore
 	Notifier      *notify.Service
-	Logger        *slog.Logger
+	// Audit records and serves the audit log (#79); nil disables it.
+	Audit  *audit.Recorder
+	Logger *slog.Logger
 }
 
 // VersionResponse is returned by GET /api/v1/version. Keep in sync with api/openapi.yaml.
@@ -103,6 +106,11 @@ func New(cfg Config) http.Handler {
 	})
 
 	guard := authz.NewGuard(cfg.Authorizer, auth.SubjectFromRequest, cfg.Logger)
+	var auditLog api.AuditLog
+	if cfg.Audit != nil {
+		guard.Auditor = cfg.Audit
+		auditLog = cfg.Audit
+	}
 	// /api/docs leads to the documentation page of the UI (#87).
 	r.Method(http.MethodGet, "/api/docs", authz.Public(func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/api-docs", http.StatusFound)
@@ -119,7 +127,7 @@ func New(cfg Config) http.Handler {
 				Envs: cfg.Environments, Jobs: cfg.Jobs, EventHistory: cfg.EventHistory,
 				ExecDisabled: cfg.DisableExec, Settings: cfg.Settings, Stacks: cfg.Stacks,
 				ImageUpdates: cfg.ImageUpdates, AutoUpdates: cfg.AutoUpdates, Logger: cfg.Logger,
-				Notifications: cfg.Notifications, Notifier: cfg.Notifier,
+				Notifications: cfg.Notifications, Notifier: cfg.Notifier, Audit: auditLog,
 			}).Routes(r, guard)
 		})
 	})

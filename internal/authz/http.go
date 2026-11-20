@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/pessom/nerdui/internal/httpjson"
 )
@@ -24,6 +25,58 @@ type Guard struct {
 	authorizer Authorizer
 	subject    SubjectFunc
 	logger     *slog.Logger
+	// Auditor, when set, receives state-changing requests, terminal sessions and denials (#79).
+	Auditor Auditor
+}
+
+// AuditRecord describes one audited request.
+type AuditRecord struct {
+	Subject  Subject
+	Action   Action
+	Resource Resource
+	// Route is the matched route pattern, e.g. /api/v1/environments/{env}/containers/{id}.
+	Route  string
+	Status int
+	Denied bool
+	// Response is the start of the response body, for error messages and job IDs.
+	Response []byte
+}
+
+// Auditor records audited requests; it must not block for long.
+type Auditor interface {
+	Audit(r *http.Request, rec AuditRecord)
+}
+
+// audited reports whether a request changes state: an unsafe method on a non-read action (or
+// on the caller's own session, e.g. logout, password, API keys), or a terminal session.
+func audited(r *http.Request, a Action) bool {
+	if a == ContainersExec {
+		return true
+	}
+	switch r.Method {
+	case http.MethodGet, http.MethodHead, http.MethodOptions:
+		return false
+	}
+	return !a.Read() || a == SessionSelf
+}
+
+// auditBodyLimit bounds the captured response body.
+const auditBodyLimit = 2048
+
+type limitedBuffer struct{ b []byte }
+
+func (l *limitedBuffer) Write(p []byte) (int, error) {
+	if room := auditBodyLimit - len(l.b); room > 0 {
+		l.b = append(l.b, p[:min(room, len(p))]...)
+	}
+	return len(p), nil
+}
+
+func routePattern(r *http.Request) string {
+	if rc := chi.RouteContext(r.Context()); rc != nil {
+		return rc.RoutePattern()
+	}
+	return r.URL.Path
 }
 
 // NewGuard returns a guard using authorizer and subject.
@@ -78,15 +131,42 @@ func (p *Protected) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			httpjson.WriteError(w, http.StatusInternalServerError, httpjson.CodeInternal, "authorization failed")
 			return
 		}
-		// Denials are logged; they go to the audit log once it exists (#79).
 		p.guard.logger.Warn("authorization denied",
 			"user", s.Username, "role", s.Role, "action", string(p.Action), "resource", res.String(),
 			"method", r.Method, "path", r.URL.Path)
 		httpjson.WriteError(w, http.StatusForbidden, httpjson.CodeForbidden,
 			fmt.Sprintf("you are not allowed to %s", p.Action))
+		if p.guard.Auditor != nil {
+			p.guard.Auditor.Audit(r, AuditRecord{
+				Subject: s, Action: p.Action, Resource: res, Route: routePattern(r),
+				Status: http.StatusForbidden, Denied: true,
+			})
+		}
 		return
 	}
-	p.next.ServeHTTP(w, r)
+	if p.guard.Auditor == nil || !audited(r, p.Action) {
+		p.next.ServeHTTP(w, r)
+		return
+	}
+	if p.Action == ContainersExec {
+		// A terminal session lasts long: record that it was opened, before it runs.
+		p.guard.Auditor.Audit(r, AuditRecord{
+			Subject: s, Action: p.Action, Resource: res, Route: routePattern(r), Status: http.StatusSwitchingProtocols,
+		})
+		p.next.ServeHTTP(w, r)
+		return
+	}
+	ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
+	body := &limitedBuffer{}
+	ww.Tee(body)
+	p.next.ServeHTTP(ww, r)
+	status := ww.Status()
+	if status == 0 {
+		status = http.StatusOK
+	}
+	p.guard.Auditor.Audit(r, AuditRecord{
+		Subject: s, Action: p.Action, Resource: res, Route: routePattern(r), Status: status, Response: body.b,
+	})
 }
 
 // PublicHandler is a handler explicitly marked as not requiring authorization.

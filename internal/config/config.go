@@ -32,6 +32,8 @@ const (
 
 	// DefaultEventsRetention keeps a week of event history (ADR-0021).
 	DefaultEventsRetention = 7 * 24 * time.Hour
+	// DefaultAuditRetention keeps 90 days of the audit log (ADR-0036).
+	DefaultAuditRetention = 90 * 24 * time.Hour
 	// DataDirMode is the permission of the data directory (ADR-0004).
 	DataDirMode fs.FileMode = 0o700
 )
@@ -64,6 +66,8 @@ type Config struct {
 	LogLevel string
 	// EventsRetention is how long the event history is kept (#65); 0 disables it.
 	EventsRetention time.Duration
+	// AuditRetention is how long the audit log is kept (#79); 0 keeps it forever.
+	AuditRetention time.Duration
 	// DisableExec turns off the web terminal into containers (#15, ADR-0022).
 	DisableExec bool
 	// TrustedProxies are the addresses (IPs or CIDRs) of reverse proxies whose X-Forwarded-*
@@ -82,6 +86,7 @@ func Default() Config {
 		TLS:               true,
 		LogLevel:          DefaultLogLevel,
 		EventsRetention:   DefaultEventsRetention,
+		AuditRetention:    DefaultAuditRetention,
 	}
 }
 

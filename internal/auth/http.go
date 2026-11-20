@@ -218,6 +218,7 @@ func (s *Service) handleSetup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	u, issued, err := s.Setup(r.Context(), req.Token, req.Username, req.Password, clientOf(r))
+	s.audit(r, "auth:setup", req.Username, err)
 	if s.writeAuthError(w, err) {
 		return
 	}
@@ -238,11 +239,26 @@ func (s *Service) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	u, issued, err := s.Login(r.Context(), req.Username, req.Password, clientOf(r))
+	s.audit(r, "auth:login", req.Username, err)
 	if s.writeAuthError(w, err) {
 		return
 	}
 	s.setCookie(w, r, issued)
 	httpjson.Write(w, http.StatusOK, SessionResponse{User: u, CSRFToken: issued.CSRFToken, ExpiresAt: issued.ExpiresAt})
+}
+
+func (s *Service) audit(r *http.Request, action, username string, err error) {
+	if s.opts.Audit == nil {
+		return
+	}
+	if len(username) > 100 {
+		username = username[:100]
+	}
+	msg := ""
+	if err != nil {
+		msg = err.Error()
+	}
+	s.opts.Audit.Auth(r, action, username, err == nil, msg)
 }
 
 func (s *Service) handleMe(w http.ResponseWriter, r *http.Request) {

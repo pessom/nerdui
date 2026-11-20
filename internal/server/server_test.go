@@ -315,6 +315,8 @@ func TestRouteAuthorization(t *testing.T) {
 		"POST /api/v1/environments/{env}/image-updates/check":          "images:read",
 		"GET /api/v1/environments/{env}/auto-updates":                  "containers:read",
 		"GET /api/v1/notifications/channels":                           "settings:read",
+		"GET /api/v1/audit":                                            "audit:read",
+		"GET /api/v1/audit/export":                                     "audit:read",
 		"POST /api/v1/notifications/channels":                          "settings:write",
 		"PUT /api/v1/notifications/channels/{id}":                      "settings:write",
 		"DELETE /api/v1/notifications/channels/{id}":                   "settings:write",

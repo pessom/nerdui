@@ -44,3 +44,4 @@ We record significant architectural decisions as ADRs
 | 0033 | [Delay and approval of automatic updates](0033-automatic-update-guards.md) | Accepted |
 | 0034 | [Notifications](0034-notifications.md) | Accepted |
 | 0035 | [Running behind a reverse proxy](0035-reverse-proxy.md) | Accepted |
+| 0036 | [Audit log](0036-audit-log.md) | Accepted |

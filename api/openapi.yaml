@@ -14,6 +14,8 @@ info:
 servers:
   - url: /
 tags:
+  - name: audit
+    description: Audit log of user actions (#79)
   - name: notifications
     description: Notification channels (#86)
   - name: system
@@ -483,6 +485,60 @@ paths:
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
+  /api/v1/audit:
+    get:
+      tags: [audit]
+      operationId: listAudit
+      summary: Audit log
+      description: |
+        Requires `audit:read` (#79, ADR-0036). State-changing requests, terminal sessions,
+        authorization denials, setup and logins, newest first. Request bodies are not recorded.
+      parameters:
+        - { name: user, in: query, schema: { type: string }, description: Exact username }
+        - { name: result, in: query, schema: { type: string, enum: [ok, failed, denied, accepted] } }
+        - { name: q, in: query, schema: { type: string }, description: Text in the path, object, action, message or user }
+        - { name: since, in: query, schema: { type: string, format: date-time } }
+        - { name: until, in: query, schema: { type: string, format: date-time } }
+        - { name: before, in: query, schema: { type: integer, format: int64 }, description: Entries older than this ID (paging) }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 500 } }
+      responses:
+        "200":
+          description: Entries
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [entries]
+                properties:
+                  entries:
+                    type: array
+                    items: { $ref: "#/components/schemas/AuditEntry" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
+  /api/v1/audit/export:
+    get:
+      tags: [audit]
+      operationId: exportAudit
+      summary: Export the audit log as CSV
+      description: "Requires `audit:read`. All matching entries (up to 100000), newest first."
+      parameters:
+        - { name: user, in: query, schema: { type: string }, description: Exact username }
+        - { name: result, in: query, schema: { type: string, enum: [ok, failed, denied, accepted] } }
+        - { name: q, in: query, schema: { type: string }, description: Text in the path, object, action, message or user }
+        - { name: since, in: query, schema: { type: string, format: date-time } }
+        - { name: until, in: query, schema: { type: string, format: date-time } }
+      responses:
+        "200":
+          description: CSV file
+          content:
+            text/csv:
+              schema: { type: string }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
   /api/v1/notifications/channels:
     get:
       tags: [notifications]
@@ -2688,6 +2744,26 @@ components:
           type: integer
           enum: [0, 1, 3, 5, 10, 20]
           description: More due updates than this wait for approval; 0 never asks
+    AuditEntry:
+      type: object
+      required: [id, at, action, result]
+      properties:
+        id: { type: integer, format: int64 }
+        at: { type: string, format: date-time }
+        user: { type: string }
+        apiKey: { type: boolean, description: The request used an API key }
+        action: { type: string, description: "Permission used, e.g. containers:write, or auth:login / auth:setup" }
+        method: { type: string }
+        path: { type: string, description: "Route pattern, e.g. /api/v1/environments/{env}/containers/{id}/recreate" }
+        environment: { type: string }
+        namespace: { type: string }
+        object: { type: string, description: Route parameters other than the environment, joined with / }
+        status: { type: integer, description: HTTP status }
+        result: { type: string, enum: [ok, failed, denied, accepted] }
+        message: { type: string }
+        jobId: { type: string }
+        clientIp: { type: string }
+        userAgent: { type: string }
     NotificationKind:
       type: string
       enum: [image.update, autoupdate.updated, autoupdate.failed, autoupdate.pending, container.died, container.oom, job.failed]

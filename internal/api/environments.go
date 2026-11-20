@@ -49,6 +49,8 @@ type Handler struct {
 	// disables them.
 	Notifications NotificationStore
 	Notifier      *notify.Service
+	// Audit serves the audit log (#79); nil disables it.
+	Audit AuditLog
 	// PrometheusHTTP is the HTTP client for Prometheus; nil uses a default with a timeout.
 	PrometheusHTTP *http.Client
 	Logger         *slog.Logger
@@ -59,6 +61,7 @@ func (h *Handler) Routes(r chi.Router, g *authz.Guard) {
 	r.Method(http.MethodGet, "/environments", g.Protect(authz.SystemRead, h.list))
 	h.jobRoutes(r, g)
 	h.notificationRoutes(r, g)
+	h.auditRoutes(r, g)
 	r.Method(http.MethodGet, "/compose-schema", g.Protect(authz.StacksRead, h.composeSchema))
 	r.Route("/environments/{env}", func(r chi.Router) {
 		r.Use(h.resolveEnv)
