@@ -26,6 +26,7 @@ import {
   IconPlayerPlay,
   IconPlayerStop,
   IconPlus,
+  IconShieldOff,
   IconTrash,
 } from "@tabler/icons-react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -42,7 +43,7 @@ export const Route = createFileRoute("/_app/users")({
   component: UsersPage,
 });
 
-type Pending = { kind: "disable" | "enable" | "delete"; user: UserDetail };
+type Pending = { kind: "disable" | "enable" | "delete" | "reset2fa"; user: UserDetail };
 
 function UsersPage() {
   const { session } = Route.useRouteContext();
@@ -57,6 +58,8 @@ function UsersPage() {
     mutationFn: async ({ kind, user }: Pending) => {
       const path = { params: { path: { id: user.id } } };
       if (kind === "delete") await unwrapEmpty(api.DELETE("/api/v1/users/{id}", path));
+      else if (kind === "reset2fa")
+        await unwrapEmpty(api.POST("/api/v1/users/{id}/mfa/reset", path));
       else
         await unwrap(
           api.PATCH("/api/v1/users/{id}", { ...path, body: { disabled: kind === "disable" } }),
@@ -125,7 +128,7 @@ function UsersPage() {
       <Modal
         opened={!!pending}
         onClose={() => setPending(undefined)}
-        title={pending && `${capitalize(pending.kind)} ${pending.user.username}?`}
+        title={pending && `${actionLabel[pending.kind]} ${pending.user.username}?`}
       >
         {pending && (
           <Stack>
@@ -139,7 +142,7 @@ function UsersPage() {
                 loading={mutate.isPending}
                 onClick={() => mutate.mutate(pending)}
               >
-                {capitalize(pending.kind)}
+                {actionLabel[pending.kind]}
               </Button>
             </Group>
           </Stack>
@@ -149,16 +152,25 @@ function UsersPage() {
   );
 }
 
-const pastTense = { disable: "disabled", enable: "enabled", delete: "deleted" };
+const pastTense = {
+  disable: "disabled",
+  enable: "enabled",
+  delete: "deleted",
+  reset2fa: "can sign in with the password alone",
+};
+const actionLabel = {
+  disable: "Disable",
+  enable: "Enable",
+  delete: "Delete",
+  reset2fa: "Reset two-factor for",
+};
 const confirmText = {
+  reset2fa:
+    "Two-factor authentication and backup codes are removed, e.g. after a lost phone. The user can set it up again.",
   disable: "The user is signed out everywhere and cannot sign in until enabled again.",
   enable: "The user can sign in again with their current password.",
   delete: "The account and its sessions are removed. This cannot be undone.",
 };
-
-function capitalize(s: string) {
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
 
 function UserRow({
   user: u,
@@ -192,6 +204,11 @@ function UserRow({
           <Badge size="sm" variant="light" color={u.disabled ? "gray" : "teal"}>
             {u.disabled ? "disabled" : "active"}
           </Badge>
+          {u.mfaEnabled && (
+            <Badge size="sm" variant="light" color="blue">
+              2FA
+            </Badge>
+          )}
           {u.mustChangePassword && (
             <Badge size="sm" variant="light" color="yellow">
               temporary password
@@ -237,6 +254,14 @@ function UserRow({
               <Menu.Item leftSection={<IconApi size={16} />} onClick={onKeys}>
                 API keys
               </Menu.Item>
+              {u.mfaEnabled && (
+                <Menu.Item
+                  leftSection={<IconShieldOff size={16} />}
+                  onClick={() => onAction("reset2fa")}
+                >
+                  Reset two-factor
+                </Menu.Item>
+              )}
               {u.disabled ? (
                 <Menu.Item
                   leftSection={<IconPlayerPlay size={16} />}

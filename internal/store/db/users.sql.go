@@ -36,7 +36,7 @@ const createUser = `-- name: CreateUser :one
 
 INSERT INTO users (username, password_hash, role, must_change_password, created_at, updated_at)
 VALUES (?1, ?2, ?3, ?4, ?5, ?5)
-RETURNING id, username, password_hash, role, created_at, updated_at, disabled_at, must_change_password, last_login_at
+RETURNING id, username, password_hash, role, created_at, updated_at, disabled_at, must_change_password, last_login_at, mfa_secret, mfa_enabled, mfa_last_step
 `
 
 type CreateUserParams struct {
@@ -68,6 +68,9 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.DisabledAt,
 		&i.MustChangePassword,
 		&i.LastLoginAt,
+		&i.MfaSecret,
+		&i.MfaEnabled,
+		&i.MfaLastStep,
 	)
 	return i, err
 }
@@ -85,7 +88,7 @@ func (q *Queries) DeleteUser(ctx context.Context, id int64) (int64, error) {
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, username, password_hash, role, created_at, updated_at, disabled_at, must_change_password, last_login_at FROM users WHERE id = ?
+SELECT id, username, password_hash, role, created_at, updated_at, disabled_at, must_change_password, last_login_at, mfa_secret, mfa_enabled, mfa_last_step FROM users WHERE id = ?
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id int64) (User, error) {
@@ -101,12 +104,15 @@ func (q *Queries) GetUserByID(ctx context.Context, id int64) (User, error) {
 		&i.DisabledAt,
 		&i.MustChangePassword,
 		&i.LastLoginAt,
+		&i.MfaSecret,
+		&i.MfaEnabled,
+		&i.MfaLastStep,
 	)
 	return i, err
 }
 
 const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT id, username, password_hash, role, created_at, updated_at, disabled_at, must_change_password, last_login_at FROM users WHERE username = ?
+SELECT id, username, password_hash, role, created_at, updated_at, disabled_at, must_change_password, last_login_at, mfa_secret, mfa_enabled, mfa_last_step FROM users WHERE username = ?
 `
 
 func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User, error) {
@@ -122,12 +128,15 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 		&i.DisabledAt,
 		&i.MustChangePassword,
 		&i.LastLoginAt,
+		&i.MfaSecret,
+		&i.MfaEnabled,
+		&i.MfaLastStep,
 	)
 	return i, err
 }
 
 const listUsers = `-- name: ListUsers :many
-SELECT id, username, password_hash, role, created_at, updated_at, disabled_at, must_change_password, last_login_at FROM users ORDER BY username
+SELECT id, username, password_hash, role, created_at, updated_at, disabled_at, must_change_password, last_login_at, mfa_secret, mfa_enabled, mfa_last_step FROM users ORDER BY username
 `
 
 func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
@@ -149,6 +158,9 @@ func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 			&i.DisabledAt,
 			&i.MustChangePassword,
 			&i.LastLoginAt,
+			&i.MfaSecret,
+			&i.MfaEnabled,
+			&i.MfaLastStep,
 		); err != nil {
 			return nil, err
 		}

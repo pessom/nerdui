@@ -122,7 +122,7 @@ func New(cfg Config) http.Handler {
 		r.Method(http.MethodGet, "/openapi.yaml", authz.Public(specHandler("application/yaml", func() ([]byte, error) { return apispec.OpenAPIYAML, nil })))
 		r.Method(http.MethodGet, "/openapi.json", authz.Public(specHandler("application/json", apispec.OpenAPIJSON)))
 		r.Group(func(r chi.Router) {
-			r.Use(cfg.Auth.RequireSession, auth.CSRF, auth.PasswordChanged)
+			r.Use(cfg.Auth.RequireSession, auth.CSRF, auth.PasswordChanged, cfg.Auth.MFAEnrolled)
 			(&api.Handler{
 				Envs: cfg.Environments, Jobs: cfg.Jobs, EventHistory: cfg.EventHistory,
 				ExecDisabled: cfg.DisableExec, Settings: cfg.Settings, Stacks: cfg.Stacks,

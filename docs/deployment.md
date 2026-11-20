@@ -155,6 +155,14 @@ nerdui serves **HTTPS on port 9443** by default ([ADR-0005](adr/0005-authenticat
   (or reads it with `--password-stdin`), enables the account if it was disabled and revokes that
   user's sessions. For the container image:
   `sudo nerdctl exec -it nerdui nerdui admin reset-password admin`.
+- **Two-factor authentication.** Each user can turn on a TOTP authenticator app and get ten
+  one-time backup codes (account menu → Two-factor authentication). Administrators can require
+  it for every user under Settings → Sign-in security, and reset it for a user on the Users page.
+  If the only administrator lost both the phone and the backup codes, run
+  `nerdui admin reset-mfa <user>` on the host; it also revokes that user's sessions.
+- **Audit log.** Changes, terminal sessions, denied requests and sign-ins are recorded with the
+  user and client address (Audit log page); kept for `--audit-retention` (default `2160h`, `0`
+  keeps everything).
 
 ## Metrics history (Prometheus, optional)
 

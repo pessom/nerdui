@@ -47,9 +47,10 @@ export const unauthenticated = () =>
   json(401, { error: { code: "unauthenticated", message: "authentication required" } });
 
 export const session = {
-  user: { id: 1, username: "admin", role: "admin", mustChangePassword: false },
+  user: { id: 1, username: "admin", role: "admin", mustChangePassword: false, mfaEnabled: false },
   csrfToken: "csrf-123",
   expiresAt: "2027-01-01T00:00:00Z",
+  mfaSetupRequired: false,
 };
 
 export const version = {

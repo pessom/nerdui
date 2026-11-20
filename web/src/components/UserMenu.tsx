@@ -4,7 +4,14 @@
 import { Button, Menu, Modal } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
-import { IconAdjustments, IconApi, IconKey, IconLogout, IconUser } from "@tabler/icons-react";
+import {
+  IconAdjustments,
+  IconApi,
+  IconKey,
+  IconLogout,
+  IconShieldLock,
+  IconUser,
+} from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { api, setCsrfToken, unwrapEmpty } from "../api/client";
@@ -39,6 +46,12 @@ export function UserMenu({ username }: { username: string }) {
           </Menu.Item>
           <Menu.Item leftSection={<IconKey size={16} stroke={1.5} />} onClick={open}>
             Change password
+          </Menu.Item>
+          <Menu.Item
+            leftSection={<IconShieldLock size={16} stroke={1.5} />}
+            onClick={() => void navigate({ to: "/security" })}
+          >
+            Two-factor authentication
           </Menu.Item>
           <Menu.Item
             leftSection={<IconApi size={16} stroke={1.5} />}

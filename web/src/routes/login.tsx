@@ -7,6 +7,7 @@ import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { ApiError, api, setCsrfToken, unwrap } from "../api/client";
 import { keys, setupQuery } from "../api/queries";
+import type { components } from "../api/schema";
 import { AuthCard } from "../components/AuthCard";
 import { safeRedirect } from "../lib/redirect";
 
@@ -27,18 +28,44 @@ function LoginPage() {
   const queryClient = useQueryClient();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  // Set after the password when the account uses two-factor authentication (#75).
+  const [mfaToken, setMfaToken] = useState<string>();
+  const [code, setCode] = useState("");
+
+  const finish = async (session: Session) => {
+    setCsrfToken(session.csrfToken);
+    queryClient.setQueryData(keys.me, session);
+    const safe = safeRedirect(target);
+    if (session.user.mustChangePassword) {
+      await navigate({ to: "/change-password", search: { redirect: safe } });
+    } else if (session.mfaSetupRequired) {
+      await navigate({ to: "/setup-mfa", search: { redirect: safe } });
+    } else {
+      await navigate({ to: safe });
+    }
+  };
 
   const login = useMutation({
     mutationFn: () => unwrap(api.POST("/api/v1/auth/login", { body: { username, password } })),
-    onSuccess: async (session) => {
-      setCsrfToken(session.csrfToken);
-      queryClient.setQueryData(keys.me, session);
-      const safe = safeRedirect(target);
-      if (session.user.mustChangePassword) {
-        await navigate({ to: "/change-password", search: { redirect: safe } });
-      } else {
-        await navigate({ to: safe });
+    onSuccess: async (res) => {
+      if ("mfaRequired" in res) {
+        setMfaToken(res.mfaToken);
+        return;
       }
+      await finish(res);
+    },
+  });
+  const second = useMutation({
+    mutationFn: () =>
+      unwrap(
+        api.POST("/api/v1/auth/login/mfa", {
+          body: { mfaToken: mfaToken ?? "", code: code.trim() },
+        }),
+      ),
+    onSuccess: finish,
+    onError: (err) => {
+      // An expired or overused attempt starts over with the password.
+      if (err instanceof ApiError && err.message.includes("expired")) setMfaToken(undefined);
     },
   });
 
@@ -46,6 +73,47 @@ function LoginPage() {
     e.preventDefault();
     login.mutate();
   };
+
+  if (mfaToken) {
+    return (
+      <AuthCard title="Two-factor authentication">
+        <form
+          onSubmit={(e: FormEvent) => {
+            e.preventDefault();
+            second.mutate();
+          }}
+        >
+          <Stack>
+            {second.error && <Alert color="red">{mfaErrorText(second.error)}</Alert>}
+            <TextInput
+              label="Code"
+              description="From your authenticator app, or one of your backup codes"
+              autoComplete="one-time-code"
+              inputMode="text"
+              required
+              autoFocus
+              value={code}
+              onChange={(e) => setCode(e.currentTarget.value)}
+            />
+            <Button type="submit" loading={second.isPending}>
+              Verify
+            </Button>
+            <Button
+              variant="subtle"
+              size="xs"
+              onClick={() => {
+                setMfaToken(undefined);
+                setCode("");
+                second.reset();
+              }}
+            >
+              Back
+            </Button>
+          </Stack>
+        </form>
+      </AuthCard>
+    );
+  }
 
   return (
     <AuthCard title="Sign in to nerdui">
@@ -74,6 +142,20 @@ function LoginPage() {
       </form>
     </AuthCard>
   );
+}
+
+type Session = components["schemas"]["SessionResponse"];
+
+function mfaErrorText(err: unknown) {
+  if (err instanceof ApiError && err.code === "rate_limited") {
+    return "Too many attempts. Wait a moment and try again.";
+  }
+  if (err instanceof ApiError && err.status === 401) {
+    return err.message.includes("expired")
+      ? "The sign-in attempt expired. Enter your password again."
+      : "Invalid or already used code.";
+  }
+  return err instanceof Error ? err.message : "Verification failed.";
 }
 
 function errorText(err: unknown) {

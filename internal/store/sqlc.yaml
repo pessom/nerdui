@@ -16,3 +16,6 @@ sql:
           - column: "sessions.token_hash"
             go_type:
               type: "[]byte"
+          - column: "mfa_backup_codes.code_hash"
+            go_type:
+              type: "[]byte"

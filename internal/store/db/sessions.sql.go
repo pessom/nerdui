@@ -119,7 +119,7 @@ func (q *Queries) GetSession(ctx context.Context, tokenHash []byte) (Session, er
 }
 
 const getSessionWithUser = `-- name: GetSessionWithUser :one
-SELECT sessions.token_hash, sessions.user_id, sessions.csrf_token, sessions.created_at, sessions.last_seen_at, sessions.expires_at, sessions.client_ip, sessions.user_agent, users.id, users.username, users.password_hash, users.role, users.created_at, users.updated_at, users.disabled_at, users.must_change_password, users.last_login_at
+SELECT sessions.token_hash, sessions.user_id, sessions.csrf_token, sessions.created_at, sessions.last_seen_at, sessions.expires_at, sessions.client_ip, sessions.user_agent, users.id, users.username, users.password_hash, users.role, users.created_at, users.updated_at, users.disabled_at, users.must_change_password, users.last_login_at, users.mfa_secret, users.mfa_enabled, users.mfa_last_step
 FROM sessions
 JOIN users ON users.id = sessions.user_id
 WHERE sessions.token_hash = ?
@@ -151,6 +151,9 @@ func (q *Queries) GetSessionWithUser(ctx context.Context, tokenHash []byte) (Get
 		&i.User.DisabledAt,
 		&i.User.MustChangePassword,
 		&i.User.LastLoginAt,
+		&i.User.MfaSecret,
+		&i.User.MfaEnabled,
+		&i.User.MfaLastStep,
 	)
 	return i, err
 }
