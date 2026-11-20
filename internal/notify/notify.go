@@ -32,13 +32,14 @@ const (
 	KindContainerDied     = "container.died"     // a container exited with an error code
 	KindContainerOOM      = "container.oom"      // a container ran out of memory
 	KindJobFailed         = "job.failed"         // a background operation failed
+	KindGitUpdate         = "git.update"         // a Git stack has a new commit or was updated from it (#38, #39)
 	KindTest              = "test"               // sent by "Send test"; every channel receives it
 )
 
 // Kinds are the event kinds a channel can subscribe to.
 var Kinds = []string{
 	KindImageUpdate, KindAutoUpdateDone, KindAutoUpdateFailed, KindAutoUpdatePending,
-	KindContainerDied, KindContainerOOM, KindJobFailed,
+	KindContainerDied, KindContainerOOM, KindJobFailed, KindGitUpdate,
 }
 
 // Severities.

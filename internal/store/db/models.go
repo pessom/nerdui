@@ -98,6 +98,11 @@ type GitStack struct {
 	PulledAt      int64
 	LastError     string
 	CreatedAt     int64
+	AutoUpdate    string
+	PollInterval  int64
+	WebhookHash   string
+	CheckedAt     int64
+	RemoteHash    string
 }
 
 type ImageUpdate struct {

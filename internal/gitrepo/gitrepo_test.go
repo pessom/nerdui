@@ -195,3 +195,28 @@ func TestHostKeyTrustOnFirstUse(t *testing.T) {
 		t.Errorf("stored %v", hosts)
 	}
 }
+
+func TestRemoteHead(t *testing.T) {
+	ctx := context.Background()
+	src := newSource(t)
+	first := src.commit(map[string]string{"a": "1"}, "first")
+	o := Options{URL: src.url(), AllowFile: true}
+	if h, err := RemoteHead(ctx, "refs/heads/main", o); err != nil || h != first.String() {
+		t.Fatalf("branch: %s %v", h, err)
+	}
+	second := src.commit(map[string]string{"a": "2"}, "second")
+	if h, _ := RemoteHead(ctx, "refs/heads/main", o); h != second.String() {
+		t.Errorf("after commit: %s", h)
+	}
+	if _, err := src.repo.CreateTag("v1", first, &git.CreateTagOptions{
+		Message: "release", Tagger: &object.Signature{Name: "Dev", When: time.Now()},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if h, err := RemoteHead(ctx, "refs/tags/v1", o); err != nil || h != first.String() {
+		t.Errorf("annotated tag: %s %v", h, err)
+	}
+	if _, err := RemoteHead(ctx, "refs/heads/gone", o); !errdefs.IsNotFound(err) {
+		t.Errorf("missing ref: %v", err)
+	}
+}

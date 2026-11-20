@@ -170,6 +170,10 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 		Git: st.Read(), GitDir: gitDir,
 	}
 	gitStacks := &gitstacks.Service{Dir: gitDir, Store: st.Write(), Stacks: stackService}
+	gitAuto := &gitstacks.Auto{
+		Service: gitStacks, Environments: envs, Jobs: jobManager, Notify: notifier.Notify, Logger: logger, Base: checkCtx,
+	}
+	checks.Go(func() { gitAuto.Run(checkCtx) })
 	// Image update checks (#53) on each environment's schedule, each followed by the automatic
 	// updates of opted-in containers and stacks (#54).
 	autoUpdates := &updates.Updater{
@@ -196,6 +200,7 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 			EventHistory: eventHistory, DisableExec: cfg.DisableExec, Settings: st.Write(),
 			Stacks:        stackService,
 			GitStacks:     gitStacks,
+			GitAuto:       gitAuto,
 			ImageUpdates:  imageUpdates,
 			AutoUpdates:   autoUpdates,
 			Notifications: st.Write(), Notifier: notifier, Audit: auditLog,

@@ -57,6 +57,8 @@ type Config struct {
 	Stacks *stacks.Service
 	// GitStacks deploys stacks from Git repositories (#37); nil disables them.
 	GitStacks *gitstacks.Service
+	// GitAuto handles webhooks of Git stacks (#38); nil answers 501.
+	GitAuto *gitstacks.Auto
 	// ImageUpdates checks images for newer registry digests (#53); nil disables it.
 	ImageUpdates api.ImageUpdates
 	// AutoUpdates is the log of automatic updates (#54); nil disables it.
@@ -129,6 +131,9 @@ func New(cfg Config) http.Handler {
 		// The API specification is public, like the source code (#87).
 		r.Method(http.MethodGet, "/openapi.yaml", authz.Public(specHandler("application/yaml", func() ([]byte, error) { return apispec.OpenAPIYAML, nil })))
 		r.Method(http.MethodGet, "/openapi.json", authz.Public(specHandler("application/json", apispec.OpenAPIJSON)))
+		// Git hosts call webhooks without a session: the secret token in the path is the
+		// credential (#38, ADR-0040).
+		r.Method(http.MethodPost, "/hooks/git/{token}", authz.Public(api.GitWebhook(cfg.GitAuto, cfg.Logger)))
 		r.Group(func(r chi.Router) {
 			r.Use(cfg.Auth.RequireSession, auth.CSRF, auth.PasswordChanged, cfg.Auth.MFAEnrolled)
 			(&api.Handler{
@@ -236,7 +241,7 @@ func requestLogger(log *slog.Logger) func(http.Handler) http.Handler {
 			next.ServeHTTP(ww, r)
 			log.LogAttrs(r.Context(), slog.LevelDebug, "http request",
 				slog.String("method", r.Method),
-				slog.String("path", r.URL.Path),
+				slog.String("path", redactPath(r.URL.Path)),
 				slog.String("remote", r.RemoteAddr),
 				slog.Int("status", ww.Status()),
 				slog.Duration("duration", time.Since(start)),
@@ -244,4 +249,13 @@ func requestLogger(log *slog.Logger) func(http.Handler) http.Handler {
 			)
 		})
 	}
+}
+
+// redactPath hides the secret token of webhook paths in logs.
+func redactPath(p string) string {
+	const hooks = "/api/v1/hooks/git/"
+	if strings.HasPrefix(p, hooks) && len(p) > len(hooks) {
+		return hooks + "<token>"
+	}
+	return p
 }

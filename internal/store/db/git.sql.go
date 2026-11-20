@@ -169,7 +169,7 @@ func (q *Queries) GetGitCredential(ctx context.Context, id int64) (GitCredential
 }
 
 const getGitStack = `-- name: GetGitStack :one
-SELECT name, url, ref, full_ref, compose_path, credential_id, commit_hash, commit_message, commit_author, commit_at, pulled_at, last_error, created_at FROM git_stacks WHERE name = ?
+SELECT name, url, ref, full_ref, compose_path, credential_id, commit_hash, commit_message, commit_author, commit_at, pulled_at, last_error, created_at, auto_update, poll_interval, webhook_hash, checked_at, remote_hash FROM git_stacks WHERE name = ?
 `
 
 func (q *Queries) GetGitStack(ctx context.Context, name string) (GitStack, error) {
@@ -189,6 +189,41 @@ func (q *Queries) GetGitStack(ctx context.Context, name string) (GitStack, error
 		&i.PulledAt,
 		&i.LastError,
 		&i.CreatedAt,
+		&i.AutoUpdate,
+		&i.PollInterval,
+		&i.WebhookHash,
+		&i.CheckedAt,
+		&i.RemoteHash,
+	)
+	return i, err
+}
+
+const getGitStackByWebhook = `-- name: GetGitStackByWebhook :one
+SELECT name, url, ref, full_ref, compose_path, credential_id, commit_hash, commit_message, commit_author, commit_at, pulled_at, last_error, created_at, auto_update, poll_interval, webhook_hash, checked_at, remote_hash FROM git_stacks WHERE webhook_hash = ? AND webhook_hash != ''
+`
+
+func (q *Queries) GetGitStackByWebhook(ctx context.Context, webhookHash string) (GitStack, error) {
+	row := q.db.QueryRowContext(ctx, getGitStackByWebhook, webhookHash)
+	var i GitStack
+	err := row.Scan(
+		&i.Name,
+		&i.Url,
+		&i.Ref,
+		&i.FullRef,
+		&i.ComposePath,
+		&i.CredentialID,
+		&i.CommitHash,
+		&i.CommitMessage,
+		&i.CommitAuthor,
+		&i.CommitAt,
+		&i.PulledAt,
+		&i.LastError,
+		&i.CreatedAt,
+		&i.AutoUpdate,
+		&i.PollInterval,
+		&i.WebhookHash,
+		&i.CheckedAt,
+		&i.RemoteHash,
 	)
 	return i, err
 }
@@ -287,7 +322,7 @@ func (q *Queries) ListGitKnownHosts(ctx context.Context) ([]GitKnownHost, error)
 }
 
 const listGitStacks = `-- name: ListGitStacks :many
-SELECT name, url, ref, full_ref, compose_path, credential_id, commit_hash, commit_message, commit_author, commit_at, pulled_at, last_error, created_at FROM git_stacks ORDER BY name
+SELECT name, url, ref, full_ref, compose_path, credential_id, commit_hash, commit_message, commit_author, commit_at, pulled_at, last_error, created_at, auto_update, poll_interval, webhook_hash, checked_at, remote_hash FROM git_stacks ORDER BY name
 `
 
 func (q *Queries) ListGitStacks(ctx context.Context) ([]GitStack, error) {
@@ -313,6 +348,11 @@ func (q *Queries) ListGitStacks(ctx context.Context) ([]GitStack, error) {
 			&i.PulledAt,
 			&i.LastError,
 			&i.CreatedAt,
+			&i.AutoUpdate,
+			&i.PollInterval,
+			&i.WebhookHash,
+			&i.CheckedAt,
+			&i.RemoteHash,
 		); err != nil {
 			return nil, err
 		}
@@ -327,10 +367,54 @@ func (q *Queries) ListGitStacks(ctx context.Context) ([]GitStack, error) {
 	return items, nil
 }
 
+const setGitStackAuto = `-- name: SetGitStackAuto :execrows
+UPDATE git_stacks SET auto_update = ?1, poll_interval = ?2 WHERE name = ?3
+`
+
+type SetGitStackAutoParams struct {
+	AutoUpdate   string
+	PollInterval int64
+	Name         string
+}
+
+func (q *Queries) SetGitStackAuto(ctx context.Context, arg SetGitStackAutoParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, setGitStackAuto, arg.AutoUpdate, arg.PollInterval, arg.Name)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const setGitStackChecked = `-- name: SetGitStackChecked :exec
+UPDATE git_stacks
+SET checked_at = ?1,
+    remote_hash = CASE WHEN ?2 = commit_hash THEN '' ELSE ?2 END,
+    last_error = ?3
+WHERE name = ?4
+`
+
+type SetGitStackCheckedParams struct {
+	Now        int64
+	RemoteHash string
+	Error      string
+	Name       string
+}
+
+func (q *Queries) SetGitStackChecked(ctx context.Context, arg SetGitStackCheckedParams) error {
+	_, err := q.db.ExecContext(ctx, setGitStackChecked,
+		arg.Now,
+		arg.RemoteHash,
+		arg.Error,
+		arg.Name,
+	)
+	return err
+}
+
 const setGitStackCommit = `-- name: SetGitStackCommit :exec
 UPDATE git_stacks
 SET commit_hash = ?1, commit_message = ?2, commit_author = ?3,
-    commit_at = ?4, pulled_at = ?5, last_error = ''
+    commit_at = ?4, pulled_at = ?5, last_error = '',
+    remote_hash = CASE WHEN remote_hash = ?1 THEN '' ELSE remote_hash END
 WHERE name = ?6
 `
 
@@ -367,6 +451,23 @@ type SetGitStackErrorParams struct {
 func (q *Queries) SetGitStackError(ctx context.Context, arg SetGitStackErrorParams) error {
 	_, err := q.db.ExecContext(ctx, setGitStackError, arg.Error, arg.Name)
 	return err
+}
+
+const setGitStackWebhook = `-- name: SetGitStackWebhook :execrows
+UPDATE git_stacks SET webhook_hash = ?1 WHERE name = ?2
+`
+
+type SetGitStackWebhookParams struct {
+	WebhookHash string
+	Name        string
+}
+
+func (q *Queries) SetGitStackWebhook(ctx context.Context, arg SetGitStackWebhookParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, setGitStackWebhook, arg.WebhookHash, arg.Name)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const updateGitCredential = `-- name: UpdateGitCredential :one

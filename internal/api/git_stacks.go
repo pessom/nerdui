@@ -18,6 +18,7 @@ import (
 	"github.com/pessom/nerdui/internal/httpjson"
 	"github.com/pessom/nerdui/internal/jobs"
 	"github.com/pessom/nerdui/internal/runtime"
+	"github.com/pessom/nerdui/internal/stacks"
 )
 
 // Git stacks (#37) and Git credentials (#93, ADR-0039).
@@ -273,25 +274,12 @@ func (h *Handler) pullGitStack(w http.ResponseWriter, r *http.Request) {
 		Resource: fmt.Sprintf("env/%s/ns/%s/stack/%s", env.ID, ns, name),
 		Action:   string(authz.StacksDeploy), User: user,
 	}, func(ctx context.Context, out *jobs.Output) error {
-		before, after, def, err := svc.Pull(ctx, name)
-		if err != nil {
-			return err
-		}
-		changed := before.Hash != after.Hash
-		if changed {
-			_, _ = fmt.Fprintf(out, "Updated %s → %s %s\r\n", gitstacks.Short(before.Hash), gitstacks.Short(after.Hash), after.Message)
-		} else {
-			_, _ = fmt.Fprintf(out, "Already up to date at %s %s\r\n", gitstacks.Short(after.Hash), after.Message)
-		}
-		out.SetResult("commit", after.Hash)
-		if !req.Redeploy || !changed && !req.Force {
-			return nil
-		}
-		if def.File == "" {
-			return fmt.Errorf("%w: no compose file in %s", errdefs.ErrFailedPrecondition, def.Dir)
-		}
-		_, _ = fmt.Fprintf(out, "\r\nDeploying\r\n")
-		return compose.Run(ctx, ns, name, def.Dir, runtime.ComposeUp, runtime.ComposeOptions{Pull: req.Pull, RemoveOrphans: true}, out)
+		commit, err := svc.PullAndDeploy(ctx, out, name, req.Redeploy, req.Force, func(ctx context.Context, def stacks.Definition) error {
+			_, _ = fmt.Fprintf(out, "\r\nDeploying\r\n")
+			return compose.Run(ctx, ns, name, def.Dir, runtime.ComposeUp, runtime.ComposeOptions{Pull: req.Pull, RemoveOrphans: true}, out)
+		})
+		out.SetResult("commit", commit.Hash)
+		return err
 	})
 	if err != nil {
 		httpjson.WriteErr(w, r, h.Logger, err)

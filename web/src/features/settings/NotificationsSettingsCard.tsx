@@ -45,6 +45,7 @@ const kindLabels: Record<Kind, string> = {
   "container.died": "Container exited with an error",
   "container.oom": "Container ran out of memory",
   "job.failed": "Operation failed",
+  "git.update": "New commit or update of a Git stack",
 };
 
 const typeLabels: Record<ChannelType, string> = {

@@ -1374,6 +1374,90 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/environments/{env}/stacks/{name}/git/auto": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Automatic updates of a Git stack
+         * @description Requires `stacks:deploy`. Sets what happens when polling or the webhook finds a new commit
+         *     (#38, #39): `off`, `notify` (a `git.update` notification) or `deploy` (pull, then
+         *     `compose up --remove-orphans` in every namespace where the project has containers; a
+         *     stack without containers is only pulled). `pollInterval` is one of 0 (no polling), 60,
+         *     300, 900, 3600, 21600 or 86400 seconds.
+         */
+        put: operations["setGitStackAuto"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/environments/{env}/stacks/{name}/git/webhook": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create or replace the webhook of a Git stack
+         * @description Requires `stacks:deploy`. Returns the webhook path with a new secret token, shown only
+         *     once (nerdui stores its hash); a previous token stops working.
+         */
+        post: operations["createGitStackWebhook"];
+        /**
+         * Remove the webhook of a Git stack
+         * @description Requires `stacks:deploy`.
+         */
+        delete: operations["deleteGitStackWebhook"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hooks/git/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Push webhook of a Git stack
+         * @description Public: the secret token in the path is the credential (#38, ADR-0040). Point a push
+         *     webhook of GitHub, GitLab, Gitea or any CI here. A JSON body with a `ref` other than the
+         *     stack's ref is ignored, as are events other than pushes (`X-GitHub-Event`,
+         *     `X-Gitea-Event`, `X-Gitlab-Event`); GitHub's `ping` answers `pong`. Otherwise the remote
+         *     is checked in the background and a new commit is announced or deployed according to the
+         *     stack's automatic update setting; 409 while it is `off`.
+         */
+        post: operations["gitStackWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/environments/{env}/stacks/{name}/{op}": {
         parameters: {
             query?: {
@@ -2466,7 +2550,7 @@ export interface components {
             userAgent?: string;
         };
         /** @enum {string} */
-        NotificationKind: "image.update" | "autoupdate.updated" | "autoupdate.failed" | "autoupdate.pending" | "container.died" | "container.oom" | "job.failed";
+        NotificationKind: "image.update" | "autoupdate.updated" | "autoupdate.failed" | "autoupdate.pending" | "container.died" | "container.oom" | "job.failed" | "git.update";
         /**
          * @description Settings of a channel; which fields apply depends on the type. `secret`, `token`,
          *     `password` and, for Slack and Discord, `url` are write-only.
@@ -3175,8 +3259,41 @@ export interface components {
             commit: components["schemas"]["GitCommit"];
             /** Format: date-time */
             pulledAt: string;
-            /** @description Error of the newest failed pull */
+            /** @description Error of the newest failed pull or check */
             lastError?: string;
+            /**
+             * @description What happens on a new commit found by polling or the webhook
+             * @enum {string}
+             */
+            autoUpdate: "off" | "notify" | "deploy";
+            /**
+             * Format: int64
+             * @description Seconds between checks of the remote; 0 without polling
+             */
+            pollInterval: number;
+            /** @description The stack has a webhook */
+            webhook: boolean;
+            /**
+             * Format: date-time
+             * @description Last check of the remote
+             */
+            checkedAt?: string;
+            /** @description Newest remote commit when it is not checked out */
+            remoteCommit?: string;
+        };
+        GitAutoRequest: {
+            /** @enum {string} */
+            autoUpdate: "off" | "notify" | "deploy";
+            /**
+             * Format: int64
+             * @enum {integer}
+             */
+            pollInterval: 0 | 60 | 300 | 900 | 3600 | 21600 | 86400;
+        };
+        GitWebhookResult: {
+            /** @enum {string} */
+            status: "accepted" | "ignored" | "pong";
+            reason?: string;
         };
         GitStackRequest: {
             name: string;
@@ -5721,6 +5838,136 @@ export interface operations {
             409: components["responses"]["Error"];
             501: components["responses"]["Error"];
             503: components["responses"]["Error"];
+        };
+    };
+    setGitStackAuto: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GitAutoRequest"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            415: components["responses"]["Error"];
+            501: components["responses"]["Error"];
+        };
+    };
+    createGitStackWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @example /api/v1/hooks/git/3q2-7wE... */
+                        path: string;
+                    };
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            501: components["responses"]["Error"];
+        };
+    };
+    deleteGitStackWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            501: components["responses"]["Error"];
+        };
+    };
+    gitStackWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    /** @example refs/heads/main */
+                    ref?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Ignored, or a ping */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitWebhookResult"];
+                };
+            };
+            /** @description The check started */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitWebhookResult"];
+                };
+            };
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            501: components["responses"]["Error"];
         };
     };
     stackOperation: {

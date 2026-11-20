@@ -34,7 +34,38 @@ submodules) into `<data-dir>/git/<name>`.
 - **Remove** deletes the clone and its `.env`; bring the stack down first. The repository is not
   touched.
 
-Permissions: creating and removing need `stacks:write`, pulling and deploying `stacks:deploy`.
+Permissions: creating and removing need `stacks:write`; pulling, deploying and automatic
+updates need `stacks:deploy`.
+
+## Automatic updates
+
+Under **Automatic updates** on the stack page (see [ADR-0040](adr/0040-git-stack-auto-updates.md)):
+
+- **On a new commit**:
+  - *Off*;
+  - *Notify about new commits* sends a `git.update` notification, and the stack page shows the
+    new commit;
+  - *Pull and redeploy* pulls and runs `compose up --remove-orphans` in every namespace where
+    the stack has containers. A stack that is down is only pulled. Updates run as jobs of the
+    user `nerdui (Git)`, and failures are sent as `job.failed`.
+- **Check the repository**: how often nerdui asks the repository for new commits, or *No
+  polling* to rely on the webhook. A check transfers no files.
+
+### Webhook
+
+**Create webhook** shows a URL with a secret token, only once. Add it to the repository as a
+push webhook:
+
+- GitHub: Settings → Webhooks → Add webhook, content type `application/json`, event *Just the
+  push event*.
+- GitLab: Settings → Webhooks, trigger *Push events* (and *Tag push events* for a tag).
+- Gitea / Forgejo: Settings → Webhooks → Gitea, trigger *Push*.
+- Anything else, e.g. a CI job: `curl -X POST <url>`.
+
+The webhook only makes nerdui check the stack's branch or tag: pushes to other refs are ignored,
+and the action is the one chosen under **On a new commit**. Calls are refused while it is *Off*.
+nerdui must be reachable from the Git host. Behind a firewall, use polling. **New URL**
+replaces the token, for example when it leaked; **Remove** turns the webhook off.
 
 ## Credentials
 
