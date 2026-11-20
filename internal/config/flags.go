@@ -43,6 +43,8 @@ func BindServeFlags(fs *pflag.FlagSet, c *Config) {
 	fs.StringSliceVar(&c.TrustedProxies, "trusted-proxies", c.TrustedProxies,
 		"comma-separated IPs or CIDRs of reverse proxies whose X-Forwarded-For/-Proto/-Host headers are trusted (env "+
 			EnvName("trusted-proxies")+")")
+	fs.DurationVar(&c.AuditRetention, "audit-retention", c.AuditRetention,
+		"how long the audit log is kept, e.g. 2160h; 0 keeps it forever (env "+EnvName("audit-retention")+")")
 	fs.DurationVar(&c.EventsRetention, "events-retention", c.EventsRetention,
 		"how long the event history is kept, e.g. 168h; 0 disables it (env "+EnvName("events-retention")+")")
 }

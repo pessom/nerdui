@@ -16,6 +16,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/http"
 	"regexp"
 	"strings"
 	"sync"
@@ -84,6 +85,11 @@ type Issued struct {
 	ExpiresAt time.Time
 }
 
+// Auditor records authentication attempts; *audit.Recorder implements it.
+type Auditor interface {
+	Auth(r *http.Request, action, username string, ok bool, msg string)
+}
+
 // Client describes where a request came from (stored with the session for auditing).
 type Client struct {
 	IP        string
@@ -92,6 +98,8 @@ type Client struct {
 
 // Options configures the service.
 type Options struct {
+	// Audit, when set, records setups and logins, also failed ones (#79).
+	Audit           Auditor
 	SecureCookie    bool
 	IdleTimeout     time.Duration
 	AbsoluteTimeout time.Duration

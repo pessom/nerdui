@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/pessom/nerdui/internal/api"
+	"github.com/pessom/nerdui/internal/audit"
 	"github.com/pessom/nerdui/internal/auth"
 	"github.com/pessom/nerdui/internal/config"
 	"github.com/pessom/nerdui/internal/environment"
@@ -96,7 +97,9 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 		logger.Info("trusting X-Forwarded-* headers", "proxies", cfg.TrustedProxies)
 	}
 
-	authSvc, err := auth.New(ctx, st, auth.Options{SecureCookie: cfg.TLS, Logger: logger})
+	// The audit log (#79) records requests through the authorization guard and logins.
+	auditLog := &audit.Recorder{Store: st.Write(), Retention: cfg.AuditRetention, Logger: logger}
+	authSvc, err := auth.New(ctx, st, auth.Options{SecureCookie: cfg.TLS, Logger: logger, Audit: auditLog})
 	if err != nil {
 		_ = ln.Close()
 		return fmt.Errorf("init authentication: %w", err)
@@ -137,6 +140,7 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 	hostname, _ := os.Hostname()
 	notifier := &notify.Service{Store: st.Write(), Host: hostname, Logger: logger}
 	checks.Go(func() { notifier.Run(checkCtx) })
+	checks.Go(func() { auditLog.Run(checkCtx) })
 	for _, env := range envs.List() {
 		w := &notify.Watcher{Env: env, Notifier: notifier, Logger: logger}
 		checks.Go(func() { w.Run(checkCtx) })
@@ -146,6 +150,7 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 	jobManager := jobs.NewManager()
 	defer jobManager.Close()
 	jobManager.OnFinish = func(j jobs.Job) {
+		auditLog.JobFinished(j)
 		// Automatic updates report their own failures.
 		if j.Status == jobs.StatusFailed && j.User != updates.AutoUser {
 			notifier.Notify(notify.Event{
@@ -183,7 +188,7 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 			Stacks:        stackService,
 			ImageUpdates:  imageUpdates,
 			AutoUpdates:   autoUpdates,
-			Notifications: st.Write(), Notifier: notifier,
+			Notifications: st.Write(), Notifier: notifier, Audit: auditLog,
 			Logger: logger,
 		}),
 		ReadHeaderTimeout: 10 * time.Second,

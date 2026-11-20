@@ -16,6 +16,7 @@ import { Route as LoginRouteImport } from './routes/login'
 import { Route as SetupRouteImport } from './routes/setup'
 import { Route as AppApiDocsRouteImport } from './routes/_app/api-docs'
 import { Route as AppApiKeysRouteImport } from './routes/_app/api-keys'
+import { Route as AppAuditRouteImport } from './routes/_app/audit'
 import { Route as AppUsersRouteImport } from './routes/_app/users'
 import { Route as AppEnvEnvRouteImport } from './routes/_app/env/$env'
 import { Route as AppEnvEnvIndexRouteImport } from './routes/_app/env/$env/index'
@@ -66,6 +67,11 @@ const AppApiDocsRoute = AppApiDocsRouteImport.update({
 const AppApiKeysRoute = AppApiKeysRouteImport.update({
   id: '/api-keys',
   path: '/api-keys',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppAuditRoute = AppAuditRouteImport.update({
+  id: '/audit',
+  path: '/audit',
   getParentRoute: () => AppRoute,
 } as any)
 const AppUsersRoute = AppUsersRouteImport.update({
@@ -162,6 +168,7 @@ export interface FileRoutesByFullPath {
   '/setup': typeof SetupRoute
   '/api-docs': typeof AppApiDocsRoute
   '/api-keys': typeof AppApiKeysRoute
+  '/audit': typeof AppAuditRoute
   '/users': typeof AppUsersRoute
   '/env/$env': typeof AppEnvEnvRouteWithChildren
   '/env/$env/containers': typeof AppEnvEnvContainersRoute
@@ -187,6 +194,7 @@ export interface FileRoutesByTo {
   '/setup': typeof SetupRoute
   '/api-docs': typeof AppApiDocsRoute
   '/api-keys': typeof AppApiKeysRoute
+  '/audit': typeof AppAuditRoute
   '/users': typeof AppUsersRoute
   '/env/$env/containers': typeof AppEnvEnvContainersRoute
   '/env/$env/events': typeof AppEnvEnvEventsRoute
@@ -213,6 +221,7 @@ export interface FileRoutesById {
   '/setup': typeof SetupRoute
   '/_app/api-docs': typeof AppApiDocsRoute
   '/_app/api-keys': typeof AppApiKeysRoute
+  '/_app/audit': typeof AppAuditRoute
   '/_app/users': typeof AppUsersRoute
   '/_app/env/$env': typeof AppEnvEnvRouteWithChildren
   '/_app/env/$env/containers': typeof AppEnvEnvContainersRoute
@@ -240,6 +249,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/api-docs'
     | '/api-keys'
+    | '/audit'
     | '/users'
     | '/env/$env'
     | '/env/$env/containers'
@@ -265,6 +275,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/api-docs'
     | '/api-keys'
+    | '/audit'
     | '/users'
     | '/env/$env/containers'
     | '/env/$env/events'
@@ -290,6 +301,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/_app/api-docs'
     | '/_app/api-keys'
+    | '/_app/audit'
     | '/_app/users'
     | '/_app/env/$env'
     | '/_app/env/$env/containers'
@@ -366,6 +378,13 @@ declare module '@tanstack/react-router' {
       path: '/api-keys'
       fullPath: '/api-keys'
       preLoaderRoute: typeof AppApiKeysRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/audit': {
+      id: '/_app/audit'
+      path: '/audit'
+      fullPath: '/audit'
+      preLoaderRoute: typeof AppAuditRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/users': {
@@ -533,6 +552,7 @@ const AppEnvEnvRouteWithChildren = AppEnvEnvRoute._addFileChildren(
 interface AppRouteChildren {
   AppApiDocsRoute: typeof AppApiDocsRoute
   AppApiKeysRoute: typeof AppApiKeysRoute
+  AppAuditRoute: typeof AppAuditRoute
   AppUsersRoute: typeof AppUsersRoute
   AppEnvEnvRoute: typeof AppEnvEnvRouteWithChildren
 }
@@ -540,6 +560,7 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppApiDocsRoute: AppApiDocsRoute,
   AppApiKeysRoute: AppApiKeysRoute,
+  AppAuditRoute: AppAuditRoute,
   AppUsersRoute: AppUsersRoute,
   AppEnvEnvRoute: AppEnvEnvRouteWithChildren,
 }

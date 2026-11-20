@@ -20,11 +20,14 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 - Reverse proxy mode: `--trusted-proxies` honors `X-Forwarded-For`, `-Proto` and `-Host` from the
   given addresses, so client addresses, login rate limiting and `Secure` cookies work behind
   Caddy, Traefik or nginx; setup examples in docs/reverse-proxy.md (#112).
+- Audit log: every change, terminal session, denied request and login with user, client address
+  and result, filterable and exportable as CSV under Audit log; kept for `--audit-retention`
+  (90 days by default) (#79).
 
 ### Upgrade notes
 
-- Database migrations 7 (automatic update log), 8 (when new images were first seen) and 9
-  (notification channels) are applied on start.
+- Database migrations 7 (automatic update log), 8 (when new images were first seen), 9
+  (notification channels) and 10 (audit log) are applied on start.
 
 ## [0.1.1] - 2026-11-19
 

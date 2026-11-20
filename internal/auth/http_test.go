@@ -222,3 +222,36 @@ func TestExpiredCookieIsCleared(t *testing.T) {
 		t.Error("invalid session cookie not cleared")
 	}
 }
+
+type authEvent struct {
+	action, user string
+	ok           bool
+}
+
+type fakeAuthAudit struct{ got []authEvent }
+
+func (f *fakeAuthAudit) Auth(_ *http.Request, action, username string, ok bool, _ string) {
+	f.got = append(f.got, authEvent{action, username, ok})
+}
+
+func TestAuthAudit(t *testing.T) {
+	e := newEnv(t, true)
+	a := &fakeAuthAudit{}
+	e.svc.opts.Audit = a
+	c := newServer(t, e)
+	if resp, body := c.do(http.MethodPost, "/api/v1/setup",
+		`{"token":"`+e.setupToken(t)+`","username":"admin","password":"`+goodPassword+`"}`, nil); resp.StatusCode != http.StatusCreated {
+		t.Fatalf("setup: %d %s", resp.StatusCode, body)
+	}
+	c.do(http.MethodPost, "/api/v1/auth/login", `{"username":"admin","password":"wrong-password-1"}`, nil)
+	c.do(http.MethodPost, "/api/v1/auth/login", `{"username":"admin","password":"`+goodPassword+`"}`, nil)
+	want := []authEvent{{"auth:setup", "admin", true}, {"auth:login", "admin", false}, {"auth:login", "admin", true}}
+	if len(a.got) != len(want) {
+		t.Fatalf("events %+v", a.got)
+	}
+	for i := range want {
+		if a.got[i] != want[i] {
+			t.Errorf("event %d: %+v, want %+v", i, a.got[i], want[i])
+		}
+	}
+}

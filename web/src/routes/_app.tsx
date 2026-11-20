@@ -16,6 +16,7 @@ import {
   IconKey,
   IconLayoutDashboard,
   IconStack3,
+  IconListSearch,
   IconUsers,
 } from "@tabler/icons-react";
 import { Link, Outlet, createFileRoute, redirect, useParams } from "@tanstack/react-router";
@@ -191,6 +192,12 @@ function AppLayout() {
                 to="/users"
                 label="Users"
                 leftSection={<IconUsers size={18} stroke={1.5} />}
+                onClick={close}
+              />
+              <RouterNavLink
+                to="/audit"
+                label="Audit log"
+                leftSection={<IconListSearch size={18} stroke={1.5} />}
                 onClick={close}
               />
               <RouterNavLink

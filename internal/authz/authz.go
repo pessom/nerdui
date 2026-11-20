@@ -61,6 +61,7 @@ const (
 	UsersWrite      Action = "users:write"
 	SettingsRead    Action = "settings:read"
 	SettingsWrite   Action = "settings:write"
+	AuditRead       Action = "audit:read" // the audit log (#79)
 )
 
 var catalog = []Action{
@@ -71,7 +72,7 @@ var catalog = []Action{
 	StacksRead, StacksWrite, StacksDeploy,
 	NamespacesRead, NamespacesWrite,
 	SystemRead, SystemPrune,
-	RegistriesRead, RegistriesWrite, UsersRead, UsersWrite, SettingsRead, SettingsWrite,
+	RegistriesRead, RegistriesWrite, UsersRead, UsersWrite, SettingsRead, SettingsWrite, AuditRead,
 }
 
 // All returns every known action.

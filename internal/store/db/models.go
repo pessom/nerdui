@@ -20,6 +20,25 @@ type ApiKey struct {
 	LastUsedAt sql.NullInt64
 }
 
+type AuditLog struct {
+	ID          int64
+	At          int64
+	Username    string
+	ApiKey      int64
+	Action      string
+	Method      string
+	Path        string
+	Environment string
+	Namespace   string
+	Object      string
+	Status      int64
+	Result      string
+	Message     string
+	JobID       string
+	ClientIp    string
+	UserAgent   string
+}
+
 type AutoUpdate struct {
 	ID          int64
 	Environment string
