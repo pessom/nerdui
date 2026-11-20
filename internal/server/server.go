@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"net/netip"
 	"path"
 	"strings"
 	"time"
@@ -25,6 +26,7 @@ import (
 	"github.com/pessom/nerdui/internal/httpjson"
 	"github.com/pessom/nerdui/internal/jobs"
 	"github.com/pessom/nerdui/internal/notify"
+	"github.com/pessom/nerdui/internal/proxy"
 	"github.com/pessom/nerdui/internal/runtime"
 	"github.com/pessom/nerdui/internal/stacks"
 	"github.com/pessom/nerdui/internal/version"
@@ -54,6 +56,8 @@ type Config struct {
 	ImageUpdates api.ImageUpdates
 	// AutoUpdates is the log of automatic updates (#54); nil disables it.
 	AutoUpdates api.AutoUpdates
+	// TrustedProxies are reverse proxies whose X-Forwarded-* headers are honored (#112).
+	TrustedProxies []netip.Prefix
 	// Notifications stores notification channels and Notifier sends through them (#86); nil
 	// disables them.
 	Notifications api.NotificationStore
@@ -87,6 +91,8 @@ func New(cfg Config) http.Handler {
 	}
 
 	r := chi.NewRouter()
+	// Before logging and authentication, so both see the client behind a trusted proxy (#112).
+	r.Use(proxy.Middleware(cfg.TrustedProxies))
 	r.Use(middleware.RequestID)
 	r.Use(requestLogger(cfg.Logger))
 	r.Use(middleware.Recoverer)
@@ -211,6 +217,7 @@ func requestLogger(log *slog.Logger) func(http.Handler) http.Handler {
 			log.LogAttrs(r.Context(), slog.LevelDebug, "http request",
 				slog.String("method", r.Method),
 				slog.String("path", r.URL.Path),
+				slog.String("remote", r.RemoteAddr),
 				slog.Int("status", ww.Status()),
 				slog.Duration("duration", time.Since(start)),
 				slog.String("request_id", middleware.GetReqID(r.Context())),

@@ -17,6 +17,7 @@ import (
 
 	"github.com/pessom/nerdui/internal/authz"
 	"github.com/pessom/nerdui/internal/httpjson"
+	"github.com/pessom/nerdui/internal/proxy"
 )
 
 // CookieName is the session cookie (ADR-0005).
@@ -101,7 +102,7 @@ func (s *Service) RequireSession(next http.Handler) http.Handler {
 		}
 		p, err := s.Authenticate(r.Context(), c.Value)
 		if errors.Is(err, ErrUnauthenticated) {
-			s.clearCookie(w)
+			s.clearCookie(w, r)
 			httpjson.WriteError(w, http.StatusUnauthorized, httpjson.CodeUnauthenticated, "session expired or invalid")
 			return
 		}
@@ -220,7 +221,7 @@ func (s *Service) handleSetup(w http.ResponseWriter, r *http.Request) {
 	if s.writeAuthError(w, err) {
 		return
 	}
-	s.setCookie(w, issued)
+	s.setCookie(w, r, issued)
 	httpjson.Write(w, http.StatusCreated, SessionResponse{User: u, CSRFToken: issued.CSRFToken, ExpiresAt: issued.ExpiresAt})
 }
 
@@ -240,7 +241,7 @@ func (s *Service) handleLogin(w http.ResponseWriter, r *http.Request) {
 	if s.writeAuthError(w, err) {
 		return
 	}
-	s.setCookie(w, issued)
+	s.setCookie(w, r, issued)
 	httpjson.Write(w, http.StatusOK, SessionResponse{User: u, CSRFToken: issued.CSRFToken, ExpiresAt: issued.ExpiresAt})
 }
 
@@ -258,7 +259,7 @@ func (s *Service) handleLogout(w http.ResponseWriter, r *http.Request) {
 		httpjson.WriteError(w, http.StatusInternalServerError, httpjson.CodeInternal, "logout failed")
 		return
 	}
-	s.clearCookie(w)
+	s.clearCookie(w, r)
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -290,33 +291,35 @@ func (s *Service) writeAuthError(w http.ResponseWriter, err error) bool {
 	return true
 }
 
-// Secure is only off with --tls=false, i.e. behind a TLS-terminating reverse proxy (ADR-0005).
-func (s *Service) setCookie(w http.ResponseWriter, is Issued) {
+// Secure is on with TLS, and behind a trusted reverse proxy that reports HTTPS (ADR-0005, #112).
+func (s *Service) secure(r *http.Request) bool { return s.opts.SecureCookie || proxy.Secure(r) }
+
+func (s *Service) setCookie(w http.ResponseWriter, r *http.Request, is Issued) {
 	http.SetCookie(w, &http.Cookie{ //nolint:gosec // G124: Secure follows the TLS setting
 		Name:     CookieName,
 		Value:    is.Token,
 		Path:     "/",
 		Expires:  is.ExpiresAt,
 		HttpOnly: true,
-		Secure:   s.opts.SecureCookie,
+		Secure:   s.secure(r),
 		SameSite: http.SameSiteStrictMode,
 	})
 }
 
-func (s *Service) clearCookie(w http.ResponseWriter) {
+func (s *Service) clearCookie(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{ //nolint:gosec // G124: Secure follows the TLS setting
 		Name:     CookieName,
 		Value:    "",
 		Path:     "/",
 		MaxAge:   -1,
 		HttpOnly: true,
-		Secure:   s.opts.SecureCookie,
+		Secure:   s.secure(r),
 		SameSite: http.SameSiteStrictMode,
 	})
 }
 
-// clientOf extracts the client address. Proxy headers are not trusted until the
-// reverse-proxy mode (#112) adds an explicit trusted-proxies setting.
+// clientOf extracts the client address; behind a trusted proxy, proxy.Middleware has already
+// replaced RemoteAddr with the client's (#112).
 func clientOf(r *http.Request) Client {
 	ip, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {

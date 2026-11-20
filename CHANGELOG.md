@@ -17,6 +17,9 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 - Notifications: webhook, Slack, Discord, Telegram, ntfy, Gotify and email channels under
   Settings → Notifications, each receiving the events it subscribes to: new images, automatic
   updates, crashed containers and failed operations (#86, #96).
+- Reverse proxy mode: `--trusted-proxies` honors `X-Forwarded-For`, `-Proto` and `-Host` from the
+  given addresses, so client addresses, login rate limiting and `Secure` cookies work behind
+  Caddy, Traefik or nginx; setup examples in docs/reverse-proxy.md (#112).
 
 ### Upgrade notes
 

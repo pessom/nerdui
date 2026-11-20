@@ -40,6 +40,9 @@ func BindServeFlags(fs *pflag.FlagSet, c *Config) {
 	str(&c.LogLevel, "log-level", "log level: debug, info, warn, error")
 	fs.BoolVar(&c.DisableExec, "disable-exec", c.DisableExec,
 		"turn off the web terminal into containers (env "+EnvName("disable-exec")+")")
+	fs.StringSliceVar(&c.TrustedProxies, "trusted-proxies", c.TrustedProxies,
+		"comma-separated IPs or CIDRs of reverse proxies whose X-Forwarded-For/-Proto/-Host headers are trusted (env "+
+			EnvName("trusted-proxies")+")")
 	fs.DurationVar(&c.EventsRetention, "events-retention", c.EventsRetention,
 		"how long the event history is kept, e.g. 168h; 0 disables it (env "+EnvName("events-retention")+")")
 }

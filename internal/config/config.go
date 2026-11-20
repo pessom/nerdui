@@ -17,6 +17,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/pessom/nerdui/internal/proxy"
 )
 
 // Defaults. See docs/architecture.md (Configuration).
@@ -64,6 +66,9 @@ type Config struct {
 	EventsRetention time.Duration
 	// DisableExec turns off the web terminal into containers (#15, ADR-0022).
 	DisableExec bool
+	// TrustedProxies are the addresses (IPs or CIDRs) of reverse proxies whose X-Forwarded-*
+	// headers are honored (#112, ADR-0035).
+	TrustedProxies []string
 }
 
 // Default returns the configuration with all default values.
@@ -130,6 +135,9 @@ func (c Config) Validate() error {
 	}
 	if !c.TLS && (c.TLSCert != "" || c.TLSKey != "") {
 		errs = append(errs, errors.New("--tls-cert/--tls-key cannot be used with --tls=false"))
+	}
+	if _, err := proxy.ParsePrefixes(c.TrustedProxies); err != nil {
+		errs = append(errs, fmt.Errorf("--trusted-proxies: %w", err))
 	}
 	var l slog.Level
 	if err := l.UnmarshalText([]byte(c.LogLevel)); err != nil {
