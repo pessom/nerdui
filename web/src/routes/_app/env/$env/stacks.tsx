@@ -13,7 +13,7 @@ import {
   Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { IconFolderPlus, IconPlus } from "@tabler/icons-react";
+import { IconBrandGit, IconFolderPlus, IconPlus } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi } from "@tanstack/react-router";
 import {
@@ -25,6 +25,7 @@ import {
 } from "../../../../api/queries";
 import { RouterAnchor } from "../../../../components/RouterAnchor";
 import { AdoptStackDialog } from "../../../../features/stacks/AdoptStackDialog";
+import { GitStackDialog } from "../../../../features/stacks/GitStackDialog";
 import { NewStackDialog } from "../../../../features/stacks/NewStackDialog";
 import { StackMode, StackStatus } from "../../../../features/stacks/StackStatus";
 import { StacksUpdateBadge } from "../../../../features/updates/StacksUpdateBadge";
@@ -52,6 +53,7 @@ function StacksPage() {
     ).length;
   const [adopting, { open, close }] = useDisclosure();
   const [creating, newStack] = useDisclosure();
+  const [cloning, gitStack] = useDisclosure();
 
   return (
     <MStack>
@@ -64,6 +66,13 @@ function StacksPage() {
           <Button variant="default" leftSection={<IconFolderPlus size={16} />} onClick={open}>
             Adopt existing
           </Button>
+          <Button
+            variant="default"
+            leftSection={<IconBrandGit size={16} />}
+            onClick={gitStack.open}
+          >
+            From Git
+          </Button>
           <Button leftSection={<IconPlus size={16} />} onClick={newStack.open}>
             New stack
           </Button>
@@ -71,9 +80,11 @@ function StacksPage() {
       </Group>
       <NewStackDialog env={env} namespace={namespace} opened={creating} onClose={newStack.close} />
       <AdoptStackDialog env={env} namespace={namespace} opened={adopting} onClose={close} />
+      <GitStackDialog env={env} namespace={namespace} opened={cloning} onClose={gitStack.close} />
       <Text size="sm" c="dimmed">
         Compose projects: directories with a compose file in nerdui&apos;s stacks directory, and
-        projects started with <Code>nerdctl compose</Code> elsewhere.
+        projects started with <Code>nerdctl compose</Code> elsewhere, and stacks cloned from Git
+        repositories.
       </Text>
       {list.isPending && <Loader aria-label="Loading" />}
       {list.isError && (

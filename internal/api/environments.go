@@ -18,6 +18,7 @@ import (
 
 	"github.com/pessom/nerdui/internal/authz"
 	"github.com/pessom/nerdui/internal/environment"
+	"github.com/pessom/nerdui/internal/gitstacks"
 	"github.com/pessom/nerdui/internal/httpjson"
 	"github.com/pessom/nerdui/internal/jobs"
 	"github.com/pessom/nerdui/internal/notify"
@@ -41,6 +42,8 @@ type Handler struct {
 	Settings Settings
 	// Stacks finds compose stacks (#24, ADR-0008); nil disables them.
 	Stacks *stacks.Service
+	// GitStacks deploys stacks from Git repositories (#37, ADR-0039); nil disables them.
+	GitStacks *gitstacks.Service
 	// ImageUpdates checks images for newer registry digests (#53); nil disables it.
 	ImageUpdates ImageUpdates
 	// AutoUpdates is the log of automatic updates (#54); nil disables it.
@@ -62,6 +65,7 @@ func (h *Handler) Routes(r chi.Router, g *authz.Guard) {
 	h.jobRoutes(r, g)
 	h.notificationRoutes(r, g)
 	h.auditRoutes(r, g)
+	h.gitRoutes(r, g)
 	r.Method(http.MethodGet, "/compose-schema", g.Protect(authz.StacksRead, h.composeSchema))
 	r.Route("/environments/{env}", func(r chi.Router) {
 		r.Use(h.resolveEnv)
@@ -129,6 +133,7 @@ func (h *Handler) runtimeRoutes(r chi.Router, g *authz.Guard) {
 	r.Method(http.MethodGet, "/stacks", g.Protect(authz.StacksRead, h.listStacks))
 	r.Method(http.MethodGet, "/stacks/{name}", g.Protect(authz.StacksRead, h.getStack))
 	r.Method(http.MethodPost, "/stacks/{name}/{op}", g.Protect(authz.StacksDeploy, h.stackOperation))
+	h.gitStackRoutes(r, g)
 	r.Method(http.MethodGet, "/stacks/{name}/logs/stream", g.Protect(authz.StacksRead, h.stackLogsStream))
 	r.Method(http.MethodGet, "/networks", g.Protect(authz.NetworksRead, h.listNetworks))
 	r.Method(http.MethodPost, "/networks", g.Protect(authz.NetworksWrite, h.createNetwork))

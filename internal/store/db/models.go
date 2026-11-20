@@ -67,6 +67,39 @@ type Event struct {
 	Attributes  string
 }
 
+type GitCredential struct {
+	ID         int64
+	Name       string
+	Kind       string
+	Username   string
+	Secret     string
+	Passphrase string
+	CreatedAt  int64
+	UpdatedAt  int64
+}
+
+type GitKnownHost struct {
+	Host      string
+	Key       string
+	CreatedAt int64
+}
+
+type GitStack struct {
+	Name          string
+	Url           string
+	Ref           string
+	FullRef       string
+	ComposePath   string
+	CredentialID  sql.NullInt64
+	CommitHash    string
+	CommitMessage string
+	CommitAuthor  string
+	CommitAt      int64
+	PulledAt      int64
+	LastError     string
+	CreatedAt     int64
+}
+
 type ImageUpdate struct {
 	Environment  string
 	Ref          string

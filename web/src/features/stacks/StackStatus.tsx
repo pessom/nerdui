@@ -14,6 +14,7 @@ const color: Record<Stack["status"], string> = {
 const modeHint: Record<Stack["mode"], string> = {
   managed: "In the stacks directory of nerdui",
   external: "Registered in place from another directory",
+  git: "Cloned from a Git repository: pull to update it",
   unmanaged: "Seen only in container labels: nerdui does not know its compose file",
 };
 
@@ -38,7 +39,11 @@ export function StackStatus({ stack }: { stack: Stack }) {
 export function StackMode({ mode }: { mode: Stack["mode"] }) {
   return (
     <Tooltip label={modeHint[mode]}>
-      <Badge size="xs" variant="outline" color={mode === "unmanaged" ? "orange" : "gray"}>
+      <Badge
+        size="xs"
+        variant="outline"
+        color={mode === "unmanaged" ? "orange" : mode === "git" ? "grape" : "gray"}
+      >
         {mode}
       </Badge>
     </Tooltip>

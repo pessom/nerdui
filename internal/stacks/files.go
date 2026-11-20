@@ -99,6 +99,10 @@ func WriteFile(def Definition, kind string, content []byte, version string) (Sta
 	if len(content) > MaxFileSize {
 		return StackFile{}, fmt.Errorf("%w: the file is larger than %d KiB", errdefs.ErrInvalidArgument, MaxFileSize>>10)
 	}
+	if def.Mode == ModeGit && kind == FileCompose {
+		return StackFile{}, fmt.Errorf("%w: the compose file of a Git stack comes from its repository; change it there and pull",
+			errdefs.ErrFailedPrecondition)
+	}
 	cur, err := ReadFile(def, kind)
 	if err != nil {
 		return StackFile{}, err

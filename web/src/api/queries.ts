@@ -263,6 +263,21 @@ export const stackQuery = (env: string, namespace: string, name: string) =>
       ),
   });
 
+export type GitCredential = components["schemas"]["GitCredential"];
+export type GitKnownHost = components["schemas"]["GitKnownHost"];
+
+/** Saved Git credentials of Git stacks (#93); secrets are never returned. */
+export const gitCredentialsQuery = queryOptions({
+  queryKey: ["git", "credentials"] as const,
+  queryFn: () => unwrap(api.GET("/api/v1/git/credentials")),
+});
+
+/** SSH host keys trusted on first use (ADR-0039). */
+export const gitKnownHostsQuery = queryOptions({
+  queryKey: ["git", "known-hosts"] as const,
+  queryFn: () => unwrap(api.GET("/api/v1/git/known-hosts")),
+});
+
 /** Compose projects in --stacks-scan-dirs that can be adopted (#25). */
 export const stackCandidatesQuery = (env: string) =>
   queryOptions({

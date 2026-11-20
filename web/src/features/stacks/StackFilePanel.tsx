@@ -37,6 +37,7 @@ export function StackFilePanel({
   name,
   kind,
   readOnly,
+  fromGit = false,
 }: {
   env: string;
   namespace: string;
@@ -44,6 +45,8 @@ export function StackFilePanel({
   kind: Kind;
   /** Deploy needs a compatible nerdctl; saving does not. */
   readOnly: boolean;
+  /** The file comes from the stack's Git repository (#37): it is shown, not edited. */
+  fromGit?: boolean;
 }) {
   const queryClient = useQueryClient();
   const jobs = useJobsPanel();
@@ -183,15 +186,22 @@ export function StackFilePanel({
             </Badge>
           )}
         </Group>
-        <Group gap="xs">
-          <Button variant="default" disabled={!dirty} onClick={() => setDraft(undefined)}>
-            Revert
-          </Button>
-          <Button disabled={!dirty || !result?.valid} onClick={() => setReviewing(true)}>
-            Review and save
-          </Button>
-        </Group>
+        {!fromGit && (
+          <Group gap="xs">
+            <Button variant="default" disabled={!dirty} onClick={() => setDraft(undefined)}>
+              Revert
+            </Button>
+            <Button disabled={!dirty || !result?.valid} onClick={() => setReviewing(true)}>
+              Review and save
+            </Button>
+          </Group>
+        )}
       </Group>
+      {fromGit && (
+        <Alert color="blue" title="From the Git repository">
+          This file is read-only here: change it in the repository and pull the stack.
+        </Alert>
+      )}
       {conflict && (
         <Alert color="orange" title="The file changed on disk">
           <Stack gap="xs" align="flex-start">
@@ -222,6 +232,7 @@ export function StackFilePanel({
           schema={schema.data}
           error={error}
           label={`${file.data.name} of ${name}`}
+          readOnly={fromGit}
         />
       </Suspense>
       {kind === "compose" && (
