@@ -174,6 +174,26 @@ describe("nerdui app shell", () => {
     expect(screen.getByText("read-only")).toBeInTheDocument();
   });
 
+  it("warns while no ACME certificate could be obtained", async () => {
+    fakeApi({
+      ...common,
+      "GET /api/v1/auth/me": () => json(200, session),
+      "GET /api/v1/setup": () => json(200, { required: false }),
+      "GET /api/v1/version": () =>
+        json(200, {
+          ...version,
+          acme: {
+            domains: ["nerdui.example.com"],
+            ready: false,
+            error: "acme: authorization error: connection refused",
+          },
+        }),
+    });
+    renderApp("/env/local");
+    expect(await screen.findByText("No certificate from Let's Encrypt yet")).toBeInTheDocument();
+    expect(screen.getByText(/connection refused/)).toBeInTheDocument();
+  });
+
   it("shows a banner when containerd is unreachable", async () => {
     fakeApi({
       ...common,

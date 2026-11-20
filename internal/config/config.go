@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/pessom/nerdui/internal/proxy"
+	"github.com/pessom/nerdui/internal/tlsutil"
 )
 
 // Defaults. See docs/architecture.md (Configuration).
@@ -62,6 +63,15 @@ type Config struct {
 	// self-signed certificate is generated in <DataDir>/tls (ADR-0005).
 	TLSCert string
 	TLSKey  string
+	// TLSACMEDomains get certificates from an ACME CA such as Let's Encrypt (#113, ADR-0038).
+	TLSACMEDomains []string
+	// TLSACMEEmail is the ACME account contact (expiry notices); optional.
+	TLSACMEEmail string
+	// TLSACMECA is "production", "staging" (Let's Encrypt) or an ACME directory URL.
+	TLSACMECA string
+	// TLSACMEHTTP, when set, is an address (usually ":80") for HTTP-01 challenges and HTTP to
+	// HTTPS redirects; without it only TLS-ALPN-01 on port 443 is used.
+	TLSACMEHTTP string
 	// LogLevel is one of debug, info, warn, error.
 	LogLevel string
 	// EventsRetention is how long the event history is kept (#65); 0 disables it.
@@ -84,6 +94,7 @@ func Default() Config {
 		DataDir:           DefaultDataDir,
 		NerdctlPath:       DefaultNerdctlPath,
 		TLS:               true,
+		TLSACMECA:         "production",
 		LogLevel:          DefaultLogLevel,
 		EventsRetention:   DefaultEventsRetention,
 		AuditRetention:    DefaultAuditRetention,
@@ -143,6 +154,26 @@ func (c Config) Validate() error {
 	}
 	if _, err := proxy.ParsePrefixes(c.TrustedProxies); err != nil {
 		errs = append(errs, fmt.Errorf("--trusted-proxies: %w", err))
+	}
+	if len(c.TLSACMEDomains) > 0 {
+		if !c.TLS || c.TLSCert != "" {
+			errs = append(errs, errors.New("--tls-acme-domains needs --tls and cannot be used with --tls-cert"))
+		}
+		for _, d := range c.TLSACMEDomains {
+			if err := tlsutil.ValidACMEDomain(d); err != nil {
+				errs = append(errs, fmt.Errorf("--tls-acme-domains: %w", err))
+			}
+		}
+		if _, err := tlsutil.ACMEDirectory(c.TLSACMECA); err != nil {
+			errs = append(errs, fmt.Errorf("--tls-acme-ca %q: %w", c.TLSACMECA, err))
+		}
+		if c.TLSACMEHTTP != "" {
+			if err := validateListen(c.TLSACMEHTTP); err != nil {
+				errs = append(errs, fmt.Errorf("--tls-acme-http %q: %w", c.TLSACMEHTTP, err))
+			}
+		}
+	} else if c.TLSACMEHTTP != "" || c.TLSACMEEmail != "" {
+		errs = append(errs, errors.New("--tls-acme-email and --tls-acme-http need --tls-acme-domains"))
 	}
 	var l slog.Level
 	if err := l.UnmarshalText([]byte(c.LogLevel)); err != nil {

@@ -2417,6 +2417,19 @@ export interface components {
             nerdui: components["schemas"]["BuildInfo"];
             runtime?: components["schemas"]["RuntimeVersions"];
             error?: string;
+            acme?: components["schemas"]["ACMEStatus"];
+        };
+        /** @description ACME certificates (#113); shown to callers with `system:read` when configured. */
+        ACMEStatus: {
+            domains: string[];
+            /** @description A certificate was obtained and is served */
+            ready: boolean;
+            /** Format: date-time */
+            notAfter?: string;
+            /** @description Newest failure while no certificate is ready; the self-signed one is served */
+            error?: string;
+            /** Format: date-time */
+            errorAt?: string;
         };
         Environment: {
             /** @example local */

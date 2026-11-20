@@ -26,6 +26,9 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 - Two-factor authentication: TOTP authenticator apps with QR setup and ten backup codes, an
   option to require it for every user, reset by administrators, and `nerdui admin reset-mfa` for
   the last administrator (#75).
+- Let's Encrypt certificates: `--tls-acme-domains` gets and renews a trusted certificate over
+  TLS-ALPN-01 (port 443) or HTTP-01 (`--tls-acme-http :80`), with the self-signed certificate as
+  fallback and a warning in the UI while issuance fails (#113).
 
 ### Upgrade notes
 

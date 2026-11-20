@@ -131,6 +131,16 @@ nerdui serves **HTTPS on port 9443** by default ([ADR-0005](adr/0005-authenticat
 
 - **Your own certificate.** `--tls-cert /path/fullchain.pem --tls-key /path/privkey.pem`. Files are
   re-read when they change (e.g. certbot renewals), no restart needed.
+- **Let's Encrypt (ACME).** `--tls-acme-domains nerdui.example.com` (optionally
+  `--tls-acme-email you@example.com`) gets and renews a certificate automatically
+  ([ADR-0038](adr/0038-acme-certificates.md)). The domain must point to the host, and the CA must
+  reach nerdui: either on **port 443** (TLS-ALPN-01; run nerdui with `--listen :443` or forward 443
+  to it), or on **port 80** with `--tls-acme-http :80` (HTTP-01; this port also redirects to
+  HTTPS). Try `--tls-acme-ca staging` first: Let's Encrypt limits failed attempts on production.
+  Certificates and the account key are kept in `<data-dir>/tls/acme`. Other names (IP addresses,
+  `localhost`) and the time until the first certificate arrives get the self-signed certificate;
+  the UI shows a warning while issuance fails. Hosts without inbound ports (home networks) need
+  your own certificate or a reverse proxy with DNS-01 instead.
 - **Behind a reverse proxy** that terminates TLS (Caddy, Traefik, nginx): `--tls=false`, bind
   to localhost (`--listen 127.0.0.1:9443`) and trust the proxy (`--trusted-proxies 127.0.0.1,::1`).
   Never expose plain HTTP to the network. Examples: [reverse-proxy.md](reverse-proxy.md).
