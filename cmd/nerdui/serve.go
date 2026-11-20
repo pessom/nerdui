@@ -24,6 +24,7 @@ import (
 	"github.com/pessom/nerdui/internal/config"
 	"github.com/pessom/nerdui/internal/environment"
 	"github.com/pessom/nerdui/internal/events"
+	"github.com/pessom/nerdui/internal/gitstacks"
 	"github.com/pessom/nerdui/internal/jobs"
 	"github.com/pessom/nerdui/internal/notify"
 	"github.com/pessom/nerdui/internal/proxy"
@@ -162,9 +163,13 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 			})
 		}
 	}
+	// Git stacks (#37) are cloned into <data-dir>/git.
+	gitDir := filepath.Join(cfg.DataDir, "git")
 	stackService := &stacks.Service{
 		Dir: cfg.EffectiveStacksDir(), Registry: st.Read(), Writer: st.Write(), ScanDirs: cfg.StacksScanDirs,
+		Git: st.Read(), GitDir: gitDir,
 	}
+	gitStacks := &gitstacks.Service{Dir: gitDir, Store: st.Write(), Stacks: stackService}
 	// Image update checks (#53) on each environment's schedule, each followed by the automatic
 	// updates of opted-in containers and stacks (#54).
 	autoUpdates := &updates.Updater{
@@ -190,6 +195,7 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 			ACME:         acmeCerts,
 			EventHistory: eventHistory, DisableExec: cfg.DisableExec, Settings: st.Write(),
 			Stacks:        stackService,
+			GitStacks:     gitStacks,
 			ImageUpdates:  imageUpdates,
 			AutoUpdates:   autoUpdates,
 			Notifications: st.Write(), Notifier: notifier, Audit: auditLog,

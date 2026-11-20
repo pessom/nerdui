@@ -19,8 +19,8 @@ containers, images, networks and volumes managed from the UI stay fully compatib
   remove, inspect, logs, live stats with Prometheus history, web terminal.
 - **Images, volumes, networks:** pull/push/tag/remove, volume sizes, CNI networks with
   attached containers, ports and conflicts, registry logins, prune.
-- **Stacks:** compose projects from the stacks directory or adopted in place, an editor with
-  validation, deploy/stop/down with live output, aggregated logs.
+- **Stacks:** compose projects from the stacks directory, adopted in place or cloned from Git
+  repositories, an editor with validation, deploy/stop/down with live output, aggregated logs.
 - **Host:** overview dashboard, namespaces, containerd events with history, system information.
 - **Access:** users, API keys (optionally read-only), OpenAPI documentation in the UI, per-user
   preferences.
@@ -69,7 +69,7 @@ Every flag has an environment variable `NERDUI_<FLAG>`; command-line flags take 
 | `--listen` | `NERDUI_LISTEN` | `:9443` | Listen address |
 | `--address` | `NERDUI_ADDRESS` | `/run/containerd/containerd.sock` | containerd socket |
 | `--namespace` | `NERDUI_NAMESPACE` | `default` | Default containerd namespace |
-| `--data-dir` | `NERDUI_DATA_DIR` | `/var/lib/nerdui` | nerdui state (database, TLS, stacks); created with mode `0700` |
+| `--data-dir` | `NERDUI_DATA_DIR` | `/var/lib/nerdui` | nerdui state (database, TLS, stacks, Git clones); created with mode `0700` |
 | `--stacks-dir` | `NERDUI_STACKS_DIR` | `<data-dir>/stacks` | Compose stacks managed by nerdui |
 | `--stacks-scan-dirs` | `NERDUI_STACKS_SCAN_DIRS` | — | Comma-separated directories scanned for existing compose projects |
 | `--nerdctl-path` | `NERDUI_NERDCTL_PATH` | `nerdctl` | Host nerdctl binary |
@@ -100,6 +100,7 @@ Details: [docs/development.md](docs/development.md).
 - [Development](docs/development.md)
 - [Deployment](docs/deployment.md)
 - [Notifications](docs/notifications.md)
+- [Git stacks](docs/git-stacks.md)
 - [Reverse proxy](docs/reverse-proxy.md)
 - [Release process](docs/release.md)
 - [NFR verification](docs/nfr.md)

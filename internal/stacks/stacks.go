@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: AGPL-3.0-only
 
 // Package stacks finds compose stacks and computes their status (#24, ADR-0008). A stack is a
-// compose project: a directory with a compose file, either inside --stacks-dir ("managed") or
-// registered in place from elsewhere ("external", #25). Its containers carry the
-// com.docker.compose.project label.
+// compose project: a directory with a compose file, either inside --stacks-dir ("managed"),
+// registered in place from elsewhere ("external", #25) or cloned from a Git repository ("git",
+// #37). Its containers carry the com.docker.compose.project label.
 package stacks
 
 import (
@@ -16,7 +16,9 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
+	"github.com/pessom/nerdui/internal/gitrepo"
 	"github.com/pessom/nerdui/internal/runtime"
 	"github.com/pessom/nerdui/internal/store/db"
 )
@@ -25,6 +27,9 @@ import (
 const (
 	ModeManaged  = "managed"
 	ModeExternal = "external"
+	// ModeGit is a stack cloned from a Git repository (#37, ADR-0039): its compose file comes
+	// from the repository and is read-only; .env is local.
+	ModeGit = "git"
 	// ModeUnmanaged is a compose project seen only through container labels: nerdui does not
 	// know its files.
 	ModeUnmanaged = "unmanaged"
@@ -46,6 +51,11 @@ type Registry interface {
 	ListStacks(ctx context.Context) ([]db.Stack, error)
 }
 
+// GitRegistry lists Git stacks; *db.Queries implements it.
+type GitRegistry interface {
+	ListGitStacks(ctx context.Context) ([]db.GitStack, error)
+}
+
 // Definition is a stack nerdui knows the files of.
 type Definition struct {
 	Name string
@@ -53,6 +63,50 @@ type Definition struct {
 	// File is the compose file inside Dir ("" when none is found).
 	File string
 	Mode string
+	// Git describes the repository of a Git stack.
+	Git *GitInfo
+}
+
+// GitInfo is the source of a Git stack. Keep in sync with api/openapi.yaml.
+type GitInfo struct {
+	URL string `json:"url"`
+	// Ref as entered (empty: the default branch) and FullRef as resolved.
+	Ref          string         `json:"ref"`
+	FullRef      string         `json:"fullRef"`
+	ComposePath  string         `json:"composePath"`
+	CredentialID *int64         `json:"credentialId,omitempty"`
+	Commit       gitrepo.Commit `json:"commit"`
+	PulledAt     time.Time      `json:"pulledAt"`
+	// LastError of the newest failed pull; the checked-out commit stays.
+	LastError string `json:"lastError,omitempty"`
+}
+
+// GitInfoFrom converts a stored Git stack.
+func GitInfoFrom(r db.GitStack) *GitInfo {
+	g := &GitInfo{
+		URL: r.Url, Ref: r.Ref, FullRef: r.FullRef, ComposePath: r.ComposePath,
+		Commit: gitrepo.Commit{
+			Hash: r.CommitHash, Message: r.CommitMessage, Author: r.CommitAuthor,
+			Date: time.UnixMilli(r.CommitAt).UTC(),
+		},
+		PulledAt: time.UnixMilli(r.PulledAt).UTC(), LastError: r.LastError,
+	}
+	if r.CredentialID.Valid {
+		id := r.CredentialID.Int64
+		g.CredentialID = &id
+	}
+	return g
+}
+
+// GitDefinition is the definition of a stored Git stack cloned into gitDir/<name>.
+func GitDefinition(gitDir string, r db.GitStack) Definition {
+	clone := filepath.Join(gitDir, r.Name)
+	dir := filepath.Join(clone, filepath.Dir(filepath.FromSlash(r.ComposePath)))
+	file := filepath.Base(r.ComposePath)
+	if fi, err := os.Lstat(filepath.Join(dir, file)); err != nil || !fi.Mode().IsRegular() {
+		file = "" // removed from the repository
+	}
+	return Definition{Name: r.Name, Dir: dir, File: file, Mode: ModeGit, Git: GitInfoFrom(r)}
 }
 
 // Service finds the stack definitions of a host.
@@ -64,6 +118,9 @@ type Service struct {
 	Writer Writer
 	// ScanDirs are searched for compose projects to adopt (--stacks-scan-dirs, #25).
 	ScanDirs []string
+	// Git lists Git stacks cloned into GitDir (#37); nil disables them.
+	Git    GitRegistry
+	GitDir string
 }
 
 // ComposeFile returns the compose file of dir, or "" when it has none.
@@ -112,6 +169,19 @@ func (s *Service) Definitions(ctx context.Context) ([]Definition, error) {
 			seen[r.Name] = true
 		}
 	}
+	if s.Git != nil && s.GitDir != "" {
+		rows, err := s.Git.ListGitStacks(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("list Git stacks: %w", err)
+		}
+		for _, r := range rows {
+			if seen[r.Name] {
+				continue
+			}
+			out = append(out, GitDefinition(s.GitDir, r))
+			seen[r.Name] = true
+		}
+	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out, nil
 }
@@ -123,7 +193,9 @@ type Stack struct {
 	// Path is the stack directory and ComposeFile the file name in it (empty when unmanaged).
 	Path        string `json:"path,omitempty"`
 	ComposeFile string `json:"composeFile,omitempty"`
-	Status      string `json:"status"`
+	// Git is set for a stack cloned from a Git repository.
+	Git    *GitInfo `json:"git,omitempty"`
+	Status string   `json:"status"`
 	// Error explains why the compose file could not be read.
 	Error    string         `json:"error,omitempty"`
 	Services []StackService `json:"services"`
@@ -152,7 +224,7 @@ type StackContainer struct {
 // Summarize computes a stack's status from its compose services (nil with loadErr when the file
 // could not be read) and the containers of its project.
 func Summarize(def Definition, services []string, loadErr error, containers []runtime.Container) Stack {
-	st := Stack{Name: def.Name, Mode: def.Mode, Path: def.Dir, ComposeFile: def.File, Services: []StackService{}}
+	st := Stack{Name: def.Name, Mode: def.Mode, Path: def.Dir, ComposeFile: def.File, Git: def.Git, Services: []StackService{}}
 	byName := map[string]*StackService{}
 	for _, name := range services {
 		st.Services = append(st.Services, StackService{Name: name, Defined: true, Containers: []StackContainer{}})

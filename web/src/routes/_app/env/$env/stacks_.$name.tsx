@@ -23,6 +23,7 @@ import { api, unwrapEmpty } from "../../../../api/client";
 import { envStatusQuery, keys, stackQuery } from "../../../../api/queries";
 import { RouterAnchor } from "../../../../components/RouterAnchor";
 import { AdoptStackDialog } from "../../../../features/stacks/AdoptStackDialog";
+import { GitStackPanel } from "../../../../features/stacks/GitStackPanel";
 import { StackActions } from "../../../../features/stacks/StackActions";
 import { StackFilePanel } from "../../../../features/stacks/StackFilePanel";
 import { StackLogsPanel } from "../../../../features/stacks/StackLogsPanel";
@@ -117,6 +118,16 @@ function StackPage() {
               readOnly={readOnly}
             />
           )}
+          {stack.data.git && (
+            <GitStackPanel
+              env={env}
+              namespace={namespace}
+              name={name}
+              git={stack.data.git}
+              containers={stack.data.containers}
+              readOnly={readOnly}
+            />
+          )}
           {stack.data.path && (
             <Text size="sm">
               Compose file:{" "}
@@ -181,6 +192,7 @@ function StackPage() {
                       name={name}
                       kind="compose"
                       readOnly={readOnly}
+                      fromGit={stack.data.mode === "git"}
                     />
                   )}
                 </Tabs.Panel>

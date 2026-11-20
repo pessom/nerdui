@@ -30,6 +30,8 @@ tags:
     description: Images of an environment
   - name: stacks
     description: Compose stacks (#24–#31, ADR-0008)
+  - name: git
+    description: Git credentials and trusted SSH host keys of Git stacks (#37, #93, ADR-0039)
   - name: networks
     description: CNI networks (#60, ADR-0024)
   - name: volumes
@@ -823,6 +825,127 @@ paths:
         "404": { $ref: "#/components/responses/Error" }
         "501": { $ref: "#/components/responses/Error" }
         "502": { $ref: "#/components/responses/Error" }
+  /api/v1/git/credentials:
+    get:
+      tags: [git]
+      operationId: listGitCredentials
+      summary: Git credentials
+      description: "Requires `stacks:read` (#93, ADR-0039), so stack authors can pick one. Secrets are never returned."
+      responses:
+        "200":
+          description: Credentials
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [credentials]
+                properties:
+                  credentials:
+                    type: array
+                    items: { $ref: "#/components/schemas/GitCredential" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
+    post:
+      tags: [git]
+      operationId: createGitCredential
+      summary: Save a Git credential
+      description: "Requires `settings:write`. With `generate`, a new ed25519 SSH key is created; add its `publicKey` as a deploy key."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GitCredentialInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GitCredential" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "415": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
+  /api/v1/git/credentials/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    put:
+      tags: [git]
+      operationId: updateGitCredential
+      summary: Replace a Git credential
+      description: "Requires `settings:write`. An empty `secret` keeps the stored secret and passphrase while the kind is unchanged. Stacks use the new value on their next pull."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GitCredentialInput" }
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/GitCredential" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "415": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [git]
+      operationId: deleteGitCredential
+      summary: Remove a Git credential
+      description: "Requires `settings:write`. Refused (409) while a Git stack uses it."
+      responses:
+        "204": { description: Removed }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
+  /api/v1/git/known-hosts:
+    get:
+      tags: [git]
+      operationId: listGitKnownHosts
+      summary: Trusted SSH host keys
+      description: "Requires `settings:read`. The first key a Git server presents is trusted; later connections must present the same key."
+      responses:
+        "200":
+          description: Host keys
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [hosts]
+                properties:
+                  hosts:
+                    type: array
+                    items: { $ref: "#/components/schemas/GitKnownHost" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [git]
+      operationId: forgetGitKnownHost
+      summary: Forget the keys of a host
+      description: "Requires `settings:write`. The next connection trusts the key the host presents: do this only when the key change is expected."
+      parameters:
+        - name: host
+          in: query
+          required: true
+          schema: { type: string, example: "github.com:22" }
+      responses:
+        "204": { description: Forgotten }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
   /api/v1/jobs:
     get:
       tags: [jobs]
@@ -1573,6 +1696,118 @@ paths:
         "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
         "415": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/stacks/git:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - $ref: "#/components/parameters/Namespace"
+    post:
+      tags: [stacks]
+      operationId: createGitStack
+      summary: Create a stack from a Git repository
+      description: |
+        Requires `stacks:write`, and `stacks:deploy` with `deploy` (#37, ADR-0039). Checks the
+        request (400, 409 when the name is taken), then clones the ref with depth 1 into the
+        data directory as a job; with `deploy`, `compose up` follows. SSH URLs need an SSH key
+        credential. The job's `result.stack` is the stack name.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GitStackRequest" }
+      responses:
+        "202":
+          description: Job started
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [job]
+                properties:
+                  job: { $ref: "#/components/schemas/Job" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "415": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/stacks/{name}/git/pull:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - $ref: "#/components/parameters/Namespace"
+      - name: name
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      tags: [stacks]
+      operationId: pullGitStack
+      summary: Pull a Git stack
+      description: |
+        Requires `stacks:deploy`. Fetches the stack's ref and checks out its newest commit as a
+        job; untracked files such as `.env` stay. With `redeploy`, `compose up --remove-orphans`
+        follows when the commit changed, or always with `force`. A failure is kept in
+        `git.lastError` and the previous commit stays checked out. The job's `result.commit` is
+        the checked-out commit.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                redeploy: { type: boolean }
+                force: { type: boolean, description: Redeploy even when the commit did not change }
+                pull: { type: boolean, description: Pull images before redeploying }
+      responses:
+        "202":
+          description: Job started
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [job]
+                properties:
+                  job: { $ref: "#/components/schemas/Job" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "415": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/stacks/{name}/git:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - $ref: "#/components/parameters/Namespace"
+      - name: name
+        in: path
+        required: true
+        schema: { type: string }
+    delete:
+      tags: [stacks]
+      operationId: removeGitStack
+      summary: Remove a Git stack
+      description: |
+        Requires `stacks:write`. Forgets the stack and deletes its clone, `.env` included.
+        `confirm` must equal the stack name; refused (409) while the stack has containers in the
+        namespace or a job runs for it.
+      parameters:
+        - name: confirm
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "204": { description: Removed }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
   /api/v1/environments/{env}/stacks/{name}/{op}:
     parameters:
       - $ref: "#/components/parameters/Env"
@@ -3585,6 +3820,69 @@ components:
         createdAt: { type: string, format: date-time }
         expiresAt: { type: string, format: date-time }
         lastUsedAt: { type: string, format: date-time }
+    GitCommit:
+      type: object
+      required: [hash, message, author, date]
+      properties:
+        hash: { type: string }
+        message: { type: string, description: First line of the commit message }
+        author: { type: string }
+        date: { type: string, format: date-time }
+    GitInfo:
+      type: object
+      description: The repository of a Git stack (#37)
+      required: [url, ref, fullRef, composePath, commit, pulledAt]
+      properties:
+        url: { type: string }
+        ref: { type: string, description: Branch or tag as entered; empty for the default branch }
+        fullRef: { type: string, example: refs/heads/main }
+        composePath: { type: string, description: Compose file relative to the repository root }
+        credentialId: { type: integer, format: int64 }
+        commit: { $ref: "#/components/schemas/GitCommit" }
+        pulledAt: { type: string, format: date-time }
+        lastError: { type: string, description: Error of the newest failed pull }
+    GitStackRequest:
+      type: object
+      required: [name, url]
+      additionalProperties: false
+      properties:
+        name: { type: string }
+        url: { type: string, description: "https://, http://, ssh:// or git@host:path" }
+        ref: { type: string, description: Branch or tag; empty for the default branch }
+        composePath: { type: string, description: Compose file or its directory, relative to the repository root }
+        credentialId: { type: integer, format: int64 }
+        deploy: { type: boolean, description: Run compose up after cloning }
+    GitCredential:
+      type: object
+      required: [id, name, kind, passphrase, stacks, updatedAt]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        kind: { type: string, enum: [token, ssh] }
+        username: { type: string }
+        publicKey: { type: string, description: Public key of an SSH credential, to add as a deploy key }
+        passphrase: { type: boolean, description: The SSH key is encrypted with a stored passphrase }
+        stacks: { type: integer, format: int64, description: Git stacks using it }
+        updatedAt: { type: string, format: date-time }
+    GitCredentialInput:
+      type: object
+      required: [name, kind]
+      additionalProperties: false
+      properties:
+        name: { type: string }
+        kind: { type: string, enum: [token, ssh] }
+        username: { type: string, description: "HTTPS user name (default git) or SSH user (default git)" }
+        secret: { type: string, writeOnly: true, description: Token or password, or a PEM private key; empty keeps the stored one }
+        passphrase: { type: string, writeOnly: true }
+        generate: { type: boolean, description: Generate a new ed25519 SSH key }
+    GitKnownHost:
+      type: object
+      required: [host, type, fingerprint, addedAt]
+      properties:
+        host: { type: string, example: "github.com:22" }
+        type: { type: string, example: ssh-ed25519 }
+        fingerprint: { type: string, example: "SHA256:..." }
+        addedAt: { type: string, format: date-time }
     StackFile:
       type: object
       required: [kind, name, content, version, exists]
@@ -3599,9 +3897,10 @@ components:
       required: [name, mode, status, services, containers, running]
       properties:
         name: { type: string }
-        mode: { type: string, enum: [managed, external, unmanaged] }
+        mode: { type: string, enum: [managed, external, git, unmanaged] }
         path: { type: string }
         composeFile: { type: string }
+        git: { $ref: "#/components/schemas/GitInfo" }
         status: { type: string, enum: [running, partial, stopped, unknown] }
         error: { type: string, description: Why the compose file could not be read }
         containers: { type: integer }

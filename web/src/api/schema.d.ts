@@ -610,6 +610,80 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/git/credentials": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Git credentials
+         * @description Requires `stacks:read` (#93, ADR-0039), so stack authors can pick one. Secrets are never returned.
+         */
+        get: operations["listGitCredentials"];
+        put?: never;
+        /**
+         * Save a Git credential
+         * @description Requires `settings:write`. With `generate`, a new ed25519 SSH key is created; add its `publicKey` as a deploy key.
+         */
+        post: operations["createGitCredential"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/git/credentials/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Replace a Git credential
+         * @description Requires `settings:write`. An empty `secret` keeps the stored secret and passphrase while the kind is unchanged. Stacks use the new value on their next pull.
+         */
+        put: operations["updateGitCredential"];
+        post?: never;
+        /**
+         * Remove a Git credential
+         * @description Requires `settings:write`. Refused (409) while a Git stack uses it.
+         */
+        delete: operations["deleteGitCredential"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/git/known-hosts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Trusted SSH host keys
+         * @description Requires `settings:read`. The first key a Git server presents is trusted; later connections must present the same key.
+         */
+        get: operations["listGitKnownHosts"];
+        put?: never;
+        post?: never;
+        /**
+         * Forget the keys of a host
+         * @description Requires `settings:write`. The next connection trusts the key the host presents: do this only when the key change is expected.
+         */
+        delete: operations["forgetGitKnownHost"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/jobs": {
         parameters: {
             query?: never;
@@ -1206,6 +1280,95 @@ export interface paths {
          */
         post: operations["adoptStack"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/environments/{env}/stacks/git": {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a stack from a Git repository
+         * @description Requires `stacks:write`, and `stacks:deploy` with `deploy` (#37, ADR-0039). Checks the
+         *     request (400, 409 when the name is taken), then clones the ref with depth 1 into the
+         *     data directory as a job; with `deploy`, `compose up` follows. SSH URLs need an SSH key
+         *     credential. The job's `result.stack` is the stack name.
+         */
+        post: operations["createGitStack"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/environments/{env}/stacks/{name}/git/pull": {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Pull a Git stack
+         * @description Requires `stacks:deploy`. Fetches the stack's ref and checks out its newest commit as a
+         *     job; untracked files such as `.env` stay. With `redeploy`, `compose up --remove-orphans`
+         *     follows when the commit changed, or always with `force`. A failure is kept in
+         *     `git.lastError` and the previous commit stays checked out. The job's `result.commit` is
+         *     the checked-out commit.
+         */
+        post: operations["pullGitStack"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/environments/{env}/stacks/{name}/git": {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a Git stack
+         * @description Requires `stacks:write`. Forgets the stack and deletes its clone, `.env` included.
+         *     `confirm` must equal the stack name; refused (409) while the stack has containers in the
+         *     namespace or a job runs for it.
+         */
+        delete: operations["removeGitStack"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2990,6 +3153,85 @@ export interface components {
             /** Format: date-time */
             lastUsedAt?: string;
         };
+        GitCommit: {
+            hash: string;
+            /** @description First line of the commit message */
+            message: string;
+            author: string;
+            /** Format: date-time */
+            date: string;
+        };
+        /** @description The repository of a Git stack (#37) */
+        GitInfo: {
+            url: string;
+            /** @description Branch or tag as entered; empty for the default branch */
+            ref: string;
+            /** @example refs/heads/main */
+            fullRef: string;
+            /** @description Compose file relative to the repository root */
+            composePath: string;
+            /** Format: int64 */
+            credentialId?: number;
+            commit: components["schemas"]["GitCommit"];
+            /** Format: date-time */
+            pulledAt: string;
+            /** @description Error of the newest failed pull */
+            lastError?: string;
+        };
+        GitStackRequest: {
+            name: string;
+            /** @description https://, http://, ssh:// or git@host:path */
+            url: string;
+            /** @description Branch or tag; empty for the default branch */
+            ref?: string;
+            /** @description Compose file or its directory */
+            composePath?: string;
+            /** Format: int64 */
+            credentialId?: number;
+            /** @description Run compose up after cloning */
+            deploy?: boolean;
+        };
+        GitCredential: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            /** @enum {string} */
+            kind: "token" | "ssh";
+            username?: string;
+            /** @description Public key of an SSH credential */
+            publicKey?: string;
+            /** @description The SSH key is encrypted with a stored passphrase */
+            passphrase: boolean;
+            /**
+             * Format: int64
+             * @description Git stacks using it
+             */
+            stacks: number;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        GitCredentialInput: {
+            name: string;
+            /** @enum {string} */
+            kind: "token" | "ssh";
+            /** @description HTTPS user name (default git) or SSH user (default git) */
+            username?: string;
+            /** @description Token or password */
+            secret?: string;
+            passphrase?: string;
+            /** @description Generate a new ed25519 SSH key */
+            generate?: boolean;
+        };
+        GitKnownHost: {
+            /** @example github.com:22 */
+            host: string;
+            /** @example ssh-ed25519 */
+            type: string;
+            /** @example SHA256:... */
+            fingerprint: string;
+            /** Format: date-time */
+            addedAt: string;
+        };
         StackFile: {
             /** @enum {string} */
             kind: "compose" | "env";
@@ -3003,9 +3245,10 @@ export interface components {
         Stack: {
             name: string;
             /** @enum {string} */
-            mode: "managed" | "external" | "unmanaged";
+            mode: "managed" | "external" | "git" | "unmanaged";
             path?: string;
             composeFile?: string;
+            git?: components["schemas"]["GitInfo"];
             /** @enum {string} */
             status: "running" | "partial" | "stopped" | "unknown";
             /** @description Why the compose file could not be read */
@@ -4297,6 +4540,168 @@ export interface operations {
             502: components["responses"]["Error"];
         };
     };
+    listGitCredentials: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Credentials */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        credentials: components["schemas"]["GitCredential"][];
+                    };
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            501: components["responses"]["Error"];
+        };
+    };
+    createGitCredential: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GitCredentialInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitCredential"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            415: components["responses"]["Error"];
+            501: components["responses"]["Error"];
+        };
+    };
+    updateGitCredential: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GitCredentialInput"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GitCredential"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            415: components["responses"]["Error"];
+            501: components["responses"]["Error"];
+        };
+    };
+    deleteGitCredential: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            501: components["responses"]["Error"];
+        };
+    };
+    listGitKnownHosts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Host keys */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        hosts: components["schemas"]["GitKnownHost"][];
+                    };
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            501: components["responses"]["Error"];
+        };
+    };
+    forgetGitKnownHost: {
+        parameters: {
+            query: {
+                host: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Forgotten */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            501: components["responses"]["Error"];
+        };
+    };
     listJobs: {
         parameters: {
             query?: never;
@@ -5197,6 +5602,125 @@ export interface operations {
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
             415: components["responses"]["Error"];
+        };
+    };
+    createGitStack: {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GitStackRequest"];
+            };
+        };
+        responses: {
+            /** @description Job started */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        job: components["schemas"]["Job"];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            415: components["responses"]["Error"];
+            501: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    pullGitStack: {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    redeploy?: boolean;
+                    /** @description Redeploy even when the commit did not change */
+                    force?: boolean;
+                    /** @description Pull images before redeploying */
+                    pull?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description Job started */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        job: components["schemas"]["Job"];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            415: components["responses"]["Error"];
+            501: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    removeGitStack: {
+        parameters: {
+            query: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+                confirm: string;
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            501: components["responses"]["Error"];
+            503: components["responses"]["Error"];
         };
     };
     stackOperation: {

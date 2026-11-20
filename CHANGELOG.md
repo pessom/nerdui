@@ -29,12 +29,15 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 - Let's Encrypt certificates: `--tls-acme-domains` gets and renews a trusted certificate over
   TLS-ALPN-01 (port 443) or HTTP-01 (`--tls-acme-http :80`), with the self-signed certificate as
   fallback and a warning in the UI while issuance fails (#113).
+- Git stacks: create a stack from a Git repository ("From Git" on the Stacks page), pull it with
+  an optional redeploy, and keep `.env` local; tokens and SSH keys for private repositories,
+  including generated deploy keys, are saved under Settings → Git credentials (#37, #93).
 
 ### Upgrade notes
 
 - Database migrations 7 (automatic update log), 8 (when new images were first seen), 9
-  (notification channels), 10 (audit log) and 11 (two-factor authentication) are applied on
-  start.
+  (notification channels), 10 (audit log), 11 (two-factor authentication) and 12 (Git stacks)
+  are applied on start.
 
 ## [0.1.1] - 2026-11-19
 

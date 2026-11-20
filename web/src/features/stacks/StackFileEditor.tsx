@@ -75,6 +75,7 @@ export default function StackFileEditor({
   schema,
   error,
   label,
+  readOnly = false,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -82,6 +83,8 @@ export default function StackFileEditor({
   schema?: Schema;
   error?: EditorError;
   label: string;
+  /** The file cannot be changed here (the compose file of a Git stack). */
+  readOnly?: boolean;
 }) {
   const host = useRef<HTMLDivElement>(null);
   const view = useRef<EditorView>(null);
@@ -109,6 +112,7 @@ export default function StackFileEditor({
           search({ top: true }),
           indentUnit.of("  "),
           EditorState.tabSize.of(2),
+          EditorState.readOnly.of(readOnly),
           ...lang,
           lintGutter(),
           completion.current.of([]),

@@ -24,6 +24,7 @@ import (
 	"github.com/pessom/nerdui/internal/auth"
 	"github.com/pessom/nerdui/internal/authz"
 	"github.com/pessom/nerdui/internal/environment"
+	"github.com/pessom/nerdui/internal/gitstacks"
 	"github.com/pessom/nerdui/internal/httpjson"
 	"github.com/pessom/nerdui/internal/jobs"
 	"github.com/pessom/nerdui/internal/notify"
@@ -54,6 +55,8 @@ type Config struct {
 	Settings api.Settings
 	// Stacks finds compose stacks (#24); nil disables them.
 	Stacks *stacks.Service
+	// GitStacks deploys stacks from Git repositories (#37); nil disables them.
+	GitStacks *gitstacks.Service
 	// ImageUpdates checks images for newer registry digests (#53); nil disables it.
 	ImageUpdates api.ImageUpdates
 	// AutoUpdates is the log of automatic updates (#54); nil disables it.
@@ -130,7 +133,7 @@ func New(cfg Config) http.Handler {
 			r.Use(cfg.Auth.RequireSession, auth.CSRF, auth.PasswordChanged, cfg.Auth.MFAEnrolled)
 			(&api.Handler{
 				Envs: cfg.Environments, Jobs: cfg.Jobs, EventHistory: cfg.EventHistory,
-				ExecDisabled: cfg.DisableExec, Settings: cfg.Settings, Stacks: cfg.Stacks,
+				ExecDisabled: cfg.DisableExec, Settings: cfg.Settings, Stacks: cfg.Stacks, GitStacks: cfg.GitStacks,
 				ImageUpdates: cfg.ImageUpdates, AutoUpdates: cfg.AutoUpdates, Logger: cfg.Logger,
 				Notifications: cfg.Notifications, Notifier: cfg.Notifier, Audit: auditLog,
 			}).Routes(r, guard)
