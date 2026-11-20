@@ -46,3 +46,4 @@ We record significant architectural decisions as ADRs
 | 0035 | [Running behind a reverse proxy](0035-reverse-proxy.md) | Accepted |
 | 0036 | [Audit log](0036-audit-log.md) | Accepted |
 | 0037 | [Two-factor authentication (TOTP)](0037-two-factor-authentication.md) | Accepted |
+| 0038 | [Certificates from Let's Encrypt (ACME)](0038-acme-certificates.md) | Accepted |

@@ -30,6 +30,7 @@ import (
 	"github.com/pessom/nerdui/internal/proxy"
 	"github.com/pessom/nerdui/internal/runtime"
 	"github.com/pessom/nerdui/internal/stacks"
+	"github.com/pessom/nerdui/internal/tlsutil"
 	"github.com/pessom/nerdui/internal/version"
 )
 
@@ -59,6 +60,8 @@ type Config struct {
 	AutoUpdates api.AutoUpdates
 	// TrustedProxies are reverse proxies whose X-Forwarded-* headers are honored (#112).
 	TrustedProxies []netip.Prefix
+	// ACME serves certificates from an ACME CA (#113); nil when not configured.
+	ACME *tlsutil.ACME
 	// Notifications stores notification channels and Notifier sends through them (#86); nil
 	// disables them.
 	Notifications api.NotificationStore
@@ -75,6 +78,8 @@ type VersionResponse struct {
 	Nerdui  version.Info      `json:"nerdui"`
 	Runtime *runtime.Versions `json:"runtime,omitempty"`
 	Error   string            `json:"error,omitempty"`
+	// ACME describes ACME certificates when configured (#113).
+	ACME *tlsutil.ACMEStatus `json:"acme,omitempty"`
 }
 
 // APIPrefix is the path prefix of API routes subject to the default-deny check.
@@ -117,7 +122,7 @@ func New(cfg Config) http.Handler {
 	}))
 	r.Route("/api/v1", func(r chi.Router) {
 		cfg.Auth.Routes(r, guard)
-		r.With(cfg.Auth.OptionalSession).Method(http.MethodGet, "/version", authz.Public(versionHandler(cfg.Environments, guard)))
+		r.With(cfg.Auth.OptionalSession).Method(http.MethodGet, "/version", authz.Public(versionHandler(cfg.Environments, guard, cfg.ACME)))
 		// The API specification is public, like the source code (#87).
 		r.Method(http.MethodGet, "/openapi.yaml", authz.Public(specHandler("application/yaml", func() ([]byte, error) { return apispec.OpenAPIYAML, nil })))
 		r.Method(http.MethodGet, "/openapi.json", authz.Public(specHandler("application/json", apispec.OpenAPIJSON)))
@@ -157,7 +162,7 @@ func specHandler(contentType string, spec func() ([]byte, error)) http.HandlerFu
 	}
 }
 
-func versionHandler(envs *environment.Registry, guard *authz.Guard) http.HandlerFunc {
+func versionHandler(envs *environment.Registry, guard *authz.Guard, acmeCerts *tlsutil.ACME) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		resp := VersionResponse{Nerdui: version.Get()}
 		local, ok := envs.Get(environment.LocalID)
@@ -168,6 +173,10 @@ func versionHandler(envs *environment.Registry, guard *authz.Guard) http.Handler
 			resp.Runtime = &v
 			if err != nil {
 				resp.Error = err.Error()
+			}
+			if acmeCerts != nil {
+				st := acmeCerts.Status()
+				resp.ACME = &st
 			}
 		}
 		httpjson.Write(w, http.StatusOK, resp)

@@ -117,6 +117,29 @@ func TestValidate(t *testing.T) {
 	}
 }
 
+func TestValidateACME(t *testing.T) {
+	ok := Default()
+	ok.TLSACMEDomains = []string{"nerdui.example.com"}
+	ok.TLSACMEHTTP = ":80"
+	if err := ok.Validate(); err != nil {
+		t.Errorf("valid ACME config: %v", err)
+	}
+	for name, c := range map[string]func(*Config){
+		"without TLS":   func(c *Config) { c.TLSACMEDomains = []string{"a.example.com"}; c.TLS = false },
+		"with own cert": func(c *Config) { c.TLSACMEDomains = []string{"a.example.com"}; c.TLSCert, c.TLSKey = "/c", "/k" },
+		"IP domain":     func(c *Config) { c.TLSACMEDomains = []string{"10.0.0.1"} },
+		"bad CA":        func(c *Config) { c.TLSACMEDomains = []string{"a.example.com"}; c.TLSACMECA = "test" },
+		"http without":  func(c *Config) { c.TLSACMEHTTP = ":80" },
+		"bad http addr": func(c *Config) { c.TLSACMEDomains = []string{"a.example.com"}; c.TLSACMEHTTP = "80" },
+	} {
+		cfg := Default()
+		c(&cfg)
+		if cfg.Validate() == nil {
+			t.Errorf("%s accepted", name)
+		}
+	}
+}
+
 func TestEffectiveStacksDir(t *testing.T) {
 	c := Default()
 	if got := c.EffectiveStacksDir(); got != "/var/lib/nerdui/stacks" {

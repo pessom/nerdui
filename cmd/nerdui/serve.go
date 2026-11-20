@@ -13,6 +13,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"path/filepath"
 	"sync"
 	"syscall"
 	"time"
@@ -74,14 +75,16 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 		return err
 	}
 	scheme := "http"
+	var acmeCerts *tlsutil.ACME
 	if cfg.TLS {
-		tlsCfg, err := tlsConfig(cfg, logger)
+		tlsCfg, a, err := tlsConfig(cfg, logger)
 		if err != nil {
 			_ = ln.Close()
 			return err
 		}
 		ln = tls.NewListener(ln, tlsCfg)
 		scheme = "https"
+		acmeCerts = a
 	}
 	trusted, err := proxy.ParsePrefixes(cfg.TrustedProxies) // validated with the config
 	if err != nil {
@@ -184,6 +187,7 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 	srv := &http.Server{
 		Handler: server.New(server.Config{
 			Auth: authSvc, Environments: envs, UI: web.Dist(), Jobs: jobManager, TrustedProxies: trusted,
+			ACME:         acmeCerts,
 			EventHistory: eventHistory, DisableExec: cfg.DisableExec, Settings: st.Write(),
 			Stacks:        stackService,
 			ImageUpdates:  imageUpdates,
@@ -197,6 +201,17 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 
 	errCh := make(chan error, 1)
 	go func() { errCh <- srv.Serve(ln) }()
+	if acmeCerts != nil {
+		checks.Go(func() { acmeCerts.Warm(checkCtx, acmeRetry) })
+		if cfg.TLSACMEHTTP != "" {
+			httpSrv, err := acmeHTTPServer(ctx, cfg, acmeCerts)
+			if err != nil {
+				_ = srv.Close()
+				return err
+			}
+			defer func() { _ = httpSrv.Close() }()
+		}
+	}
 
 	logger.Info("nerdui started",
 		"url", scheme+"://"+ln.Addr().String(),
@@ -259,7 +274,22 @@ func logRuntimeCompatibility(ctx context.Context, logger *slog.Logger, rt *runti
 
 // tlsConfig prepares the certificate manager (ADR-0005) and logs what is served so users
 // can compare the fingerprint with the one shown by their browser.
-func tlsConfig(cfg config.Config, logger *slog.Logger) (*tls.Config, error) {
+// acmeRetry is the pause between attempts to obtain ACME certificates at start.
+const acmeRetry = 10 * time.Minute
+
+// acmeHTTPServer answers HTTP-01 challenges and redirects to HTTPS (#113).
+func acmeHTTPServer(ctx context.Context, cfg config.Config, a *tlsutil.ACME) (*http.Server, error) {
+	ln, err := listen(ctx, cfg.TLSACMEHTTP)
+	if err != nil {
+		return nil, fmt.Errorf("--tls-acme-http: %w", err)
+	}
+	_, port, _ := net.SplitHostPort(cfg.Listen)
+	srv := &http.Server{Handler: a.HTTPHandler(port), ReadHeaderTimeout: 10 * time.Second}
+	go func() { _ = srv.Serve(ln) }()
+	return srv, nil
+}
+
+func tlsConfig(cfg config.Config, logger *slog.Logger) (*tls.Config, *tlsutil.ACME, error) {
 	logf := func(format string, args ...any) { logger.Info(fmt.Sprintf(format, args...)) }
 	var (
 		mgr *tlsutil.Manager
@@ -271,7 +301,7 @@ func tlsConfig(cfg config.Config, logger *slog.Logger) (*tls.Config, error) {
 		mgr, err = tlsutil.SelfSigned(cfg.TLSDir(), tlsutil.LocalHosts(), tlsutil.WithLogf(logf))
 	}
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	info := mgr.Info()
 	ips := make([]string, 0, len(info.IPAddresses))
@@ -285,7 +315,16 @@ func tlsConfig(cfg config.Config, logger *slog.Logger) (*tls.Config, error) {
 		"dns_names", info.DNSNames,
 		"ip_addresses", ips,
 		"sha256", info.SHA256)
-	return mgr.TLSConfig(), nil
+	if len(cfg.TLSACMEDomains) == 0 {
+		return mgr.TLSConfig(), nil, nil
+	}
+	dir, _ := tlsutil.ACMEDirectory(cfg.TLSACMECA) // validated with the config
+	a := tlsutil.NewACME(mgr, tlsutil.ACMEOptions{
+		Domains: cfg.TLSACMEDomains, Email: cfg.TLSACMEEmail, DirectoryURL: dir,
+		CacheDir: filepath.Join(cfg.TLSDir(), "acme"), Logf: logf,
+	})
+	logger.Info("ACME certificates", "domains", cfg.TLSACMEDomains, "ca", dir, "http01", cfg.TLSACMEHTTP)
+	return a.TLSConfig(), a, nil
 }
 
 // listen opens the TCP listener and turns common failures into actionable messages.

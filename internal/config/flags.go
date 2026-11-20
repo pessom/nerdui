@@ -37,6 +37,12 @@ func BindServeFlags(fs *pflag.FlagSet, c *Config) {
 			EnvName("skip-nerdctl-version-check")+")")
 	BindTLSCertFlag(fs, c)
 	str(&c.TLSKey, "tls-key", "PEM private key file for --tls-cert")
+	fs.StringSliceVar(&c.TLSACMEDomains, "tls-acme-domains", c.TLSACMEDomains,
+		"comma-separated domain names to get certificates for from an ACME CA such as Let's Encrypt (env "+
+			EnvName("tls-acme-domains")+")")
+	str(&c.TLSACMEEmail, "tls-acme-email", "contact email for the ACME account (optional)")
+	str(&c.TLSACMECA, "tls-acme-ca", `ACME CA: "production" or "staging" Let's Encrypt, or a directory URL`)
+	str(&c.TLSACMEHTTP, "tls-acme-http", `address for ACME HTTP-01 challenges and redirects to HTTPS, e.g. ":80" (default: TLS-ALPN-01 on port 443 only)`)
 	str(&c.LogLevel, "log-level", "log level: debug, info, warn, error")
 	fs.BoolVar(&c.DisableExec, "disable-exec", c.DisableExec,
 		"turn off the web terminal into containers (env "+EnvName("disable-exec")+")")

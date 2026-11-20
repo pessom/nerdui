@@ -3068,6 +3068,17 @@ components:
           $ref: "#/components/schemas/RuntimeVersions"
         error:
           type: string
+        acme: { $ref: "#/components/schemas/ACMEStatus" }
+    ACMEStatus:
+      type: object
+      description: ACME certificates (#113); shown to callers with `system:read` when configured.
+      required: [domains, ready]
+      properties:
+        domains: { type: array, items: { type: string } }
+        ready: { type: boolean, description: A certificate was obtained and is served }
+        notAfter: { type: string, format: date-time }
+        error: { type: string, description: Newest failure while no certificate is ready; the self-signed one is served }
+        errorAt: { type: string, format: date-time }
     Environment:
       type: object
       required: [id, name, kind, defaultNamespace]

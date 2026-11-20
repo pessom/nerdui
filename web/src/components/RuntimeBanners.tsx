@@ -6,6 +6,7 @@ import { IconAlertTriangle, IconLock, IconPlugConnectedX } from "@tabler/icons-r
 import type { components } from "../api/client";
 
 type RuntimeVersions = components["schemas"]["RuntimeVersions"];
+type ACMEStatus = components["schemas"]["ACMEStatus"];
 
 /** "2.3.5" → "2.3"; empty for unknown versions. */
 function hostMinor(version: string | undefined): string {
@@ -16,17 +17,27 @@ function hostMinor(version: string | undefined): string {
 export function RuntimeBanners({
   runtime,
   containerdDown,
+  acme,
 }: {
   runtime?: RuntimeVersions;
   containerdDown: boolean;
+  acme?: ACMEStatus;
 }) {
+  const acmeFailing = !!acme && !acme.ready && !!acme.error;
   const n = runtime?.nerdctl;
   const readOnly = n && !n.compatible && !n.checkSkipped;
   const skipped = n && n.checkSkipped && !n.compatible;
   const unsupported = runtime?.containerd && !runtime.containerdSupported;
-  if (!containerdDown && !readOnly && !skipped && !unsupported) return null;
+  if (!containerdDown && !readOnly && !skipped && !unsupported && !acmeFailing) return null;
   return (
     <Stack gap="xs" mb="md">
+      {acmeFailing && (
+        <Alert color="yellow" icon={<IconLock />} title="No certificate from Let's Encrypt yet">
+          nerdui could not get a certificate for {acme.domains.join(", ")} and serves its
+          self-signed one meanwhile: {acme.error}. It retries every 10 minutes; check that the
+          domain points to this host and port 443 (or the --tls-acme-http port) is reachable.
+        </Alert>
+      )}
       {containerdDown && (
         <Alert color="red" icon={<IconPlugConnectedX />} title="containerd is not reachable">
           nerdui keeps retrying; data shown may be outdated.

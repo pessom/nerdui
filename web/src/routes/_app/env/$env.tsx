@@ -5,7 +5,12 @@ import { Badge, Group, Select, Tooltip } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
 import { Outlet, createFileRoute, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { envStatusQuery, environmentsQuery, namespacesQuery } from "../../../api/queries";
+import {
+  envStatusQuery,
+  environmentsQuery,
+  namespacesQuery,
+  versionQuery,
+} from "../../../api/queries";
 import { RuntimeBanners } from "../../../components/RuntimeBanners";
 import { useEnvEvents } from "../../../hooks/useEnvEvents";
 import { rememberNamespace, rememberedNamespace } from "../../../lib/namespace";
@@ -40,6 +45,7 @@ function EnvLayout() {
 
   const envs = useQuery(environmentsQuery);
   const status = useQuery(envStatusQuery(env));
+  const version = useQuery(versionQuery);
   const namespaces = useQuery(namespacesQuery(env));
   const namespace = ns ?? status.data?.defaultNamespace ?? "default";
   const events = useEnvEvents(env, namespace);
@@ -98,7 +104,11 @@ function EnvLayout() {
           </Badge>
         </Tooltip>
       </Group>
-      <RuntimeBanners runtime={status.data?.runtime} containerdDown={containerdDown} />
+      <RuntimeBanners
+        runtime={status.data?.runtime}
+        containerdDown={containerdDown}
+        acme={version.data?.acme}
+      />
       <Outlet />
     </>
   );
