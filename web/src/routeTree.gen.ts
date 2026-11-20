@@ -14,9 +14,11 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as ChangePasswordRouteImport } from './routes/change-password'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as SetupRouteImport } from './routes/setup'
+import { Route as SetupMfaRouteImport } from './routes/setup-mfa'
 import { Route as AppApiDocsRouteImport } from './routes/_app/api-docs'
 import { Route as AppApiKeysRouteImport } from './routes/_app/api-keys'
 import { Route as AppAuditRouteImport } from './routes/_app/audit'
+import { Route as AppSecurityRouteImport } from './routes/_app/security'
 import { Route as AppUsersRouteImport } from './routes/_app/users'
 import { Route as AppEnvEnvRouteImport } from './routes/_app/env/$env'
 import { Route as AppEnvEnvIndexRouteImport } from './routes/_app/env/$env/index'
@@ -59,6 +61,11 @@ const SetupRoute = SetupRouteImport.update({
   path: '/setup',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SetupMfaRoute = SetupMfaRouteImport.update({
+  id: '/setup-mfa',
+  path: '/setup-mfa',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppApiDocsRoute = AppApiDocsRouteImport.update({
   id: '/api-docs',
   path: '/api-docs',
@@ -72,6 +79,11 @@ const AppApiKeysRoute = AppApiKeysRouteImport.update({
 const AppAuditRoute = AppAuditRouteImport.update({
   id: '/audit',
   path: '/audit',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSecurityRoute = AppSecurityRouteImport.update({
+  id: '/security',
+  path: '/security',
   getParentRoute: () => AppRoute,
 } as any)
 const AppUsersRoute = AppUsersRouteImport.update({
@@ -166,9 +178,11 @@ export interface FileRoutesByFullPath {
   '/change-password': typeof ChangePasswordRoute
   '/login': typeof LoginRoute
   '/setup': typeof SetupRoute
+  '/setup-mfa': typeof SetupMfaRoute
   '/api-docs': typeof AppApiDocsRoute
   '/api-keys': typeof AppApiKeysRoute
   '/audit': typeof AppAuditRoute
+  '/security': typeof AppSecurityRoute
   '/users': typeof AppUsersRoute
   '/env/$env': typeof AppEnvEnvRouteWithChildren
   '/env/$env/containers': typeof AppEnvEnvContainersRoute
@@ -192,9 +206,11 @@ export interface FileRoutesByTo {
   '/change-password': typeof ChangePasswordRoute
   '/login': typeof LoginRoute
   '/setup': typeof SetupRoute
+  '/setup-mfa': typeof SetupMfaRoute
   '/api-docs': typeof AppApiDocsRoute
   '/api-keys': typeof AppApiKeysRoute
   '/audit': typeof AppAuditRoute
+  '/security': typeof AppSecurityRoute
   '/users': typeof AppUsersRoute
   '/env/$env/containers': typeof AppEnvEnvContainersRoute
   '/env/$env/events': typeof AppEnvEnvEventsRoute
@@ -219,9 +235,11 @@ export interface FileRoutesById {
   '/change-password': typeof ChangePasswordRoute
   '/login': typeof LoginRoute
   '/setup': typeof SetupRoute
+  '/setup-mfa': typeof SetupMfaRoute
   '/_app/api-docs': typeof AppApiDocsRoute
   '/_app/api-keys': typeof AppApiKeysRoute
   '/_app/audit': typeof AppAuditRoute
+  '/_app/security': typeof AppSecurityRoute
   '/_app/users': typeof AppUsersRoute
   '/_app/env/$env': typeof AppEnvEnvRouteWithChildren
   '/_app/env/$env/containers': typeof AppEnvEnvContainersRoute
@@ -247,9 +265,11 @@ export interface FileRouteTypes {
     | '/change-password'
     | '/login'
     | '/setup'
+    | '/setup-mfa'
     | '/api-docs'
     | '/api-keys'
     | '/audit'
+    | '/security'
     | '/users'
     | '/env/$env'
     | '/env/$env/containers'
@@ -273,9 +293,11 @@ export interface FileRouteTypes {
     | '/change-password'
     | '/login'
     | '/setup'
+    | '/setup-mfa'
     | '/api-docs'
     | '/api-keys'
     | '/audit'
+    | '/security'
     | '/users'
     | '/env/$env/containers'
     | '/env/$env/events'
@@ -299,9 +321,11 @@ export interface FileRouteTypes {
     | '/change-password'
     | '/login'
     | '/setup'
+    | '/setup-mfa'
     | '/_app/api-docs'
     | '/_app/api-keys'
     | '/_app/audit'
+    | '/_app/security'
     | '/_app/users'
     | '/_app/env/$env'
     | '/_app/env/$env/containers'
@@ -327,6 +351,7 @@ export interface RootRouteChildren {
   ChangePasswordRoute: typeof ChangePasswordRoute
   LoginRoute: typeof LoginRoute
   SetupRoute: typeof SetupRoute
+  SetupMfaRoute: typeof SetupMfaRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -366,6 +391,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SetupRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/setup-mfa': {
+      id: '/setup-mfa'
+      path: '/setup-mfa'
+      fullPath: '/setup-mfa'
+      preLoaderRoute: typeof SetupMfaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_app/api-docs': {
       id: '/_app/api-docs'
       path: '/api-docs'
@@ -385,6 +417,13 @@ declare module '@tanstack/react-router' {
       path: '/audit'
       fullPath: '/audit'
       preLoaderRoute: typeof AppAuditRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/security': {
+      id: '/_app/security'
+      path: '/security'
+      fullPath: '/security'
+      preLoaderRoute: typeof AppSecurityRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/users': {
@@ -553,6 +592,7 @@ interface AppRouteChildren {
   AppApiDocsRoute: typeof AppApiDocsRoute
   AppApiKeysRoute: typeof AppApiKeysRoute
   AppAuditRoute: typeof AppAuditRoute
+  AppSecurityRoute: typeof AppSecurityRoute
   AppUsersRoute: typeof AppUsersRoute
   AppEnvEnvRoute: typeof AppEnvEnvRouteWithChildren
 }
@@ -561,6 +601,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppApiDocsRoute: AppApiDocsRoute,
   AppApiKeysRoute: AppApiKeysRoute,
   AppAuditRoute: AppAuditRoute,
+  AppSecurityRoute: AppSecurityRoute,
   AppUsersRoute: AppUsersRoute,
   AppEnvEnvRoute: AppEnvEnvRouteWithChildren,
 }
@@ -573,6 +614,7 @@ const rootRouteChildren: RootRouteChildren = {
   ChangePasswordRoute: ChangePasswordRoute,
   LoginRoute: LoginRoute,
   SetupRoute: SetupRoute,
+  SetupMfaRoute: SetupMfaRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

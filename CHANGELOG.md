@@ -23,11 +23,15 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 - Audit log: every change, terminal session, denied request and login with user, client address
   and result, filterable and exportable as CSV under Audit log; kept for `--audit-retention`
   (90 days by default) (#79).
+- Two-factor authentication: TOTP authenticator apps with QR setup and ten backup codes, an
+  option to require it for every user, reset by administrators, and `nerdui admin reset-mfa` for
+  the last administrator (#75).
 
 ### Upgrade notes
 
 - Database migrations 7 (automatic update log), 8 (when new images were first seen), 9
-  (notification channels) and 10 (audit log) are applied on start.
+  (notification channels), 10 (audit log) and 11 (two-factor authentication) are applied on
+  start.
 
 ## [0.1.1] - 2026-11-19
 

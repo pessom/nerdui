@@ -76,6 +76,11 @@ type ImageUpdate struct {
 	SeenAt       int64
 }
 
+type MfaBackupCode struct {
+	UserID   int64
+	CodeHash []byte
+}
+
 type NotificationChannel struct {
 	ID         int64
 	Name       string
@@ -123,6 +128,9 @@ type User struct {
 	DisabledAt         sql.NullInt64
 	MustChangePassword int64
 	LastLoginAt        sql.NullInt64
+	MfaSecret          string
+	MfaEnabled         int64
+	MfaLastStep        int64
 }
 
 type UserPreference struct {

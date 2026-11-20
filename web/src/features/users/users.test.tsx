@@ -12,6 +12,7 @@ const admin: UserDetail = {
   username: "admin",
   role: "admin",
   mustChangePassword: false,
+  mfaEnabled: false,
   disabled: false,
   createdAt: "2027-01-01T00:00:00Z",
   lastLoginAt: "2027-01-02T00:00:00Z",
@@ -21,6 +22,7 @@ const bob: UserDetail = {
   username: "bob",
   role: "admin",
   mustChangePassword: true,
+  mfaEnabled: true,
   disabled: false,
   createdAt: "2027-01-03T00:00:00Z",
 };

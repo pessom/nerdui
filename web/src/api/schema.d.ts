@@ -79,6 +79,166 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/login/mfa": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Complete a login with a two-factor code
+         * @description #75, ADR-0037. `code` is the current authenticator code (each accepted once) or an unused
+         *     backup code. The token expires after 5 minutes or 5 attempts.
+         */
+        post: operations["loginMFA"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/mfa": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Own two-factor authentication status
+         * @description Requires a password session (not an API key).
+         */
+        get: operations["getMFA"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/mfa/setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start two-factor setup
+         * @description Checks the password and returns a new secret; it is active once confirmed with `/auth/mfa/enable`.
+         */
+        post: operations["setupMFA"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/mfa/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Confirm two-factor setup with a code */
+        post: operations["enableMFA"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/mfa/backup-codes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Replace the backup codes */
+        post: operations["newBackupCodes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/mfa/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Turn two-factor authentication off */
+        post: operations["disableMFA"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{id}/mfa/reset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Turn off another user's two-factor authentication
+         * @description Requires `users:write` (e.g. after a lost phone).
+         */
+        post: operations["resetUserMFA"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/settings/security": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sign-in rules
+         * @description Requires `settings:read`.
+         */
+        get: operations["getSecuritySettings"];
+        /**
+         * Set the sign-in rules
+         * @description Requires `settings:write`. With `requireMfa`, sessions of users without two-factor
+         *     authentication answer 403 `mfa_setup_required` everywhere except their own session and
+         *     two-factor endpoints. API keys are not affected.
+         */
+        put: operations["putSecuritySettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/auth/me": {
         parameters: {
             query?: never;
@@ -2363,6 +2523,8 @@ export interface components {
             ts: string;
         };
         User: {
+            /** @description Signs in with a second factor (#75) */
+            mfaEnabled: boolean;
             /** Format: int64 */
             id: number;
             username: string;
@@ -2391,6 +2553,22 @@ export interface components {
             csrfToken: string;
             /** Format: date-time */
             expiresAt: string;
+            /** @description Two-factor authentication is required and the user has not set it up yet */
+            mfaSetupRequired: boolean;
+        };
+        MFAChallenge: {
+            /** @constant */
+            mfaRequired: true;
+            mfaToken: string;
+        };
+        MFAStatus: {
+            enabled: boolean;
+            backupCodesLeft: number;
+            /** @description The administrator requires it from every user */
+            required: boolean;
+        };
+        SecuritySettings: {
+            requireMfa: boolean;
         };
         Error: {
             error: components["schemas"]["ErrorDetail"];
@@ -3037,6 +3215,20 @@ export interface components {
         };
     };
     responses: {
+        /**
+         * @description Ten one-time backup codes, shown only now; each signs in once instead of an authenticator
+         *     code. Earlier codes stop working.
+         */
+        BackupCodes: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": {
+                    backupCodes: string[];
+                };
+            };
+        };
         /** @description Error (ADR-0006) */
         Error: {
             headers: {
@@ -3072,7 +3264,16 @@ export interface components {
         /** @description CSRF token from SessionResponse.csrfToken */
         CSRFToken: string;
     };
-    requestBodies: never;
+    requestBodies: {
+        PasswordConfirm: {
+            content: {
+                "application/json": {
+                    /** @description The current password */
+                    password: string;
+                };
+            };
+        };
+    };
     headers: never;
     pathItems: never;
 }
@@ -3193,6 +3394,47 @@ export interface operations {
             };
         };
         responses: {
+            /**
+             * @description Logged in and the session cookie set, or — for users with two-factor authentication —
+             *     `mfaRequired` with a token for `POST /auth/login/mfa` (no session yet).
+             */
+            200: {
+                headers: {
+                    /** @description nerdui_session (HttpOnly, SameSite=Strict) */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionResponse"] | components["schemas"]["MFAChallenge"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            415: components["responses"]["Error"];
+            429: components["responses"]["RateLimited"];
+        };
+    };
+    loginMFA: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    mfaToken: string;
+                    /**
+                     * @example 123456
+                     * @example abcde-fghij
+                     */
+                    code: string;
+                };
+            };
+        };
+        responses: {
             /** @description Logged in; sets the session cookie */
             200: {
                 headers: {
@@ -3207,8 +3449,188 @@ export interface operations {
             400: components["responses"]["Error"];
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
-            415: components["responses"]["Error"];
             429: components["responses"]["RateLimited"];
+        };
+    };
+    getMFA: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MFAStatus"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
+    setupMFA: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["PasswordConfirm"];
+        responses: {
+            /** @description Secret and otpauth URI (for a QR code) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        secret: string;
+                        uri: string;
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    enableMFA: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    code: string;
+                };
+            };
+        };
+        responses: {
+            200: components["responses"]["BackupCodes"];
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    newBackupCodes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["PasswordConfirm"];
+        responses: {
+            200: components["responses"]["BackupCodes"];
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    disableMFA: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["PasswordConfirm"];
+        responses: {
+            /** @description Disabled */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
+    resetUserMFA: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Reset */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    getSecuritySettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Settings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SecuritySettings"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
+    putSecuritySettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SecuritySettings"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SecuritySettings"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
         };
     };
     getMe: {

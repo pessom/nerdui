@@ -7,6 +7,7 @@ import { createFileRoute, getRouteApi } from "@tanstack/react-router";
 import { envStatusQuery } from "../../../../api/queries";
 import { NotificationsSettingsCard } from "../../../../features/settings/NotificationsSettingsCard";
 import { ImageUpdatesSettingsCard } from "../../../../features/settings/ImageUpdatesSettingsCard";
+import { SecuritySettingsCard } from "../../../../features/settings/SecuritySettingsCard";
 import { PrometheusSettingsCard } from "../../../../features/settings/PrometheusSettingsCard";
 
 const envRoute = getRouteApi("/_app/env/$env");
@@ -27,6 +28,7 @@ function SettingsPage() {
       <PrometheusSettingsCard env={env} />
       <ImageUpdatesSettingsCard env={env} namespace={namespace} />
       <NotificationsSettingsCard />
+      <SecuritySettingsCard />
     </Stack>
   );
 }

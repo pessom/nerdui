@@ -179,6 +179,7 @@ func (s *Service) Routes(r chi.Router, g *authz.Guard) {
 	r.Method(http.MethodGet, "/setup", authz.Public(s.handleSetupStatus))
 	r.Method(http.MethodPost, "/setup", authz.Public(s.handleSetup))
 	r.Method(http.MethodPost, "/auth/login", authz.Public(s.handleLogin))
+	r.Method(http.MethodPost, "/auth/login/mfa", authz.Public(s.handleLoginMFA))
 	r.Group(func(r chi.Router) {
 		r.Use(s.RequireSession, CSRF)
 		r.Method(http.MethodGet, "/auth/me", g.Protect(authz.SessionSelf, s.handleMe))
@@ -186,6 +187,11 @@ func (s *Service) Routes(r chi.Router, g *authz.Guard) {
 		r.Method(http.MethodPost, "/auth/password", g.Protect(authz.SessionSelf, s.handleChangePassword))
 		r.Group(func(r chi.Router) {
 			r.Use(PasswordChanged)
+			s.mfaSessionRoutes(r, g)
+		})
+		r.Group(func(r chi.Router) {
+			r.Use(PasswordChanged, s.MFAEnrolled)
+			s.mfaAdminRoutes(r, g)
 			s.userRoutes(r, g)
 			s.apiKeyRoutes(r, g)
 			s.preferenceRoutes(r, g)
@@ -198,6 +204,15 @@ type SessionResponse struct {
 	User      User      `json:"user"`
 	CSRFToken string    `json:"csrfToken"`
 	ExpiresAt time.Time `json:"expiresAt"`
+	// MFASetupRequired: two-factor authentication is required and the user has none yet (#75).
+	MFASetupRequired bool `json:"mfaSetupRequired"`
+}
+
+func (s *Service) sessionResponse(r *http.Request, u User, csrf string, expires time.Time) SessionResponse {
+	return SessionResponse{
+		User: u, CSRFToken: csrf, ExpiresAt: expires,
+		MFASetupRequired: !u.MFAEnabled && s.RequireMFA(r.Context()),
+	}
 }
 
 func (s *Service) handleSetupStatus(w http.ResponseWriter, _ *http.Request) {
@@ -223,7 +238,7 @@ func (s *Service) handleSetup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.setCookie(w, r, issued)
-	httpjson.Write(w, http.StatusCreated, SessionResponse{User: u, CSRFToken: issued.CSRFToken, ExpiresAt: issued.ExpiresAt})
+	httpjson.Write(w, http.StatusCreated, s.sessionResponse(r, u, issued.CSRFToken, issued.ExpiresAt))
 }
 
 func (s *Service) handleLogin(w http.ResponseWriter, r *http.Request) {
@@ -239,12 +254,18 @@ func (s *Service) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	u, issued, err := s.Login(r.Context(), req.Username, req.Password, clientOf(r))
+	var mfa *MFAChallengeError
+	if errors.As(err, &mfa) {
+		// The second step is audited: the password alone did not sign in.
+		httpjson.Write(w, http.StatusOK, MFAChallengeResponse{MFARequired: true, MFAToken: mfa.Token})
+		return
+	}
 	s.audit(r, "auth:login", req.Username, err)
 	if s.writeAuthError(w, err) {
 		return
 	}
 	s.setCookie(w, r, issued)
-	httpjson.Write(w, http.StatusOK, SessionResponse{User: u, CSRFToken: issued.CSRFToken, ExpiresAt: issued.ExpiresAt})
+	httpjson.Write(w, http.StatusOK, s.sessionResponse(r, u, issued.CSRFToken, issued.ExpiresAt))
 }
 
 func (s *Service) audit(r *http.Request, action, username string, err error) {
@@ -263,7 +284,7 @@ func (s *Service) audit(r *http.Request, action, username string, err error) {
 
 func (s *Service) handleMe(w http.ResponseWriter, r *http.Request) {
 	p, _ := PrincipalFrom(r.Context())
-	httpjson.Write(w, http.StatusOK, SessionResponse{User: p.User, CSRFToken: p.CSRFToken, ExpiresAt: p.ExpiresAt})
+	httpjson.Write(w, http.StatusOK, s.sessionResponse(r, p.User, p.CSRFToken, p.ExpiresAt))
 }
 
 func (s *Service) handleLogout(w http.ResponseWriter, r *http.Request) {
@@ -287,14 +308,16 @@ func (s *Service) writeAuthError(w http.ResponseWriter, err error) bool {
 		return false
 	case errors.As(err, &rl):
 		httpjson.WriteRateLimited(w, rl.RetryAfter)
-	case errors.Is(err, ErrInvalidCredentials), errors.Is(err, ErrInvalidSetupToken):
+	case errors.Is(err, ErrInvalidCredentials), errors.Is(err, ErrInvalidSetupToken),
+		errors.Is(err, ErrMFAInvalidCode), errors.Is(err, ErrMFAChallenge):
 		httpjson.WriteError(w, http.StatusUnauthorized, httpjson.CodeUnauthenticated, err.Error())
 	case errors.Is(err, ErrUserDisabled):
 		httpjson.WriteError(w, http.StatusForbidden, httpjson.CodeForbidden, err.Error())
 	case errors.Is(err, ErrUserNotFound):
 		httpjson.WriteError(w, http.StatusNotFound, httpjson.CodeNotFound, err.Error())
 	case errors.Is(err, ErrSetupCompleted), errors.Is(err, ErrUsernameTaken),
-		errors.Is(err, ErrOwnAccount), errors.Is(err, ErrLastAdmin):
+		errors.Is(err, ErrOwnAccount), errors.Is(err, ErrLastAdmin),
+		errors.Is(err, ErrMFANotStarted), errors.Is(err, ErrMFANotEnabled), errors.Is(err, ErrMFAAlreadyEnabled):
 		httpjson.WriteError(w, http.StatusConflict, httpjson.CodeConflict, err.Error())
 	// A wrong current password is not 401: the session itself is valid.
 	case errors.Is(err, ErrWeakPassword), errors.Is(err, ErrInvalidUsername),

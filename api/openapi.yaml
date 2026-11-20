@@ -143,6 +143,44 @@ paths:
                 password: { type: string }
       responses:
         "200":
+          description: |
+            Logged in and the session cookie set, or — for users with two-factor authentication —
+            `mfaRequired` with a token for `POST /auth/login/mfa` (no session yet).
+          headers:
+            Set-Cookie: { schema: { type: string }, description: "nerdui_session (HttpOnly, SameSite=Strict)" }
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/SessionResponse"
+                  - $ref: "#/components/schemas/MFAChallenge"
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "415": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+  /api/v1/auth/login/mfa:
+    post:
+      tags: [auth]
+      operationId: loginMFA
+      summary: Complete a login with a two-factor code
+      description: |
+        #75, ADR-0037. `code` is the current authenticator code (each accepted once) or an unused
+        backup code. The token expires after 5 minutes or 5 attempts.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mfaToken, code]
+              additionalProperties: false
+              properties:
+                mfaToken: { type: string }
+                code: { type: string, examples: ["123456", "abcde-fghij"] }
+      responses:
+        "200":
           description: Logged in; sets the session cookie
           headers:
             Set-Cookie: { schema: { type: string }, description: "nerdui_session (HttpOnly, SameSite=Strict)" }
@@ -152,8 +190,136 @@ paths:
         "400": { $ref: "#/components/responses/Error" }
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
-        "415": { $ref: "#/components/responses/Error" }
         "429": { $ref: "#/components/responses/RateLimited" }
+  /api/v1/auth/mfa:
+    get:
+      tags: [auth]
+      operationId: getMFA
+      summary: Own two-factor authentication status
+      description: "Requires a password session (not an API key)."
+      responses:
+        "200":
+          description: Status
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MFAStatus" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+  /api/v1/auth/mfa/setup:
+    post:
+      tags: [auth]
+      operationId: setupMFA
+      summary: Start two-factor setup
+      description: Checks the password and returns a new secret; it is active once confirmed with `/auth/mfa/enable`.
+      requestBody: { $ref: "#/components/requestBodies/PasswordConfirm" }
+      responses:
+        "200":
+          description: Secret and otpauth URI (for a QR code)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [secret, uri]
+                properties:
+                  secret: { type: string }
+                  uri: { type: string }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/v1/auth/mfa/enable:
+    post:
+      tags: [auth]
+      operationId: enableMFA
+      summary: Confirm two-factor setup with a code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code]
+              properties:
+                code: { type: string }
+      responses:
+        "200": { $ref: "#/components/responses/BackupCodes" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/v1/auth/mfa/backup-codes:
+    post:
+      tags: [auth]
+      operationId: newBackupCodes
+      summary: Replace the backup codes
+      requestBody: { $ref: "#/components/requestBodies/PasswordConfirm" }
+      responses:
+        "200": { $ref: "#/components/responses/BackupCodes" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/v1/auth/mfa/disable:
+    post:
+      tags: [auth]
+      operationId: disableMFA
+      summary: Turn two-factor authentication off
+      requestBody: { $ref: "#/components/requestBodies/PasswordConfirm" }
+      responses:
+        "204": { description: Disabled }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+  /api/v1/users/{id}/mfa/reset:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+    post:
+      tags: [users]
+      operationId: resetUserMFA
+      summary: Turn off another user's two-factor authentication
+      description: "Requires `users:write` (e.g. after a lost phone)."
+      responses:
+        "204": { description: Reset }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/v1/settings/security:
+    get:
+      tags: [settings]
+      operationId: getSecuritySettings
+      summary: Sign-in rules
+      description: "Requires `settings:read`."
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SecuritySettings" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+    put:
+      tags: [settings]
+      operationId: putSecuritySettings
+      summary: Set the sign-in rules
+      description: |
+        Requires `settings:write`. With `requireMfa`, sessions of users without two-factor
+        authentication answer 403 `mfa_setup_required` everywhere except their own session and
+        two-factor endpoints. API keys are not affected.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SecuritySettings" }
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SecuritySettings" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
   /api/v1/auth/me:
     get:
       tags: [auth]
@@ -2562,6 +2728,16 @@ paths:
         "415": { $ref: "#/components/responses/Error" }
         "503": { $ref: "#/components/responses/Error" }
 components:
+  requestBodies:
+    PasswordConfirm:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [password]
+            properties:
+              password: { type: string, description: The current password, to confirm }
   securitySchemes:
     apiKey:
       type: http
@@ -2615,6 +2791,17 @@ components:
       schema: { type: string }
       description: CSRF token from SessionResponse.csrfToken
   responses:
+    BackupCodes:
+      description: |
+        Ten one-time backup codes, shown only now; each signs in once instead of an authenticator
+        code. Earlier codes stop working.
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [backupCodes]
+            properties:
+              backupCodes: { type: array, items: { type: string } }
     Error:
       description: Error (ADR-0006)
       content:
@@ -2975,8 +3162,9 @@ components:
         ts: { type: string, format: date-time }
     User:
       type: object
-      required: [id, username, role, mustChangePassword]
+      required: [id, username, role, mustChangePassword, mfaEnabled]
       properties:
+        mfaEnabled: { type: boolean, description: Signs in with a second factor (#75) }
         id: { type: integer, format: int64 }
         username: { type: string }
         role: { type: string, enum: [admin] }
@@ -3003,11 +3191,33 @@ components:
           description: Present only when the server generated the password; shown once
     SessionResponse:
       type: object
-      required: [user, csrfToken, expiresAt]
+      required: [user, csrfToken, expiresAt, mfaSetupRequired]
       properties:
         user: { $ref: "#/components/schemas/User" }
         csrfToken: { type: string }
         expiresAt: { type: string, format: date-time }
+        mfaSetupRequired:
+          type: boolean
+          description: Two-factor authentication is required and the user has not set it up yet
+    MFAChallenge:
+      type: object
+      required: [mfaRequired, mfaToken]
+      properties:
+        mfaRequired: { type: boolean, const: true }
+        mfaToken: { type: string }
+    MFAStatus:
+      type: object
+      required: [enabled, backupCodesLeft, required]
+      properties:
+        enabled: { type: boolean }
+        backupCodesLeft: { type: integer }
+        required: { type: boolean, description: The administrator requires it from every user }
+    SecuritySettings:
+      type: object
+      required: [requireMfa]
+      additionalProperties: false
+      properties:
+        requireMfa: { type: boolean }
     Error:
       type: object
       required: [error]

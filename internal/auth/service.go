@@ -66,6 +66,8 @@ type User struct {
 	// MustChangePassword is set after an administrator chose the password (#74): until the
 	// user changes it, only their own session endpoints are available.
 	MustChangePassword bool `json:"mustChangePassword"`
+	// MFAEnabled: the user signs in with a second factor (#75).
+	MFAEnabled bool `json:"mfaEnabled"`
 }
 
 // Principal is the authenticated caller attached to a request context.
@@ -119,6 +121,10 @@ type Service struct {
 
 	mu         sync.Mutex
 	setupToken string // non-empty while no user exists
+
+	// Two-factor authentication (#75).
+	mfa        mfaState
+	challenges challenges
 }
 
 // New creates the service. When the database has no users, it generates a one-time setup
@@ -268,6 +274,14 @@ func (s *Service) Login(ctx context.Context, username, password string, c Client
 			})
 		}
 	}
+	if u.MfaEnabled != 0 {
+		return toUser(u), Issued{}, &MFAChallengeError{Token: s.challenges.add(u.ID, s.opts.Now())}
+	}
+	return s.finishLogin(ctx, u, c)
+}
+
+// finishLogin records the login and creates the session, once every factor was checked.
+func (s *Service) finishLogin(ctx context.Context, u db.User, c Client) (User, Issued, error) {
 	_, _ = s.store.Write().SetUserLastLogin(ctx, db.SetUserLastLoginParams{
 		ID: u.ID, Now: sql.NullInt64{Int64: s.opts.Now().Unix(), Valid: true},
 	})
@@ -387,7 +401,10 @@ func ResetPassword(ctx context.Context, st *store.Store, username, password stri
 }
 
 func toUser(u db.User) User {
-	return User{ID: u.ID, Username: u.Username, Role: u.Role, MustChangePassword: u.MustChangePassword != 0}
+	return User{
+		ID: u.ID, Username: u.Username, Role: u.Role, MustChangePassword: u.MustChangePassword != 0,
+		MFAEnabled: u.MfaEnabled != 0,
+	}
 }
 
 func randomToken(n int) string {

@@ -49,6 +49,10 @@ export const Route = createFileRoute("/_app")({
     if (session.user.mustChangePassword) {
       throw redirect({ to: "/change-password", search: { redirect: location.href } });
     }
+    // Two-factor authentication required by the administrator (#75).
+    if (session.mfaSetupRequired) {
+      throw redirect({ to: "/setup-mfa", search: { redirect: location.href } });
+    }
     return { session };
   },
   component: AppLayout,

@@ -26,7 +26,40 @@ func newAdminCmd() *cobra.Command {
 		Short: "Administrative commands that operate on the data directory (run on the host)",
 		Args:  cobra.NoArgs,
 	}
-	cmd.AddCommand(newResetPasswordCmd())
+	cmd.AddCommand(newResetPasswordCmd(), newResetMFACmd())
+	return cmd
+}
+
+func newResetMFACmd() *cobra.Command {
+	cfg := config.Default()
+	cmd := &cobra.Command{
+		Use:   "reset-mfa <username>",
+		Short: "Turn off a user's two-factor authentication and revoke their sessions",
+		Long: "Turn off two-factor authentication of a local user, delete their backup codes and\n" +
+			"revoke all of their sessions, e.g. when the only administrator lost the phone and the\n" +
+			"backup codes. If two-factor authentication is required, the user sets it up again at\n" +
+			"the next sign-in. Requires direct access to the data directory (usually root).",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := cfg.Validate(); err != nil {
+				return err
+			}
+			if _, err := os.Stat(cfg.DataDir); err != nil {
+				return fmt.Errorf("data dir: %w", err)
+			}
+			st, err := store.Open(cmd.Context(), cfg.DataDir)
+			if err != nil {
+				return fmt.Errorf("open database: %w", err)
+			}
+			defer func() { _ = st.Close() }()
+			if err := auth.ResetMFAOffline(cmd.Context(), st, args[0], time.Now()); err != nil {
+				return err
+			}
+			_, err = fmt.Fprintf(cmd.OutOrStdout(), "Two-factor authentication of %q turned off; all of their sessions were revoked.\n", args[0])
+			return err
+		},
+	}
+	config.BindDataDirFlag(cmd.Flags(), &cfg)
 	return cmd
 }
 

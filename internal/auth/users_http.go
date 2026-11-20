@@ -134,7 +134,7 @@ func (s *Service) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	p.User.MustChangePassword = false
-	httpjson.Write(w, http.StatusOK, SessionResponse{User: p.User, CSRFToken: p.CSRFToken, ExpiresAt: p.ExpiresAt})
+	httpjson.Write(w, http.StatusOK, s.sessionResponse(r, p.User, p.CSRFToken, p.ExpiresAt))
 }
 
 func userID(w http.ResponseWriter, r *http.Request) (int64, bool) {
