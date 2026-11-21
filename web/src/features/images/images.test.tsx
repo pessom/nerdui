@@ -121,6 +121,35 @@ describe("image actions", () => {
     return screen.findByRole("menu", { hidden: true });
   }
 
+  it("shows the history of an image", async () => {
+    const { calls } = fakeApi({
+      ...signedIn,
+      "GET /api/v1/environments/local/images": listed,
+      "GET /api/v1/environments/local/images/history": () =>
+        json(200, {
+          history: [
+            { createdBy: 'CMD ["nginx"]', emptyLayer: true, size: 0 },
+            {
+              created: "2027-03-01T10:00:00Z",
+              createdBy: "RUN apt-get install nginx",
+              emptyLayer: false,
+              size: 2 * 1024 * 1024,
+            },
+          ],
+        }),
+    });
+    renderApp("/env/local/images");
+    const menu = await openMenu("nginx:1.27");
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "History", hidden: true }));
+    const dialog = await screen.findByRole("dialog", { name: "History of nginx:1.27" });
+    const table = await within(dialog).findByRole("table", { name: "Image history" });
+    expect(within(table).getByText("RUN apt-get install nginx")).toBeInTheDocument();
+    expect(within(table).getByText("no layer")).toBeInTheDocument();
+    expect(calls.find((c) => c.path.endsWith("/images/history"))?.query.get("ref")).toBe(
+      "docker.io/library/nginx:1.27",
+    );
+  });
+
   it("tags an image", async () => {
     const { calls } = fakeApi({
       ...signedIn,

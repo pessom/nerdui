@@ -1503,6 +1503,41 @@ paths:
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
         "503": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/images/history:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - $ref: "#/components/parameters/Namespace"
+    get:
+      tags: [images]
+      operationId: imageHistory
+      summary: History of an image
+      description: |
+        Requires `images:read`. The build steps of an image, newest first, like
+        `nerdctl image history` (#47). The size of a layer is its unpacked size on disk, or the
+        compressed size from the registry (`compressed`) when the image is not unpacked.
+      parameters:
+        - name: ref
+          in: query
+          required: true
+          description: Image name as listed, e.g. docker.io/library/nginx:1.27
+          schema: { type: string }
+      responses:
+        "200":
+          description: History
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [history]
+                properties:
+                  history:
+                    type: array
+                    items: { $ref: "#/components/schemas/ImageHistoryEntry" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
   /api/v1/environments/{env}/images/pull:
     parameters:
       - $ref: "#/components/parameters/Env"
@@ -4207,6 +4242,16 @@ components:
         secret: { type: string, writeOnly: true, description: Token or password, or a PEM private key; empty keeps the stored one }
         passphrase: { type: string, writeOnly: true }
         generate: { type: boolean, description: Generate a new ed25519 SSH key }
+    ImageHistoryEntry:
+      type: object
+      required: [createdBy, emptyLayer, size]
+      properties:
+        created: { type: string, format: date-time }
+        createdBy: { type: string, description: The instruction that made this step }
+        comment: { type: string }
+        emptyLayer: { type: boolean, description: The step added no layer (ENV, CMD, …) }
+        size: { type: integer, format: int64, description: Layer size in bytes }
+        compressed: { type: boolean, description: The size is the compressed size; the image is not unpacked }
     Webhook:
       type: object
       required: [id, name, environment, namespace, targetKind, target, action, enabled, createdAt]

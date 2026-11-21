@@ -85,6 +85,7 @@ type fakeRuntime struct {
 	createErr    error
 	spec         runtime.ContainerSpec
 	recreated    []runtime.CreateSpec
+	history      []runtime.HistoryEntry
 	recreatePull bool
 }
 
@@ -380,6 +381,16 @@ func (fr fakeRegistries) Logout(_ context.Context, server string) error {
 }
 
 type fakeImages struct{ f *fakeRuntime }
+
+func (fi fakeImages) History(_ context.Context, ns, name string) ([]runtime.HistoryEntry, error) {
+	fi.f.mu.Lock()
+	defer fi.f.mu.Unlock()
+	fi.f.gotNS = ns
+	if name == "" {
+		return nil, fmt.Errorf("%w: image reference is required", errdefs.ErrInvalidArgument)
+	}
+	return fi.f.history, fi.f.err
+}
 
 func (fi fakeImages) List(_ context.Context, ns string) ([]runtime.Image, error) {
 	fi.f.gotNS = ns
