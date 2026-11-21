@@ -192,3 +192,23 @@ func TestBulkRemoveRequiresContainersWrite(t *testing.T) {
 		t.Errorf("calls: %+v", rt.actions)
 	}
 }
+
+func TestContainerTop(t *testing.T) {
+	rt := writable()
+	rt.procs = []runtime.Process{{PID: 42, User: "root", Command: "nginx: master process"}}
+	r := chi.NewRouter()
+	r.Route("/api/v1", func(r chi.Router) {
+		h := &Handler{Envs: environment.NewRegistry(environment.Local(rt, "default"))}
+		h.Routes(r, authz.NewGuard(authz.AdminOnly{}, func(*http.Request) (authz.Subject, bool) {
+			return authz.Subject{Role: authz.RoleAdmin}, true
+		}, nil))
+	})
+	rec := send(t, r, http.MethodGet, "/api/v1/environments/local/containers/abc/top?namespace=k8s.io", "")
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"command":"nginx: master process"`) || rt.gotNS != "k8s.io" {
+		t.Errorf("top: %d %s", rec.Code, rec.Body)
+	}
+	rt.err = fmt.Errorf("%w: container is not running", errdefs.ErrFailedPrecondition)
+	if rec := send(t, r, http.MethodGet, "/api/v1/environments/local/containers/abc/top", ""); rec.Code != http.StatusConflict {
+		t.Errorf("stopped: %d %s", rec.Code, rec.Body)
+	}
+}

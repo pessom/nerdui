@@ -126,6 +126,38 @@ describe("container page", () => {
     expect(screen.getByRole("button", { name: "Actions for web" })).toBeEnabled();
   });
 
+  it("lists processes and refreshes them", async () => {
+    let n = 0;
+    setup({
+      [`GET ${base}/${id}/top`]: () => {
+        n++;
+        return json(200, {
+          processes: [
+            {
+              pid: 4242,
+              ppid: 4200,
+              uid: 0,
+              user: "root",
+              state: "S",
+              cpu: 1.25,
+              rss: 8 * 1024 * 1024,
+              started: "2027-03-01T10:00:01Z",
+              command: "nginx: master process",
+            },
+          ],
+        });
+      },
+    });
+    renderApp(`/env/local/containers/${id}?tab=processes`);
+
+    const table = await screen.findByRole("table", { name: "Processes" });
+    expect(within(table).getByText("nginx: master process")).toBeInTheDocument();
+    expect(within(table).getByText("1.3")).toBeInTheDocument();
+    expect(within(table).getByText("root")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+    await waitFor(() => expect(n).toBe(2));
+  });
+
   it("shows the full JSON and requests sizes on demand", async () => {
     const { calls } = setup();
     renderApp(`/env/local/containers/${id}?tab=inspect`);
