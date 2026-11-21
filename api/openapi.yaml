@@ -2072,6 +2072,54 @@ paths:
         "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
         "501": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/stacks/{name}/services/{service}/{op}:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - $ref: "#/components/parameters/Namespace"
+      - name: name
+        in: path
+        required: true
+        schema: { type: string }
+      - name: service
+        in: path
+        required: true
+        schema: { type: string }
+      - name: op
+        in: path
+        required: true
+        schema: { type: string, enum: [start, stop, restart, redeploy] }
+    post:
+      tags: [stacks]
+      operationId: serviceOperation
+      summary: Operate on one service of a stack
+      description: |
+        Requires `stacks:deploy`. Runs as a job (#29, ADR-0042) and leaves every other service
+        alone, dependencies included.
+        - `start`, `stop` and `restart` act on the service's containers. Starting a service
+          without containers creates it with `compose up <service>`.
+        - `redeploy` pulls the service's image and recreates its containers if the image
+          changed, then runs `compose up <service>`.
+        Errors:
+        - 409 for a service without containers (except `start`) or while a job runs for the
+          stack;
+        - 503 in read-only mode.
+      responses:
+        "202":
+          description: Job started
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [job]
+                properties:
+                  job: { $ref: "#/components/schemas/Job" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
   /api/v1/environments/{env}/stacks/{name}/{op}:
     parameters:
       - $ref: "#/components/parameters/Env"
@@ -2092,7 +2140,9 @@ paths:
         Requires `stacks:deploy` (#28, #31, ADR-0026). Runs the host's `nerdctl compose <op>` in
         the stack directory; the output streams over `/jobs/{id}/stream`. One job per stack at a
         time (409). `volumes` (down only) deletes the project's volumes and requires `confirm`
-        to equal the stack name. Unmanaged projects must be adopted first (404).
+        to equal the stack name. Unmanaged projects must be adopted first (404). `up` with
+        `pull` pulls the images first and recreates the containers whose image changed
+        (ADR-0042): `compose up` alone keeps a container whose tag now points to a new image.
       requestBody:
         required: false
         content:

@@ -118,4 +118,30 @@ describe("stack operations", () => {
     expect(await screen.findByRole("button", { name: "Adopt" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Deploy" })).not.toBeInTheDocument();
   });
+
+  it("restarts one service as a job", async () => {
+    const started: Job[] = [];
+    const { calls } = fakeApi({
+      ...signedIn,
+      [`GET ${base}/app`]: () => json(200, app),
+      "GET /api/v1/jobs": () => json(200, { jobs: started }),
+      [`POST ${base}/app/services/web/restart`]: () => {
+        started.push(job("j3", "Restart service web of stack app"));
+        return json(202, { job: started[0] });
+      },
+    });
+    renderApp("/env/local/stacks/app");
+
+    const web = await screen.findByRole("region", { name: "web" });
+    fireEvent.click(within(web).getByRole("button", { name: "Actions of service web" }));
+    expect(await screen.findByRole("menuitem", { name: "Stop" })).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Restart", hidden: true }));
+    const panel = await screen.findByRole("dialog", { name: "Jobs" });
+    expect(
+      await within(panel).findByRole("region", { name: "Restart service web of stack app" }),
+    ).toBeInTheDocument();
+    expect(
+      calls.find((c) => c.path === `${base}/app/services/web/restart`)?.query.get("namespace"),
+    ).toBe("default");
+  });
 });

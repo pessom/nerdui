@@ -264,7 +264,7 @@ func (h *Handler) pullGitStack(w http.ResponseWriter, r *http.Request) {
 		httpjson.WriteErr(w, r, h.Logger, err)
 		return
 	}
-	user, compose, svc := principalName(r), env.Runtime.Compose(), h.GitStacks
+	user, rt, compose, svc := principalName(r), env.Runtime, env.Runtime.Compose(), h.GitStacks
 	title := "Pull stack " + name + " from Git"
 	if req.Redeploy {
 		title = "Pull and redeploy stack " + name
@@ -276,7 +276,10 @@ func (h *Handler) pullGitStack(w http.ResponseWriter, r *http.Request) {
 	}, func(ctx context.Context, out *jobs.Output) error {
 		commit, err := svc.PullAndDeploy(ctx, out, name, req.Redeploy, req.Force, func(ctx context.Context, def stacks.Definition) error {
 			_, _ = fmt.Fprintf(out, "\r\nDeploying\r\n")
-			return compose.Run(ctx, ns, name, def.Dir, runtime.ComposeUp, runtime.ComposeOptions{Pull: req.Pull, RemoveOrphans: true}, out)
+			if req.Pull {
+				return runtime.Redeploy(ctx, rt, ns, name, def.Dir, runtime.RedeployOptions{RemoveOrphans: true}, out)
+			}
+			return compose.Run(ctx, ns, name, def.Dir, runtime.ComposeUp, runtime.ComposeOptions{RemoveOrphans: true}, out)
 		})
 		out.SetResult("commit", commit.Hash)
 		return err

@@ -142,7 +142,7 @@ func TestGitStacksAPI(t *testing.T) {
 	}
 	commit("deploy/compose.yaml", "services: {web: {image: nginx}}\n", "second")
 	if j := wait(send(t, r, http.MethodPost, base+"/web/git/pull", `{"redeploy":true,"pull":true}`)); j.Status != jobs.StatusSucceeded ||
-		len(rt.composeRuns) != 2 || !rt.composeOpts[1].Pull || !rt.composeOpts[1].RemoveOrphans {
+		len(rt.composeRuns) != 3 || !strings.HasPrefix(rt.composeRuns[1], "pull web") || !rt.composeOpts[2].RemoveOrphans {
 		t.Errorf("pull %+v %v %+v", j, rt.composeRuns, rt.composeOpts)
 	}
 	if rec := send(t, r, http.MethodPost, base+"/ghost/git/pull", ""); rec.Code != http.StatusNotFound {

@@ -235,12 +235,16 @@ func (h *Handler) stackOperation(w http.ResponseWriter, r *http.Request) {
 	if req.Volumes {
 		title = "Down (removing volumes)"
 	}
-	compose, dir, opts := env.Runtime.Compose(), def.Dir, req.ComposeOptions
+	rt, compose, dir, opts := env.Runtime, env.Runtime.Compose(), def.Dir, req.ComposeOptions
 	job, err := h.Jobs.Start(jobs.Spec{
 		Kind: "stack." + op, Title: title + " stack " + name, Environment: env.ID, Namespace: ns,
 		Resource: fmt.Sprintf("env/%s/ns/%s/stack/%s", env.ID, ns, name),
 		Action:   string(authz.StacksDeploy), User: user,
 	}, func(ctx context.Context, out *jobs.Output) error {
+		if op == runtime.ComposeUp && opts.Pull {
+			// compose up --pull alone keeps containers whose tag moved to a new image (ADR-0042).
+			return runtime.Redeploy(ctx, rt, ns, name, dir, runtime.RedeployOptions{Services: opts.Services, RemoveOrphans: opts.RemoveOrphans}, out)
+		}
 		return compose.Run(ctx, ns, name, dir, op, opts, out)
 	})
 	if err != nil {

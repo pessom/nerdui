@@ -319,7 +319,7 @@ func (s *Service) start(ctx context.Context, w db.Webhook) (jobs.Job, error) {
 		if def.File == "" {
 			return jobs.Job{}, fmt.Errorf("%w: stack %q has no compose file", errdefs.ErrFailedPrecondition, name)
 		}
-		compose, dir := env.Runtime.Compose(), def.Dir
+		rt, compose, dir := env.Runtime, env.Runtime.Compose(), def.Dir
 		spec.Action = string(authz.StacksDeploy)
 		if w.Action == ActionRestart {
 			spec.Kind, spec.Title = "stack.restart", "Restart stack "+name+" (webhook "+w.Name+")"
@@ -329,10 +329,7 @@ func (s *Service) start(ctx context.Context, w db.Webhook) (jobs.Job, error) {
 		} else {
 			spec.Kind, spec.Title = "stack.up", "Redeploy stack "+name+" (webhook "+w.Name+")"
 			fn = func(ctx context.Context, out *jobs.Output) error {
-				if err := compose.Run(ctx, ns, name, dir, runtime.ComposePull, runtime.ComposeOptions{}, out); err != nil {
-					return err
-				}
-				return compose.Run(ctx, ns, name, dir, runtime.ComposeUp, runtime.ComposeOptions{}, out)
+				return runtime.Redeploy(ctx, rt, ns, name, dir, runtime.RedeployOptions{}, out)
 			}
 		}
 	case KindContainer:
