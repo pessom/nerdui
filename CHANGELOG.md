@@ -41,6 +41,8 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 - Operations on one stack service: start or stop, restart, and pull its image and recreate it,
   from the service's menu on the stack page, without touching the other services or its
   dependencies (#29).
+- Container processes: a Processes tab on the container page lists PID, user, state, CPU,
+  memory, start time and command, read from the host's /proc (#20).
 - Image history: History in an image's menu lists its build steps with creation time and layer
   sizes, like `nerdctl image history`; it also works in read-only mode (#47).
 

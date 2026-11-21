@@ -2873,6 +2873,40 @@ paths:
         "409": { $ref: "#/components/responses/Error" }
         "500": { $ref: "#/components/responses/Error" }
         "503": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/containers/{id}/top:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - $ref: "#/components/parameters/Namespace"
+      - name: id
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      tags: [containers]
+      operationId: containerTop
+      summary: Processes of a container
+      description: |
+        Requires `containers:read`. Lists the processes of a running container, read from the
+        host's /proc (#20): PIDs and users as the host sees them, CPU as a share of one CPU since
+        the process started (like `ps`), resident memory. 409 when the container is not running.
+      responses:
+        "200":
+          description: Processes, ordered by PID
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [processes]
+                properties:
+                  processes:
+                    type: array
+                    items: { $ref: "#/components/schemas/Process" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
   /api/v1/environments/{env}/containers/{id}/stats/stream:
     parameters:
       - $ref: "#/components/parameters/Env"
@@ -4242,6 +4276,19 @@ components:
         secret: { type: string, writeOnly: true, description: Token or password, or a PEM private key; empty keeps the stored one }
         passphrase: { type: string, writeOnly: true }
         generate: { type: boolean, description: Generate a new ed25519 SSH key }
+    Process:
+      type: object
+      required: [pid, ppid, uid, state, cpu, rss, started, command]
+      properties:
+        pid: { type: integer }
+        ppid: { type: integer }
+        uid: { type: integer, description: Real user ID on the host; -1 when unknown }
+        user: { type: string, description: User name on the host }
+        state: { type: string, description: "Kernel state: R running, S sleeping, D disk sleep, Z zombie, T stopped" }
+        cpu: { type: number, description: Percent of one CPU since the process started }
+        rss: { type: integer, format: int64, description: Resident memory in bytes }
+        started: { type: string, format: date-time }
+        command: { type: string }
     ImageHistoryEntry:
       type: object
       required: [createdBy, emptyLayer, size]

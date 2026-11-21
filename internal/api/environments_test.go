@@ -85,6 +85,7 @@ type fakeRuntime struct {
 	createErr    error
 	spec         runtime.ContainerSpec
 	recreated    []runtime.CreateSpec
+	procs        []runtime.Process
 	history      []runtime.HistoryEntry
 	recreatePull bool
 }
@@ -180,6 +181,13 @@ func (f *fakeRuntime) Create(_ context.Context, _ string, spec runtime.CreateSpe
 	f.mu.Unlock()
 	_, _ = io.WriteString(out, "Created\n")
 	return f.createID, f.createErr
+}
+
+func (f *fakeRuntime) Top(_ context.Context, ns, _ string) ([]runtime.Process, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.gotNS = ns
+	return f.procs, f.err
 }
 
 func (f *fakeRuntime) Spec(context.Context, string, string) (runtime.ContainerSpec, error) {

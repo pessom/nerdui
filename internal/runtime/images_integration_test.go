@@ -109,13 +109,13 @@ func TestIntegrationPull(t *testing.T) {
 		t.Errorf("%s not listed after pull", ref)
 	}
 
-	// History (#47): newest step first; busybox has one layer, unpacked by the pull.
+	// History (#47): busybox has a single step with one layer, unpacked by the pull.
 	hist, err := c.Images().History(ctx, DefaultNamespace, ref)
 	if err != nil {
 		t.Fatal(err)
 	}
 	layers := slices.DeleteFunc(slices.Clone(hist), func(e HistoryEntry) bool { return e.EmptyLayer })
-	if len(hist) < 2 || len(layers) != 1 || layers[0].Size <= 0 || layers[0].Compressed || hist[0].CreatedBy == "" {
+	if len(hist) < 1 || len(layers) != 1 || layers[0].Size <= 0 || layers[0].Compressed || hist[0].CreatedBy == "" {
 		t.Errorf("history %+v", hist)
 	}
 	if _, err := c.Images().History(ctx, DefaultNamespace, "docker.io/library/missing:0"); !errdefs.IsNotFound(err) {

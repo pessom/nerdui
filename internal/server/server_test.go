@@ -406,6 +406,7 @@ func TestRouteAuthorization(t *testing.T) {
 		"POST /api/v1/environments/{env}/containers/{id}/unpause":               "containers:operate",
 		"DELETE /api/v1/environments/{env}/containers/{id}":                     "containers:write",
 		"POST /api/v1/environments/{env}/containers/actions":                    "containers:operate",
+		"GET /api/v1/environments/{env}/containers/{id}/top":                    "containers:read",
 		"GET /api/v1/environments/{env}/containers/{id}/stats/stream":           "containers:read",
 		"GET /api/v1/environments/{env}/containers/{id}/stats/history":          "containers:read",
 		"GET /api/v1/environments/{env}/settings/prometheus":                    "settings:read",
