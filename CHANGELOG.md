@@ -38,6 +38,15 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 - Incoming webhooks: secret URLs under Settings → Incoming webhooks that pull images and
   redeploy, or restart, a stack or container, e.g. from CI after an image was published (#85,
   #91).
+- Operations on one stack service: start or stop, restart, and pull its image and recreate it,
+  from the service's menu on the stack page, without touching the other services or its
+  dependencies (#29).
+
+### Fixed
+
+- Pulling images and deploying a stack (also automatic updates and webhooks) now recreates the
+  containers whose image changed: `nerdctl compose up` alone kept containers on the old image
+  when only the tag's target changed (ADR-0042).
 
 ### Upgrade notes
 

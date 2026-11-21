@@ -431,16 +431,12 @@ func (u *Updater) apply(ctx context.Context, env *environment.Environment, t Tar
 		}
 	case KindStack:
 		def, _ := u.stack(ctx, t.Name)
-		compose, dir, services := env.Runtime.Compose(), def.Dir, t.Services
+		rt, dir, services := env.Runtime, def.Dir, t.Services
 		spec.Kind, spec.Title = "stack.up", "Auto-update stack "+t.Name
 		spec.Resource = fmt.Sprintf("env/%s/ns/%s/stack/%s", env.ID, t.Namespace, t.Name)
 		spec.Action = string(authz.StacksDeploy)
 		fn = func(ctx context.Context, out *jobs.Output) error {
-			opts := runtime.ComposeOptions{Services: services}
-			if err := compose.Run(ctx, t.Namespace, t.Name, dir, runtime.ComposePull, opts, out); err != nil {
-				return err
-			}
-			return compose.Run(ctx, t.Namespace, t.Name, dir, runtime.ComposeUp, opts, out)
+			return runtime.Redeploy(ctx, rt, t.Namespace, t.Name, dir, runtime.RedeployOptions{Services: services}, out)
 		}
 	default:
 		return

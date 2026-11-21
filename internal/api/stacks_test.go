@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"testing"
 	"time"
 
@@ -186,7 +187,8 @@ func TestStackOperations(t *testing.T) {
 	if j := wait(rec); j.Status != jobs.StatusSucceeded || j.Title != "Deploy stack app" || j.Namespace != "k8s.io" || j.Action != string(authz.StacksDeploy) {
 		t.Errorf("up job %+v", j)
 	}
-	if rt.composeRuns[0] != "up app "+filepath.Join(dir, "app") || !rt.composeOpts[0].Pull {
+	// Pulling images redeploys: compose pull, then up (ADR-0042).
+	if !slices.Equal(rt.composeRuns, []string{"pull app " + filepath.Join(dir, "app"), "up app " + filepath.Join(dir, "app")}) {
 		t.Errorf("run %v %+v", rt.composeRuns, rt.composeOpts)
 	}
 	// A stop without a body.
@@ -204,7 +206,7 @@ func TestStackOperations(t *testing.T) {
 	if rec.Code != http.StatusAccepted {
 		t.Fatalf("down -v: %d %s", rec.Code, rec.Body)
 	}
-	if j := wait(rec); j.Title != "Down (removing volumes) stack app" || !rt.composeOpts[2].Volumes {
+	if j := wait(rec); j.Title != "Down (removing volumes) stack app" || !rt.composeOpts[3].Volumes {
 		t.Errorf("down -v job %+v %+v", j, rt.composeOpts)
 	}
 

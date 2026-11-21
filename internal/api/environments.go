@@ -138,6 +138,7 @@ func (h *Handler) runtimeRoutes(r chi.Router, g *authz.Guard) {
 	r.Method(http.MethodGet, "/stacks", g.Protect(authz.StacksRead, h.listStacks))
 	r.Method(http.MethodGet, "/stacks/{name}", g.Protect(authz.StacksRead, h.getStack))
 	r.Method(http.MethodPost, "/stacks/{name}/{op}", g.Protect(authz.StacksDeploy, h.stackOperation))
+	r.Method(http.MethodPost, "/stacks/{name}/services/{service}/{op}", g.Protect(authz.StacksDeploy, h.serviceOperation))
 	h.gitStackRoutes(r, g)
 	r.Method(http.MethodGet, "/stacks/{name}/logs/stream", g.Protect(authz.StacksRead, h.stackLogsStream))
 	r.Method(http.MethodGet, "/networks", g.Protect(authz.NetworksRead, h.listNetworks))

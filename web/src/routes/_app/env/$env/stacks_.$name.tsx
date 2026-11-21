@@ -24,6 +24,7 @@ import { envStatusQuery, keys, stackQuery } from "../../../../api/queries";
 import { RouterAnchor } from "../../../../components/RouterAnchor";
 import { AdoptStackDialog } from "../../../../features/stacks/AdoptStackDialog";
 import { GitStackPanel } from "../../../../features/stacks/GitStackPanel";
+import { ServiceActions } from "../../../../features/stacks/ServiceActions";
 import { StackActions } from "../../../../features/stacks/StackActions";
 import { StackFilePanel } from "../../../../features/stacks/StackFilePanel";
 import { StackLogsPanel } from "../../../../features/stacks/StackLogsPanel";
@@ -216,6 +217,7 @@ function StackPage() {
   );
 
   function services(list: NonNullable<typeof stack.data>["services"]) {
+    const manageable = !readOnly && stack.data?.mode !== "unmanaged";
     return list.map((svc) => (
       <Paper key={svc.name} withBorder p="sm" component="section" aria-label={svc.name}>
         <Group gap="xs" mb={4}>
@@ -235,6 +237,17 @@ function StackPage() {
             <Badge size="sm" variant="outline" color="orange">
               not in compose file
             </Badge>
+          )}
+          {manageable && (
+            <ServiceActions
+              env={env}
+              namespace={namespace}
+              stack={name}
+              service={svc.name}
+              running={svc.running > 0}
+              containers={svc.containers.length > 0}
+              composeFile={svc.defined && !!stack.data?.composeFile}
+            />
           )}
         </Group>
         {svc.containers.length > 0 && (

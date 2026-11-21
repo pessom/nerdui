@@ -50,3 +50,4 @@ We record significant architectural decisions as ADRs
 | 0039 | [Git stacks and saved Git credentials](0039-git-stacks.md) | Accepted |
 | 0040 | [Automatic updates of Git stacks: polling and webhooks](0040-git-stack-auto-updates.md) | Accepted |
 | 0041 | [Incoming webhooks](0041-incoming-webhooks.md) | Accepted |
+| 0042 | [Redeploying stacks with new images, and operations on one service](0042-stack-redeploy-and-service-operations.md) | Accepted |

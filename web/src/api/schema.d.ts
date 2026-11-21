@@ -1563,6 +1563,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/environments/{env}/stacks/{name}/services/{service}/{op}": {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+                service: string;
+                op: "start" | "stop" | "restart" | "redeploy";
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Operate on one service of a stack
+         * @description Requires `stacks:deploy`. Runs as a job (#29, ADR-0042) and leaves every other service
+         *     alone, dependencies included.
+         *     - `start`, `stop` and `restart` act on the service's containers. Starting a service
+         *       without containers creates it with `compose up <service>`.
+         *     - `redeploy` pulls the service's image and recreates its containers if the image
+         *       changed, then runs `compose up <service>`.
+         *     Errors:
+         *     - 409 for a service without containers (except `start`) or while a job runs for the
+         *       stack;
+         *     - 503 in read-only mode.
+         */
+        post: operations["serviceOperation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/environments/{env}/stacks/{name}/{op}": {
         parameters: {
             query?: {
@@ -1585,7 +1623,9 @@ export interface paths {
          * @description Requires `stacks:deploy` (#28, #31, ADR-0026). Runs the host's `nerdctl compose <op>` in
          *     the stack directory; the output streams over `/jobs/{id}/stream`. One job per stack at a
          *     time (409). `volumes` (down only) deletes the project's volumes and requires `confirm`
-         *     to equal the stack name. Unmanaged projects must be adopted first (404).
+         *     to equal the stack name. Unmanaged projects must be adopted first (404). `up` with
+         *     `pull` pulls the images first and recreates the containers whose image changed
+         *     (ADR-0042): `compose up` alone keeps a container whose tag now points to a new image.
          */
         post: operations["stackOperation"];
         delete?: never;
@@ -6285,6 +6325,44 @@ export interface operations {
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
             501: components["responses"]["Error"];
+        };
+    };
+    serviceOperation: {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+                service: string;
+                op: "start" | "stop" | "restart" | "redeploy";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Job started */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        job: components["schemas"]["Job"];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            501: components["responses"]["Error"];
+            503: components["responses"]["Error"];
         };
     };
     stackOperation: {
