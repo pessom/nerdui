@@ -192,3 +192,22 @@ func TestBulkRemoveRequiresContainersWrite(t *testing.T) {
 		t.Errorf("calls: %+v", rt.actions)
 	}
 }
+
+func TestImageHistory(t *testing.T) {
+	rt := writable()
+	rt.history = []runtime.HistoryEntry{{CreatedBy: "CMD [\"nginx\"]", EmptyLayer: true}, {CreatedBy: "ADD rootfs.tar /", Size: 1024}}
+	r := chi.NewRouter()
+	r.Route("/api/v1", func(r chi.Router) {
+		h := &Handler{Envs: environment.NewRegistry(environment.Local(rt, "default"))}
+		h.Routes(r, authz.NewGuard(authz.AdminOnly{}, func(*http.Request) (authz.Subject, bool) {
+			return authz.Subject{Role: authz.RoleAdmin}, true
+		}, nil))
+	})
+	rec := send(t, r, http.MethodGet, "/api/v1/environments/local/images/history?namespace=k8s.io&ref=docker.io/library/nginx:1", "")
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"createdBy":"ADD rootfs.tar /"`) || rt.gotNS != "k8s.io" {
+		t.Errorf("history: %d %s", rec.Code, rec.Body)
+	}
+	if rec := send(t, r, http.MethodGet, "/api/v1/environments/local/images/history", ""); rec.Code != http.StatusBadRequest {
+		t.Errorf("no ref: %d %s", rec.Code, rec.Body)
+	}
+}
