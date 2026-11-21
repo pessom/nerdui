@@ -38,7 +38,8 @@ func readProcess(root string, pid int, users map[int]string) (Process, error) {
 		return Process{}, fmt.Errorf("parse %s/stat: %d fields", dir, len(fields))
 	}
 	num := func(i int) int64 { n, _ := strconv.ParseInt(fields[i], 10, 64); return n }
-	p := Process{PID: pid, PPID: int(num(1)), State: fields[0], UID: -1}
+	ppid, _ := strconv.Atoi(fields[1])
+	p := Process{PID: pid, PPID: ppid, State: fields[0], UID: -1}
 	// utime, stime (fields 14, 15), starttime (22), rss in pages (24).
 	cpuTicks, startTicks := num(11)+num(12), num(19)
 	p.RSS = num(21) * int64(os.Getpagesize())
