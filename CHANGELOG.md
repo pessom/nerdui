@@ -43,6 +43,8 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
   dependencies (#29).
 - Container processes: a Processes tab on the container page lists PID, user, state, CPU,
   memory, start time and command, read from the host's /proc (#20).
+- Image history: History in an image's menu lists its build steps with creation time and layer
+  sizes, like `nerdctl image history`; it also works in read-only mode (#47).
 
 ### Fixed
 

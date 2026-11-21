@@ -16,7 +16,7 @@ import {
   TextInput,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconDots, IconTag, IconTrash, IconUpload } from "@tabler/icons-react";
+import { IconDots, IconHistory, IconTag, IconTrash, IconUpload } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { api, unwrap, unwrapEmpty } from "../../api/client";
@@ -24,6 +24,7 @@ import { keys, type Image } from "../../api/queries";
 import { displayName } from "./format";
 
 export interface ImageActionHandlers {
+  history: (img: Image) => void;
   tag: (img: Image) => void;
   push: (img: Image) => void;
   remove: (imgs: Image[]) => void;
@@ -31,7 +32,7 @@ export interface ImageActionHandlers {
   disabled?: string;
 }
 
-/** Row menu: tag, push, remove (#44). */
+/** Row menu: history (#47), tag, push, remove (#44); changes are off in read-only mode. */
 export function ImageRowActions({
   image,
   actions,
@@ -43,24 +44,27 @@ export function ImageRowActions({
   return (
     <Menu position="bottom-end" withArrow>
       <Menu.Target>
-        <ActionIcon
-          variant="subtle"
-          color="gray"
-          aria-label={`Actions for ${name}`}
-          disabled={!!actions.disabled}
-          title={actions.disabled}
-        >
+        <ActionIcon variant="subtle" color="gray" aria-label={`Actions for ${name}`}>
           <IconDots size={16} />
         </ActionIcon>
       </Menu.Target>
       <Menu.Dropdown>
-        <Menu.Item leftSection={<IconTag size={16} />} onClick={() => actions.tag(image)}>
+        <Menu.Item leftSection={<IconHistory size={16} />} onClick={() => actions.history(image)}>
+          History
+        </Menu.Item>
+        <Menu.Divider />
+        <Menu.Item
+          leftSection={<IconTag size={16} />}
+          onClick={() => actions.tag(image)}
+          disabled={!!actions.disabled}
+          title={actions.disabled}
+        >
           Tag…
         </Menu.Item>
         <Menu.Item
           leftSection={<IconUpload size={16} />}
           onClick={() => actions.push(image)}
-          disabled={!image.repository}
+          disabled={!image.repository || !!actions.disabled}
         >
           Push…
         </Menu.Item>
@@ -69,6 +73,7 @@ export function ImageRowActions({
           color="red"
           leftSection={<IconTrash size={16} />}
           onClick={() => actions.remove([image])}
+          disabled={!!actions.disabled}
         >
           Remove…
         </Menu.Item>

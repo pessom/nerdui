@@ -1158,6 +1158,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/environments/{env}/images/history": {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        /**
+         * History of an image
+         * @description Requires `images:read`. The build steps of an image, newest first, like
+         *     `nerdctl image history` (#47). The size of a layer is its unpacked size on disk, or the
+         *     compressed size from the registry (`compressed`) when the image is not unpacked.
+         */
+        get: operations["imageHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/environments/{env}/images/pull": {
         parameters: {
             query?: {
@@ -3533,6 +3561,22 @@ export interface components {
             started: string;
             command: string;
         };
+        ImageHistoryEntry: {
+            /** Format: date-time */
+            created?: string;
+            /** @description The instruction that made this step */
+            createdBy: string;
+            comment?: string;
+            /** @description The step added no layer (ENV */
+            emptyLayer: boolean;
+            /**
+             * Format: int64
+             * @description Layer size in bytes
+             */
+            size: number;
+            /** @description The size is the compressed size; the image is not unpacked */
+            compressed?: boolean;
+        };
         Webhook: {
             /** Format: int64 */
             id: number;
@@ -5714,6 +5758,41 @@ export interface operations {
                     "application/json": {
                         namespace: string;
                         images: components["schemas"]["Image"][];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    imageHistory: {
+        parameters: {
+            query: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+                /** @description Image name as listed, e.g. docker.io/library/nginx:1.27 */
+                ref: string;
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description History */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        history: components["schemas"]["ImageHistoryEntry"][];
                     };
                 };
             };

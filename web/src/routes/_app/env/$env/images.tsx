@@ -16,6 +16,7 @@ import {
 } from "../../../../api/queries";
 import { ImagesTable } from "../../../../features/images/ImagesTable";
 import { RemoveImagesDialog, TagDialog } from "../../../../features/images/ImageActions";
+import { ImageHistoryDialog } from "../../../../features/images/ImageHistoryDialog";
 import { ImageJobDialog } from "../../../../features/images/ImageJobDialog";
 import { CheckUpdatesButton } from "../../../../features/updates/CheckUpdatesButton";
 import { ImageUpdatesContext } from "../../../../features/updates/context";
@@ -35,6 +36,7 @@ function ImagesPage() {
   const list = useQuery(imagesQuery(env, namespace));
   const updates = useQuery(imageUpdatesQuery(env, namespace));
   const [pulling, { open, close }] = useDisclosure();
+  const [history, setHistory] = useState<Image>();
   const [tagging, setTagging] = useState<Image>();
   const [pushing, setPushing] = useState<Image>();
   const [removing, setRemoving] = useState<Image[]>([]);
@@ -74,6 +76,12 @@ function ImagesPage() {
         initialReference={pushing?.name ?? ""}
         onClose={() => setPushing(undefined)}
       />
+      <ImageHistoryDialog
+        env={env}
+        namespace={namespace}
+        image={history}
+        onClose={() => setHistory(undefined)}
+      />
       <TagDialog
         env={env}
         namespace={namespace}
@@ -97,6 +105,7 @@ function ImagesPage() {
           <ImagesTable
             images={list.data.images}
             actions={{
+              history: setHistory,
               tag: setTagging,
               push: setPushing,
               remove: setRemoving,
