@@ -35,6 +35,7 @@ import (
 	"github.com/pessom/nerdui/internal/tlsutil"
 	"github.com/pessom/nerdui/internal/updates"
 	"github.com/pessom/nerdui/internal/version"
+	"github.com/pessom/nerdui/internal/webhooks"
 	"github.com/pessom/nerdui/web"
 )
 
@@ -174,6 +175,7 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 		Service: gitStacks, Environments: envs, Jobs: jobManager, Notify: notifier.Notify, Logger: logger, Base: checkCtx,
 	}
 	checks.Go(func() { gitAuto.Run(checkCtx) })
+	incoming := &webhooks.Service{Store: st.Write(), Environments: envs, Stacks: stackService, Jobs: jobManager}
 	// Image update checks (#53) on each environment's schedule, each followed by the automatic
 	// updates of opted-in containers and stacks (#54).
 	autoUpdates := &updates.Updater{
@@ -201,6 +203,7 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 			Stacks:        stackService,
 			GitStacks:     gitStacks,
 			GitAuto:       gitAuto,
+			Webhooks:      incoming,
 			ImageUpdates:  imageUpdates,
 			AutoUpdates:   autoUpdates,
 			Notifications: st.Write(), Notifier: notifier, Audit: auditLog,

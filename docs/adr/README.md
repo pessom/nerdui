@@ -49,3 +49,4 @@ We record significant architectural decisions as ADRs
 | 0038 | [Certificates from Let's Encrypt (ACME)](0038-acme-certificates.md) | Accepted |
 | 0039 | [Git stacks and saved Git credentials](0039-git-stacks.md) | Accepted |
 | 0040 | [Automatic updates of Git stacks: polling and webhooks](0040-git-stack-auto-updates.md) | Accepted |
+| 0041 | [Incoming webhooks](0041-incoming-webhooks.md) | Accepted |

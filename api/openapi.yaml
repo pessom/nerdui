@@ -32,6 +32,8 @@ tags:
     description: Compose stacks (#24–#31, ADR-0008)
   - name: git
     description: Git credentials and trusted SSH host keys of Git stacks (#37, #93, ADR-0039)
+  - name: webhooks
+    description: Incoming webhooks that redeploy or restart a stack or container (#85, #91, ADR-0041)
   - name: networks
     description: CNI networks (#60, ADR-0024)
   - name: volumes
@@ -825,6 +827,159 @@ paths:
         "404": { $ref: "#/components/responses/Error" }
         "501": { $ref: "#/components/responses/Error" }
         "502": { $ref: "#/components/responses/Error" }
+  /api/v1/webhooks:
+    get:
+      tags: [webhooks]
+      operationId: listWebhooks
+      summary: Incoming webhooks
+      description: Requires `settings:read`. Tokens are never returned.
+      responses:
+        "200":
+          description: Webhooks
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [webhooks]
+                properties:
+                  webhooks:
+                    type: array
+                    items: { $ref: "#/components/schemas/Webhook" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
+    post:
+      tags: [webhooks]
+      operationId: createWebhook
+      summary: Create an incoming webhook
+      description: |
+        Requires `settings:write`. The response has the URL path with the secret token, shown only
+        once (nerdui stores its hash). The target is not checked now: a call fails when it is
+        missing.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WebhookInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [webhook, path]
+                properties:
+                  webhook: { $ref: "#/components/schemas/Webhook" }
+                  path: { type: string, example: /api/v1/hooks/3q2-7wE... }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "415": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
+  /api/v1/webhooks/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    put:
+      tags: [webhooks]
+      operationId: updateWebhook
+      summary: Change an incoming webhook
+      description: Requires `settings:write`. The token and URL stay.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WebhookInput" }
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Webhook" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "415": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [webhooks]
+      operationId: deleteWebhook
+      summary: Delete an incoming webhook
+      description: Requires `settings:write`.
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
+  /api/v1/webhooks/{id}/token:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema: { type: integer, format: int64 }
+    post:
+      tags: [webhooks]
+      operationId: newWebhookToken
+      summary: Replace the URL of a webhook
+      description: Requires `settings:write`. Returns the new path, shown once; the previous URL stops working.
+      responses:
+        "200":
+          description: New URL
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [path]
+                properties:
+                  path: { type: string }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
+  /api/v1/hooks/{token}:
+    parameters:
+      - name: token
+        in: path
+        required: true
+        schema: { type: string }
+    post:
+      tags: [webhooks]
+      operationId: callWebhook
+      summary: Call an incoming webhook
+      description: |
+        Public: the secret token in the path is the credential (#85, #91, ADR-0041). Runs the
+        webhook's action as a job of the user `webhook <name>`; the body is ignored.
+        A redeploy of a stack runs `compose pull` and `compose up`. A redeploy of a container
+        pulls its image and recreates it with the same settings: it fails if the container has
+        settings that recreating would lose. A restart restarts the stack or container as it
+        is. The response comes when the job has started, not when it is done.
+        Errors:
+        - 404 for unknown or disabled webhooks;
+        - 409 when the target is missing or a job runs for it;
+        - 503 in read-only mode.
+      security: []
+      responses:
+        "202":
+          description: The job started
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status, job]
+                properties:
+                  status: { type: string, enum: [accepted] }
+                  job: { type: string, description: ID of the job }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
   /api/v1/git/credentials:
     get:
       tags: [git]
@@ -4002,6 +4157,38 @@ components:
         secret: { type: string, writeOnly: true, description: Token or password, or a PEM private key; empty keeps the stored one }
         passphrase: { type: string, writeOnly: true }
         generate: { type: boolean, description: Generate a new ed25519 SSH key }
+    Webhook:
+      type: object
+      required: [id, name, environment, namespace, targetKind, target, action, enabled, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        environment: { type: string }
+        namespace: { type: string }
+        targetKind: { type: string, enum: [stack, container] }
+        target: { type: string, description: Stack or container name }
+        action: { type: string, enum: [redeploy, restart] }
+        enabled: { type: boolean }
+        createdBy: { type: string }
+        createdAt: { type: string, format: date-time }
+        lastCalledAt: { type: string, format: date-time }
+        lastJob: { type: string, description: Job of the newest call }
+        lastError: { type: string, description: Why the newest call could not start }
+    WebhookInput:
+      type: object
+      required: [name, environment, namespace, targetKind, target, action, enabled]
+      additionalProperties: false
+      properties:
+        name: { type: string }
+        environment: { type: string }
+        namespace: { type: string }
+        targetKind: { type: string, enum: [stack, container] }
+        target: { type: string }
+        action:
+          type: string
+          enum: [redeploy, restart]
+          description: "redeploy: pull images and recreate; restart: restart as is"
+        enabled: { type: boolean }
     GitKnownHost:
       type: object
       required: [host, type, fingerprint, addedAt]

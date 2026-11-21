@@ -610,6 +610,111 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/webhooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Incoming webhooks
+         * @description Requires `settings:read`. Tokens are never returned.
+         */
+        get: operations["listWebhooks"];
+        put?: never;
+        /**
+         * Create an incoming webhook
+         * @description Requires `settings:write`. The response has the URL path with the secret token, shown only
+         *     once (nerdui stores its hash). The target is not checked now: a call fails when it is
+         *     missing.
+         */
+        post: operations["createWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change an incoming webhook
+         * @description Requires `settings:write`. The token and URL stay.
+         */
+        put: operations["updateWebhook"];
+        post?: never;
+        /**
+         * Delete an incoming webhook
+         * @description Requires `settings:write`.
+         */
+        delete: operations["deleteWebhook"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/{id}/token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Replace the URL of a webhook
+         * @description Requires `settings:write`. Returns the new path, shown once; the previous URL stops working.
+         */
+        post: operations["newWebhookToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/hooks/{token}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Call an incoming webhook
+         * @description Public: the secret token in the path is the credential (#85, #91, ADR-0041). Runs the
+         *     webhook's action as a job of the user `webhook <name>`; the body is ignored.
+         *     A redeploy of a stack runs `compose pull` and `compose up`. A redeploy of a container
+         *     pulls its image and recreates it with the same settings: it fails if the container has
+         *     settings that recreating would lose. A restart restarts the stack or container as it
+         *     is. The response comes when the job has started, not when it is done.
+         *     Errors:
+         *     - 404 for unknown or disabled webhooks;
+         *     - 409 when the target is missing or a job runs for it;
+         *     - 503 in read-only mode.
+         */
+        post: operations["callWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/git/credentials": {
         parameters: {
             query?: never;
@@ -3339,6 +3444,43 @@ export interface components {
             /** @description Generate a new ed25519 SSH key */
             generate?: boolean;
         };
+        Webhook: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            environment: string;
+            namespace: string;
+            /** @enum {string} */
+            targetKind: "stack" | "container";
+            /** @description Stack or container name */
+            target: string;
+            /** @enum {string} */
+            action: "redeploy" | "restart";
+            enabled: boolean;
+            createdBy?: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            lastCalledAt?: string;
+            /** @description Job of the newest call */
+            lastJob?: string;
+            /** @description Why the newest call could not start */
+            lastError?: string;
+        };
+        WebhookInput: {
+            name: string;
+            environment: string;
+            namespace: string;
+            /** @enum {string} */
+            targetKind: "stack" | "container";
+            target: string;
+            /**
+             * @description redeploy: pull images and recreate; restart: restart as is
+             * @enum {string}
+             */
+            action: "redeploy" | "restart";
+            enabled: boolean;
+        };
         GitKnownHost: {
             /** @example github.com:22 */
             host: string;
@@ -4655,6 +4797,181 @@ export interface operations {
             404: components["responses"]["Error"];
             501: components["responses"]["Error"];
             502: components["responses"]["Error"];
+        };
+    };
+    listWebhooks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Webhooks */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        webhooks: components["schemas"]["Webhook"][];
+                    };
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            501: components["responses"]["Error"];
+        };
+    };
+    createWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WebhookInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        webhook: components["schemas"]["Webhook"];
+                        /** @example /api/v1/hooks/3q2-7wE... */
+                        path: string;
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            415: components["responses"]["Error"];
+            501: components["responses"]["Error"];
+        };
+    };
+    updateWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WebhookInput"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Webhook"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            415: components["responses"]["Error"];
+            501: components["responses"]["Error"];
+        };
+    };
+    deleteWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            501: components["responses"]["Error"];
+        };
+    };
+    newWebhookToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description New URL */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        path: string;
+                    };
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            501: components["responses"]["Error"];
+        };
+    };
+    callWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The job started */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        status: "accepted";
+                        /** @description ID of the job */
+                        job: string;
+                    };
+                };
+            };
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            501: components["responses"]["Error"];
+            503: components["responses"]["Error"];
         };
     };
     listGitCredentials: {
