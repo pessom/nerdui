@@ -28,6 +28,7 @@ import { displayName, stateColor, statusText } from "../../../../features/contai
 import { inspectJSON } from "../../../../features/containers/inspect";
 import { ExecPanel } from "../../../../features/containers/ExecPanel";
 import { LogsPanel } from "../../../../features/containers/LogsPanel";
+import { ProcessesPanel } from "../../../../features/containers/ProcessesPanel";
 import { StatsPanel } from "../../../../features/containers/StatsPanel";
 import { useActionRequests } from "../../../../features/containers/useActionRequests";
 
@@ -35,8 +36,8 @@ const JsonViewer = lazy(() => import("../../../../features/containers/JsonViewer
 
 const envRoute = getRouteApi("/_app/env/$env");
 
-type Tab = "overview" | "logs" | "stats" | "terminal" | "inspect";
-const tabs: readonly Tab[] = ["overview", "logs", "stats", "terminal", "inspect"];
+type Tab = "overview" | "logs" | "stats" | "processes" | "terminal" | "inspect";
+const tabs: readonly Tab[] = ["overview", "logs", "stats", "processes", "terminal", "inspect"];
 const isTab = (v: unknown): v is Tab => tabs.includes(v as Tab);
 
 /** Container page: overview and inspect JSON (#13), logs (#14), stats (#16). */
@@ -142,6 +143,7 @@ function ContainerPage() {
             <Tabs.Tab value="overview">Overview</Tabs.Tab>
             <Tabs.Tab value="logs">Logs</Tabs.Tab>
             <Tabs.Tab value="stats">Stats</Tabs.Tab>
+            <Tabs.Tab value="processes">Processes</Tabs.Tab>
             <Tabs.Tab value="terminal">Terminal</Tabs.Tab>
             <Tabs.Tab value="inspect">Inspect</Tabs.Tab>
           </Tabs.List>
@@ -161,6 +163,16 @@ function ContainerPage() {
           </Tabs.Panel>
           <Tabs.Panel value="stats">
             <StatsPanel
+              env={env}
+              id={inspect.data.Id}
+              namespace={namespace}
+              running={
+                summary ? summary.state === "running" : inspect.data.State?.Status === "running"
+              }
+            />
+          </Tabs.Panel>
+          <Tabs.Panel value="processes">
+            <ProcessesPanel
               env={env}
               id={inspect.data.Id}
               namespace={namespace}

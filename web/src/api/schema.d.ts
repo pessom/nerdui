@@ -2186,6 +2186,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/environments/{env}/containers/{id}/top": {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                id: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * Processes of a container
+         * @description Requires `containers:read`. Lists the processes of a running container, read from the
+         *     host's /proc (#20): PIDs and users as the host sees them, CPU as a share of one CPU since
+         *     the process started (like `ps`), resident memory. 409 when the container is not running.
+         */
+        get: operations["containerTop"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/environments/{env}/containers/{id}/stats/stream": {
         parameters: {
             query?: {
@@ -3483,6 +3512,26 @@ export interface components {
             passphrase?: string;
             /** @description Generate a new ed25519 SSH key */
             generate?: boolean;
+        };
+        Process: {
+            pid: number;
+            ppid: number;
+            /** @description Real user ID on the host; -1 when unknown */
+            uid: number;
+            /** @description User name on the host */
+            user?: string;
+            /** @description Kernel state: R running, S sleeping, D disk sleep, Z zombie, T stopped */
+            state: string;
+            /** @description Percent of one CPU since the process started */
+            cpu: number;
+            /**
+             * Format: int64
+             * @description Resident memory in bytes
+             */
+            rss: number;
+            /** Format: date-time */
+            started: string;
+            command: string;
         };
         Webhook: {
             /** Format: int64 */
@@ -7215,6 +7264,41 @@ export interface operations {
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
             500: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    containerTop: {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Processes, ordered by PID */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        processes: components["schemas"]["Process"][];
+                    };
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            501: components["responses"]["Error"];
             503: components["responses"]["Error"];
         };
     };
