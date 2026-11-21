@@ -24,6 +24,7 @@ import (
 	"github.com/pessom/nerdui/internal/notify"
 	"github.com/pessom/nerdui/internal/runtime"
 	"github.com/pessom/nerdui/internal/stacks"
+	"github.com/pessom/nerdui/internal/webhooks"
 )
 
 // statusTimeout bounds runtime calls made to report an environment's status.
@@ -44,6 +45,8 @@ type Handler struct {
 	Stacks *stacks.Service
 	// GitStacks deploys stacks from Git repositories (#37, ADR-0039); nil disables them.
 	GitStacks *gitstacks.Service
+	// Webhooks are the incoming webhooks (#85, #91); nil disables them.
+	Webhooks *webhooks.Service
 	// ImageUpdates checks images for newer registry digests (#53); nil disables it.
 	ImageUpdates ImageUpdates
 	// AutoUpdates is the log of automatic updates (#54); nil disables it.
@@ -66,6 +69,7 @@ func (h *Handler) Routes(r chi.Router, g *authz.Guard) {
 	h.notificationRoutes(r, g)
 	h.auditRoutes(r, g)
 	h.gitRoutes(r, g)
+	h.webhookRoutes(r, g)
 	r.Method(http.MethodGet, "/compose-schema", g.Protect(authz.StacksRead, h.composeSchema))
 	r.Route("/environments/{env}", func(r chi.Router) {
 		r.Use(h.resolveEnv)

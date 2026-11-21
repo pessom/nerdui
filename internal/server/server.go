@@ -33,6 +33,7 @@ import (
 	"github.com/pessom/nerdui/internal/stacks"
 	"github.com/pessom/nerdui/internal/tlsutil"
 	"github.com/pessom/nerdui/internal/version"
+	"github.com/pessom/nerdui/internal/webhooks"
 )
 
 // Config configures the HTTP server.
@@ -59,6 +60,8 @@ type Config struct {
 	GitStacks *gitstacks.Service
 	// GitAuto handles webhooks of Git stacks (#38); nil answers 501.
 	GitAuto *gitstacks.Auto
+	// Webhooks are the incoming webhooks (#85, #91); nil answers 501.
+	Webhooks *webhooks.Service
 	// ImageUpdates checks images for newer registry digests (#53); nil disables it.
 	ImageUpdates api.ImageUpdates
 	// AutoUpdates is the log of automatic updates (#54); nil disables it.
@@ -134,11 +137,12 @@ func New(cfg Config) http.Handler {
 		// Git hosts call webhooks without a session: the secret token in the path is the
 		// credential (#38, ADR-0040).
 		r.Method(http.MethodPost, "/hooks/git/{token}", authz.Public(api.GitWebhook(cfg.GitAuto, cfg.Logger)))
+		r.Method(http.MethodPost, "/hooks/{token}", authz.Public(api.IncomingWebhook(cfg.Webhooks, cfg.Logger)))
 		r.Group(func(r chi.Router) {
 			r.Use(cfg.Auth.RequireSession, auth.CSRF, auth.PasswordChanged, cfg.Auth.MFAEnrolled)
 			(&api.Handler{
 				Envs: cfg.Environments, Jobs: cfg.Jobs, EventHistory: cfg.EventHistory,
-				ExecDisabled: cfg.DisableExec, Settings: cfg.Settings, Stacks: cfg.Stacks, GitStacks: cfg.GitStacks,
+				ExecDisabled: cfg.DisableExec, Settings: cfg.Settings, Stacks: cfg.Stacks, GitStacks: cfg.GitStacks, Webhooks: cfg.Webhooks,
 				ImageUpdates: cfg.ImageUpdates, AutoUpdates: cfg.AutoUpdates, Logger: cfg.Logger,
 				Notifications: cfg.Notifications, Notifier: cfg.Notifier, Audit: auditLog,
 			}).Routes(r, guard)
@@ -251,11 +255,12 @@ func requestLogger(log *slog.Logger) func(http.Handler) http.Handler {
 	}
 }
 
-// redactPath hides the secret token of webhook paths in logs.
+// redactPath hides the secret tokens of webhook paths in logs.
 func redactPath(p string) string {
-	const hooks = "/api/v1/hooks/git/"
-	if strings.HasPrefix(p, hooks) && len(p) > len(hooks) {
-		return hooks + "<token>"
+	for _, hooks := range []string{"/api/v1/hooks/git/", "/api/v1/hooks/"} {
+		if strings.HasPrefix(p, hooks) && len(p) > len(hooks) {
+			return hooks + "<token>"
+		}
 	}
 	return p
 }

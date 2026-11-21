@@ -287,6 +287,7 @@ func TestRouteAuthorization(t *testing.T) {
 		"POST /api/v1/setup":                 "public",
 		"POST /api/v1/auth/login":            "public",
 		"POST /api/v1/hooks/git/{token}":     "public",
+		"POST /api/v1/hooks/{token}":         "public",
 		"POST /api/v1/auth/login/mfa":        "public",
 		"GET /api/v1/auth/mfa":               "session:self",
 		"POST /api/v1/auth/mfa/setup":        "session:self",
@@ -361,6 +362,11 @@ func TestRouteAuthorization(t *testing.T) {
 		"POST /api/v1/environments/{env}/stacks/{name}/git/webhook":    "stacks:deploy",
 		"DELETE /api/v1/environments/{env}/stacks/{name}/git/webhook":  "stacks:deploy",
 		"GET /api/v1/git/credentials":                                  "stacks:read",
+		"GET /api/v1/webhooks":                                         "settings:read",
+		"POST /api/v1/webhooks":                                        "settings:write",
+		"PUT /api/v1/webhooks/{id}":                                    "settings:write",
+		"DELETE /api/v1/webhooks/{id}":                                 "settings:write",
+		"POST /api/v1/webhooks/{id}/token":                             "settings:write",
 		"POST /api/v1/git/credentials":                                 "settings:write",
 		"PUT /api/v1/git/credentials/{id}":                             "settings:write",
 		"DELETE /api/v1/git/credentials/{id}":                          "settings:write",
@@ -498,7 +504,8 @@ func TestAPISpecIsPublic(t *testing.T) {
 func TestRedactPath(t *testing.T) {
 	for in, want := range map[string]string{
 		"/api/v1/hooks/git/s3cr3t":   "/api/v1/hooks/git/<token>",
-		"/api/v1/hooks/git/":         "/api/v1/hooks/git/",
+		"/api/v1/hooks/abc":          "/api/v1/hooks/<token>",
+		"/api/v1/hooks/":             "/api/v1/hooks/",
 		"/api/v1/environments/local": "/api/v1/environments/local",
 	} {
 		if got := redactPath(in); got != want {

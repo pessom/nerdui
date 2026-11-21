@@ -35,12 +35,15 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 - Automatic updates of Git stacks: a push webhook for GitHub, GitLab, Gitea or CI, and polling
   of the repository, either announce new commits (`git.update` notification) or pull and
   redeploy the stack where it runs (#38, #39).
+- Incoming webhooks: secret URLs under Settings → Incoming webhooks that pull images and
+  redeploy, or restart, a stack or container, e.g. from CI after an image was published (#85,
+  #91).
 
 ### Upgrade notes
 
 - Database migrations 7 (automatic update log), 8 (when new images were first seen), 9
-  (notification channels), 10 (audit log), 11 (two-factor authentication), 12 (Git stacks) and 13
-  (automatic updates of Git stacks) are applied on start.
+  (notification channels), 10 (audit log), 11 (two-factor authentication), 12 (Git stacks), 13
+  (automatic updates of Git stacks) and 14 (incoming webhooks) are applied on start.
 
 ## [0.1.1] - 2026-11-19
 

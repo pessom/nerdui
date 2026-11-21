@@ -176,3 +176,21 @@ type UserPreference struct {
 	Data      string
 	UpdatedAt int64
 }
+
+type Webhook struct {
+	ID           int64
+	Name         string
+	Environment  string
+	Namespace    string
+	TargetKind   string
+	Target       string
+	Action       string
+	TokenHash    string
+	Enabled      int64
+	CreatedBy    string
+	CreatedAt    int64
+	UpdatedAt    int64
+	LastCalledAt int64
+	LastJob      string
+	LastError    string
+}
