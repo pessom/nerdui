@@ -2672,6 +2672,95 @@ paths:
         "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
         "503": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/volumes/{name}/files:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - $ref: "#/components/parameters/Namespace"
+      - { name: name, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [volumes]
+      operationId: listVolumeFiles
+      summary: List a directory of a volume
+      description: |
+        Requires `volumes:write`: a volume's files may hold secrets (#58, ADR-0045). Read on the
+        host, read-only; paths cannot leave the volume, also not through symlinks. Directories
+        first, at most 5000 entries (`truncated`).
+      parameters:
+        - { name: path, in: query, schema: { type: string, default: / }, description: Directory in the volume }
+      responses:
+        "200":
+          description: Directory entries
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [entries, truncated]
+                properties:
+                  entries:
+                    type: array
+                    items: { $ref: "#/components/schemas/VolumeEntry" }
+                  truncated: { type: boolean }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/volumes/{name}/files/preview:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - $ref: "#/components/parameters/Namespace"
+      - { name: name, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [volumes]
+      operationId: previewVolumeFile
+      summary: The beginning of a file in a volume
+      description: Requires `volumes:write`. Up to 256 KiB of a regular file as text; binary files have no content.
+      parameters:
+        - { name: path, in: query, required: true, schema: { type: string } }
+      responses:
+        "200":
+          description: Preview
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [size, modTime, content, binary, truncated]
+                properties:
+                  size: { type: integer, format: int64 }
+                  modTime: { type: string, format: date-time }
+                  content: { type: string }
+                  binary: { type: boolean }
+                  truncated: { type: boolean }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/volumes/{name}/files/download:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - $ref: "#/components/parameters/Namespace"
+      - { name: name, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [volumes]
+      operationId: downloadVolumeFile
+      summary: Download a file, a directory or the whole volume
+      description: |
+        Requires `volumes:write`. A regular file as is; a directory (`path=/` for the volume) as
+        a gzip-compressed tar archive with symlinks kept as links. An error after the download
+        started aborts the connection.
+      parameters:
+        - { name: path, in: query, schema: { type: string, default: / } }
+      responses:
+        "200":
+          description: File or archive
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+            application/gzip:
+              schema: { type: string, format: binary }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
   /api/v1/environments/{env}/registries:
     parameters:
       - $ref: "#/components/parameters/Env"
@@ -4174,6 +4263,17 @@ components:
         objectId: { type: string }
         objectName: { type: string, description: Container name at the time of the event }
         attributes: { type: object, additionalProperties: { type: string } }
+    VolumeEntry:
+      type: object
+      required: [name, type, size, mode, modTime]
+      properties:
+        name: { type: string }
+        type: { type: string, enum: [dir, file, symlink, other] }
+        size: { type: integer, format: int64 }
+        mode: { type: string, examples: ["-rw-r--r--"] }
+        modTime: { type: string, format: date-time }
+        target: { type: string, description: Target of a symlink }
+        targetType: { type: string, enum: [dir, file], description: Type of a symlink's target inside the volume }
     CreateContainerRequest:
       type: object
       required: [image]

@@ -15,7 +15,7 @@ import {
   Tooltip,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { IconPlus, IconRuler, IconTrash } from "@tabler/icons-react";
+import { IconFolderOpen, IconPlus, IconRuler, IconTrash } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi } from "@tanstack/react-router";
 import { useState } from "react";
@@ -23,6 +23,7 @@ import { envStatusQuery, volumesQuery, type Volume } from "../../../../api/queri
 import { RouterAnchor } from "../../../../components/RouterAnchor";
 import { formatBytes } from "../../../../features/system/info";
 import { CreateVolumeDialog, RemoveVolumeDialog } from "../../../../features/volumes/VolumeDialogs";
+import { VolumeBrowser } from "../../../../features/volumes/VolumeBrowser";
 import { Time } from "../../../../components/Time";
 
 const envRoute = getRouteApi("/_app/env/$env");
@@ -43,6 +44,7 @@ function VolumesPage() {
   const sizeOf = new Map(sizes.data?.volumes.map((v) => [v.name, v.size]));
   const [creating, { open, close }] = useDisclosure();
   const [removing, setRemoving] = useState<Volume>();
+  const [browsing, setBrowsing] = useState<string>();
   const nerdctl = status.data?.runtime?.nerdctl;
   const readOnly = !!nerdctl && !nerdctl.compatible && !nerdctl.checkSkipped;
 
@@ -88,7 +90,7 @@ function VolumesPage() {
               <Table.Th>Used by</Table.Th>
               <Table.Th>Size</Table.Th>
               <Table.Th>Created</Table.Th>
-              <Table.Th w={48} />
+              <Table.Th w={80} />
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
@@ -159,25 +161,37 @@ function VolumesPage() {
                     {v.createdAt ? <Time value={v.createdAt} /> : <Text size="sm">—</Text>}
                   </Table.Td>
                   <Table.Td>
-                    <Tooltip
-                      label={
-                        used
-                          ? "Used by containers: remove them first"
-                          : readOnly
-                            ? "Read-only mode"
-                            : "Remove"
-                      }
-                    >
-                      <ActionIcon
-                        variant="subtle"
-                        color="red"
-                        aria-label={`Remove ${v.name}`}
-                        disabled={used || readOnly}
-                        onClick={() => setRemoving(v)}
+                    <Group gap={4} wrap="nowrap">
+                      <Tooltip label="Browse files">
+                        <ActionIcon
+                          variant="subtle"
+                          color="gray"
+                          aria-label={`Browse ${v.name}`}
+                          onClick={() => setBrowsing(v.name)}
+                        >
+                          <IconFolderOpen size={16} />
+                        </ActionIcon>
+                      </Tooltip>
+                      <Tooltip
+                        label={
+                          used
+                            ? "Used by containers: remove them first"
+                            : readOnly
+                              ? "Read-only mode"
+                              : "Remove"
+                        }
                       >
-                        <IconTrash size={16} />
-                      </ActionIcon>
-                    </Tooltip>
+                        <ActionIcon
+                          variant="subtle"
+                          color="red"
+                          aria-label={`Remove ${v.name}`}
+                          disabled={used || readOnly}
+                          onClick={() => setRemoving(v)}
+                        >
+                          <IconTrash size={16} />
+                        </ActionIcon>
+                      </Tooltip>
+                    </Group>
                   </Table.Td>
                 </Table.Tr>
               );
@@ -186,6 +200,12 @@ function VolumesPage() {
         </Table>
       )}
       <CreateVolumeDialog env={env} namespace={namespace} opened={creating} onClose={close} />
+      <VolumeBrowser
+        env={env}
+        namespace={namespace}
+        volume={browsing}
+        onClose={() => setBrowsing(undefined)}
+      />
       <RemoveVolumeDialog
         env={env}
         namespace={namespace}

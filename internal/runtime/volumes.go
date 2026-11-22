@@ -35,6 +35,10 @@ type Volumes interface {
 	Create(ctx context.Context, namespace, name string, lbls map[string]string) (Volume, error)
 	// Remove removes a volume that no container (running or not) mounts; 409 otherwise.
 	Remove(ctx context.Context, namespace, name string) error
+	// ListFiles, PreviewFile and Download read the contents of a volume on the host (#58).
+	ListFiles(namespace, name, dir string) ([]VolumeEntry, bool, error)
+	PreviewFile(namespace, name, file string) (VolumeFile, error)
+	Download(namespace, name, target string) (VolumeDownload, error)
 }
 
 // Volume is a named volume. Keep in sync with api/openapi.yaml.

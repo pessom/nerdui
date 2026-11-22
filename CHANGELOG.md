@@ -19,6 +19,9 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
   for the host's platform, Load on the images page uploads an archive from `nerdctl save` or
   `docker save` (also gzip-compressed); like `nerdctl save` and `nerdctl load` (#46,
   ADR-0044). Behind nginx, raise `client_max_body_size` (docs/reverse-proxy.md).
+- Volume browser: Browse on the volumes page lists a volume's files, previews text files and
+  downloads a file, a folder or the whole volume as `.tar.gz`; read-only, confined to the volume
+  (#58, ADR-0045).
 - Sub-path deployment: `--base-path /nerdui` serves nerdui under `https://example.com/nerdui/`
   behind a reverse proxy that passes or strips the prefix; examples for Caddy, nginx and
   Traefik in docs/reverse-proxy.md (#222, ADR-0046).

@@ -93,3 +93,64 @@ describe("volumes", () => {
     expect(screen.getByRole("link", { name: "Volumes" })).toHaveAttribute("data-active", "true");
   });
 });
+
+describe("volume browser", () => {
+  it("navigates directories, previews files and offers downloads", async () => {
+    const t = "2027-03-01T10:00:00Z";
+    const { calls } = fakeApi({
+      ...signedIn,
+      [`GET ${base}`]: () => json(200, { namespace: "default", volumes }),
+      [`GET ${base}/pgdata/files`]: (c) =>
+        json(200, {
+          truncated: false,
+          entries:
+            c.query.get("path") === "/"
+              ? [
+                  { name: "conf", type: "dir", size: 0, mode: "drwxr-xr-x", modTime: t },
+                  {
+                    name: "current",
+                    type: "symlink",
+                    size: 4,
+                    mode: "Lrwxrwxrwx",
+                    modTime: t,
+                    target: "conf",
+                    targetType: "dir",
+                  },
+                  { name: "PG_VERSION", type: "file", size: 3, mode: "-rw-------", modTime: t },
+                ]
+              : [{ name: "pg.conf", type: "file", size: 12, mode: "-rw-r--r--", modTime: t }],
+        }),
+      [`GET ${base}/pgdata/files/preview`]: () =>
+        json(200, { size: 3, modTime: t, content: "17\n", binary: false, truncated: false }),
+    });
+    renderApp("/env/local/volumes");
+    fireEvent.click(await screen.findByRole("button", { name: "Browse pgdata" }));
+    const dialog = await screen.findByRole("dialog", { name: "Files of pgdata" });
+    const table = await within(dialog).findByRole("table", { name: "Volume files" });
+    expect(within(dialog).getByRole("link", { name: "Download volume" })).toHaveAttribute(
+      "href",
+      `${base}/pgdata/files/download?namespace=default&path=%2F`,
+    );
+
+    fireEvent.click(within(table).getByRole("button", { name: "PG_VERSION" }));
+    expect(await within(dialog).findByLabelText("File content")).toHaveTextContent("17");
+    expect(calls.find((c) => c.path.endsWith("/files/preview"))?.query.get("path")).toBe(
+      "/PG_VERSION",
+    );
+    fireEvent.click(within(dialog).getByRole("button", { name: /Back to/ }));
+
+    // A symlink to a directory opens the directory.
+    fireEvent.click(await within(dialog).findByRole("button", { name: "current" }));
+    expect(await within(dialog).findByRole("button", { name: "pg.conf" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("link", { name: "Download folder" })).toHaveAttribute(
+      "href",
+      `${base}/pgdata/files/download?namespace=default&path=%2Fcurrent`,
+    );
+    expect(within(dialog).getByRole("link", { name: "Download pg.conf" })).toHaveAttribute(
+      "href",
+      `${base}/pgdata/files/download?namespace=default&path=%2Fcurrent%2Fpg.conf`,
+    );
+    fireEvent.click(within(dialog).getByRole("button", { name: "pgdata" }));
+    expect(await within(dialog).findByRole("button", { name: "conf" })).toBeInTheDocument();
+  });
+});
