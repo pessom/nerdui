@@ -72,6 +72,9 @@ export function labelEnabled(
   return v === "true" || v === "1" || v === "yes" || v === "on";
 }
 
+/** Labels the form sets with its own switches. */
+const managedLabels = [AUTO_UPDATE_LABEL, AUTO_HEAL_LABEL];
+
 /** Whether labels opt in to automatic updates, as the server reads them. */
 export function autoUpdateEnabled(labels?: Record<string, string> | null): boolean {
   return labelEnabled(labels, AUTO_UPDATE_LABEL);
@@ -118,6 +121,15 @@ export interface CreateForm {
   labels: LabelRow[];
   /** Pull and recreate when the image's tag gets a newer image (#54): the nerdui.auto-update label. */
   autoUpdate: boolean;
+  /** Healthcheck (#237): the image's, one set here, or none. */
+  health: "image" | "custom" | "none";
+  healthCmd: string;
+  healthInterval: string;
+  healthTimeout: string;
+  healthStartPeriod: string;
+  healthRetries: string;
+  /** Restart when unhealthy (#22): the nerdui.auto-heal label. */
+  autoHeal: boolean;
   start: boolean;
   // Advanced (#18)
   extraNetworks: string[];
@@ -148,6 +160,13 @@ export const emptyForm: CreateForm = {
   retries: "",
   labels: [],
   autoUpdate: false,
+  health: "image",
+  healthCmd: "",
+  healthInterval: "",
+  healthTimeout: "",
+  healthStartPeriod: "",
+  healthRetries: "",
+  autoHeal: false,
   start: true,
   extraNetworks: [],
   ip: "",
@@ -201,10 +220,11 @@ export function toRequest(f: CreateForm): { request: CreateRequest; error?: stri
     f.restart === "on-failure" && f.retries.trim() ? `on-failure:${f.retries.trim()}` : f.restart;
   const labels: Record<string, string> = Object.fromEntries(
     f.labels
-      .filter((l) => l.key.trim() && l.key.trim() !== AUTO_UPDATE_LABEL)
+      .filter((l) => l.key.trim() && !managedLabels.includes(l.key.trim()))
       .map((l) => [l.key.trim(), l.value]),
   );
   if (f.autoUpdate) labels[AUTO_UPDATE_LABEL] = "true";
+  if (f.autoHeal && f.health !== "none") labels[AUTO_HEAL_LABEL] = "true";
   if (Object.keys(labels).length) request.labels = labels;
   const list = (k: "extraNetworks" | "capAdd" | "capDrop" | "devices" | "dns" | "extraHosts") => {
     const v = f[k].map((x) => x.trim()).filter(Boolean);
@@ -218,6 +238,16 @@ export function toRequest(f: CreateForm): { request: CreateRequest; error?: stri
   list("devices");
   list("dns");
   list("extraHosts");
+  if (f.health === "none") request.healthcheck = { disabled: true };
+  if (f.health === "custom") {
+    const h: NonNullable<CreateRequest["healthcheck"]> = {};
+    if (f.healthCmd.trim()) h.command = f.healthCmd.trim();
+    if (f.healthInterval.trim()) h.interval = f.healthInterval.trim();
+    if (f.healthTimeout.trim()) h.timeout = f.healthTimeout.trim();
+    if (f.healthStartPeriod.trim()) h.startPeriod = f.healthStartPeriod.trim();
+    if (f.healthRetries.trim()) h.retries = Number(f.healthRetries);
+    if (Object.keys(h).length) request.healthcheck = h;
+  }
   return { request, error: cmd.error ? `Command: ${cmd.error}` : undefined };
 }
 
@@ -274,9 +304,16 @@ export function fromRequest(r: CreateRequest): CreateForm {
       : "no",
     retries: retries ?? "",
     labels: Object.entries(r.labels ?? {})
-      .filter(([key]) => key !== AUTO_UPDATE_LABEL)
+      .filter(([key]) => !managedLabels.includes(key))
       .map(([key, value]) => ({ key, value })),
     autoUpdate: autoUpdateEnabled(r.labels),
+    autoHeal: labelEnabled(r.labels, AUTO_HEAL_LABEL),
+    health: r.healthcheck?.disabled ? "none" : r.healthcheck ? "custom" : "image",
+    healthCmd: r.healthcheck?.command ?? "",
+    healthInterval: r.healthcheck?.interval ?? "",
+    healthTimeout: r.healthcheck?.timeout ?? "",
+    healthStartPeriod: r.healthcheck?.startPeriod ?? "",
+    healthRetries: r.healthcheck?.retries ? String(r.healthcheck.retries) : "",
     start: true,
     extraNetworks: r.extraNetworks ?? [],
     ip: r.ip ?? "",

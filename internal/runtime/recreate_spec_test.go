@@ -113,3 +113,23 @@ func TestSpecFrom(t *testing.T) {
 		t.Errorf("command after entrypoint: %q %q", got.Entrypoint, got.Command)
 	}
 }
+
+func TestContainerHealthcheck(t *testing.T) {
+	for name, tt := range map[string]struct {
+		container, image string
+		want             *HealthcheckSpec
+		ok               bool
+	}{
+		"none":     {"", "", nil, true},
+		"image's":  {`{"Test":["CMD-SHELL","true"],"Interval":30000000000,"Timeout":30000000000,"Retries":3}`, `{"Test":["CMD-SHELL","true"]}`, nil, true},
+		"own":      {`{"Test":["CMD-SHELL","test -f /ok"],"Interval":5000000000,"Timeout":30000000000,"Retries":2}`, "", &HealthcheckSpec{Command: "test -f /ok", Interval: "5s", Retries: 2}, true},
+		"override": {`{"Test":["CMD-SHELL","true"],"Interval":30000000000,"StartPeriod":60000000000}`, `{"Test":["CMD-SHELL","true"],"Interval":10000000000}`, &HealthcheckSpec{Command: "true", Interval: "30s", StartPeriod: "1m0s"}, true},
+		"disabled": {`{"Test":["NONE"]}`, `{"Test":["CMD-SHELL","true"]}`, &HealthcheckSpec{Disabled: true}, true},
+		"exec":     {`{"Test":["CMD","pg_isready"]}`, "", nil, false},
+	} {
+		got, ok := containerHealthcheck(tt.container, tt.image)
+		if ok != tt.ok || !reflect.DeepEqual(got, tt.want) {
+			t.Errorf("%s: %+v %v", name, got, ok)
+		}
+	}
+}

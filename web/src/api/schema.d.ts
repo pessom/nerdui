@@ -3374,6 +3374,23 @@ export interface components {
             dns?: string[];
             /** @description name:address entries for /etc/hosts; the address may be host-gateway */
             extraHosts?: string[];
+            /**
+             * @description Overrides the image's healthcheck (#237). Durations are Go durations such as `30s`;
+             *     empty values keep the image's settings, else 30s interval and timeout and 3 retries.
+             */
+            healthcheck?: {
+                /** @description Runs with /bin/sh -c in the container (--health-cmd) */
+                command?: string;
+                /** @example 30s */
+                interval?: string;
+                /** @example 5s */
+                timeout?: string;
+                /** @example 1m */
+                startPeriod?: string;
+                retries?: number;
+                /** @description Turns off the image's healthcheck; no other field may be set */
+                disabled?: boolean;
+            };
         };
         Job: {
             id: string;

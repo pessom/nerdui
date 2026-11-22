@@ -461,6 +461,73 @@ export function CreateContainerForm({
               </SimpleGrid>
             </Accordion.Panel>
           </Accordion.Item>
+          <Accordion.Item value="health">
+            <Accordion.Control>
+              Healthcheck{form.health !== "image" || form.autoHeal ? " (set)" : ""}
+            </Accordion.Control>
+            <Accordion.Panel>
+              <Stack>
+                <Select
+                  label="Healthcheck"
+                  data={[
+                    { value: "image", label: "From the image" },
+                    { value: "custom", label: "Custom command" },
+                    { value: "none", label: "Disabled" },
+                  ]}
+                  value={form.health}
+                  onChange={(v) => set({ health: (v ?? "image") as CreateForm["health"] })}
+                  allowDeselect={false}
+                />
+                {form.health === "custom" && (
+                  <>
+                    <TextInput
+                      label="Command"
+                      description="Runs with /bin/sh -c in the container; exit code 0 means healthy"
+                      placeholder="curl -f http://localhost/ || exit 1"
+                      ff="monospace"
+                      value={form.healthCmd}
+                      onChange={(e) => set({ healthCmd: e.currentTarget.value })}
+                    />
+                    <SimpleGrid cols={{ base: 2, sm: 4 }}>
+                      <TextInput
+                        label="Interval"
+                        placeholder="30s"
+                        value={form.healthInterval}
+                        onChange={(e) => set({ healthInterval: e.currentTarget.value })}
+                      />
+                      <TextInput
+                        label="Timeout"
+                        placeholder="30s"
+                        value={form.healthTimeout}
+                        onChange={(e) => set({ healthTimeout: e.currentTarget.value })}
+                      />
+                      <TextInput
+                        label="Start period"
+                        placeholder="0s"
+                        value={form.healthStartPeriod}
+                        onChange={(e) => set({ healthStartPeriod: e.currentTarget.value })}
+                      />
+                      <NumberInput
+                        label="Retries"
+                        placeholder="3"
+                        min={1}
+                        max={100}
+                        value={form.healthRetries}
+                        onChange={(v) => set({ healthRetries: String(v) })}
+                      />
+                    </SimpleGrid>
+                  </>
+                )}
+                <Switch
+                  label="Restart when unhealthy"
+                  description="nerdui restarts the container when its healthcheck fails, at most 3 times an hour (label nerdui.auto-heal=true)"
+                  checked={form.autoHeal}
+                  disabled={form.health === "none"}
+                  onChange={(e) => set({ autoHeal: e.currentTarget.checked })}
+                />
+              </Stack>
+            </Accordion.Panel>
+          </Accordion.Item>
         </Accordion>
 
         <Rows<LabelRow>

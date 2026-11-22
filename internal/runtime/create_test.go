@@ -96,6 +96,11 @@ func TestCreateArgsRejects(t *testing.T) {
 		"dns":                  {Image: "a", DNS: []string{"dns.example"}},
 		"extra host":           {Image: "a", ExtraHosts: []string{"db"}},
 		"extra host address":   {Image: "a", ExtraHosts: []string{"db:evil host"}},
+		"health interval":      {Image: "a", Healthcheck: &HealthcheckSpec{Interval: "soon"}},
+		"health timeout":       {Image: "a", Healthcheck: &HealthcheckSpec{Timeout: "48h"}},
+		"health retries":       {Image: "a", Healthcheck: &HealthcheckSpec{Retries: -1}},
+		"health command":       {Image: "a", Healthcheck: &HealthcheckSpec{Command: "a\nb"}},
+		"health disabled":      {Image: "a", Healthcheck: &HealthcheckSpec{Disabled: true, Command: "true"}},
 	} {
 		if _, err := CreateArgs(s); !errdefs.IsInvalidArgument(err) {
 			t.Errorf("%s: %v", name, err)
@@ -123,5 +128,22 @@ func TestCreateArgsAdvanced(t *testing.T) {
 	}
 	if !slices.Equal(got, want) {
 		t.Errorf("args\n got %q\nwant %q", got, want)
+	}
+}
+
+func TestCreateArgsHealthcheck(t *testing.T) {
+	got, err := CreateArgs(CreateSpec{Image: "a", Healthcheck: &HealthcheckSpec{
+		Command: "curl -f http://localhost/ || exit 1", Interval: "90s", Timeout: "5s", StartPeriod: "1m", Retries: 5,
+	}})
+	want := []string{
+		"--health-cmd=curl -f http://localhost/ || exit 1", "--health-interval=1m30s", "--health-timeout=5s",
+		"--health-start-period=1m0s", "--health-retries=5", "a",
+	}
+	if err != nil || !slices.Equal(got, want) {
+		t.Errorf("args %q %v", got, err)
+	}
+	if got, err := CreateArgs(CreateSpec{Image: "a", Healthcheck: &HealthcheckSpec{Disabled: true}}); err != nil ||
+		!slices.Equal(got, []string{"--no-healthcheck", "a"}) {
+		t.Errorf("disabled %q %v", got, err)
 	}
 }

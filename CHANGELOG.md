@@ -13,11 +13,15 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
   last results; a `container.unhealthy` notification reports containers that turn unhealthy,
   and containers labeled `nerdui.auto-heal=true` are restarted, at most 3 times an hour, with a
   `container.autoheal` notification (#22, ADR-0043).
+- Healthcheck in the container form: the image's, a custom command with interval, timeout,
+  start period and retries, or none, and a "Restart when unhealthy" switch (#237).
 
 ### Fixed
 
 - Restarting a container from nerdui (also from webhooks and stack operations) no longer sends
   a "container exited" notification.
+- Editing a container, automatic updates and webhooks that recreate it keep a healthcheck set
+  with `--health-cmd`; before, the new container had none (#237).
 
 ## [0.2.0-alpha.1] - 2026-11-22
 

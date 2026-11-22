@@ -39,6 +39,29 @@ describe("container settings round trip", () => {
     expect(toRequest(form).request.labels).toEqual(auto.labels);
     expect(toRequest({ ...form, autoUpdate: false }).request.labels).toEqual({ app: "web" });
   });
+
+  it("keeps the healthcheck and the auto-heal label", () => {
+    const healed: CreateRequest = {
+      ...spec,
+      labels: { app: "web", "nerdui.auto-heal": "true" },
+      healthcheck: { command: "test -f /ok", interval: "5s", retries: 2 },
+    };
+    const form = fromRequest(healed);
+    expect(form).toMatchObject({ health: "custom", healthCmd: "test -f /ok", autoHeal: true });
+    expect(form.labels).toEqual([{ key: "app", value: "web" }]);
+    expect(toRequest(form).request).toEqual({ ...healed, start: true });
+
+    const off = fromRequest({ ...spec, healthcheck: { disabled: true } });
+    expect(off.health).toBe("none");
+    // Auto-heal needs a healthcheck.
+    expect(toRequest({ ...off, autoHeal: true }).request).toEqual({
+      ...spec,
+      start: true,
+      healthcheck: { disabled: true },
+    });
+    expect(toRequest({ ...off, health: "image" }).request.healthcheck).toBeUndefined();
+    expect(toRequest({ ...off, health: "custom" }).request.healthcheck).toBeUndefined();
+  });
 });
 
 describe("edit container page", () => {
