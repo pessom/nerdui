@@ -3,6 +3,7 @@ module github.com/pessom/nerdui
 go 1.27.4
 
 require (
+	filippo.io/age v1.2.1
 	github.com/coder/websocket v1.8.15
 	github.com/compose-spec/compose-go/v2 v2.12.1
 	github.com/containerd/cgroups/v3 v3.1.3

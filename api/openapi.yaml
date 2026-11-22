@@ -827,6 +827,35 @@ paths:
         "404": { $ref: "#/components/responses/Error" }
         "501": { $ref: "#/components/responses/Error" }
         "502": { $ref: "#/components/responses/Error" }
+  /api/v1/backup:
+    post:
+      tags: [settings]
+      operationId: createBackup
+      summary: Download a backup of nerdui's data
+      description: |
+        Requires `settings:write` (#89, ADR-0047). An archive of the database (users, settings,
+        credentials, stacks, webhooks, …), the managed stacks and the Git stacks, encrypted with
+        the password (age, scrypt). Restore it with `nerdui admin restore` on a stopped nerdui.
+        Container data and volumes are not included.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [password]
+              additionalProperties: false
+              properties:
+                password: { type: string, minLength: 12, writeOnly: true }
+      responses:
+        "200":
+          description: Encrypted archive
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
   /api/v1/webhooks:
     get:
       tags: [webhooks]

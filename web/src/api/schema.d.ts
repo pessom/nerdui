@@ -610,6 +610,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/backup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Download a backup of nerdui's data
+         * @description Requires `settings:write` (#89, ADR-0047). An archive of the database (users, settings,
+         *     credentials, stacks, webhooks, …), the managed stacks and the Git stacks, encrypted with
+         *     the password (age, scrypt). Restore it with `nerdui admin restore` on a stopped nerdui.
+         *     Container data and volumes are not included.
+         */
+        post: operations["createBackup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/webhooks": {
         parameters: {
             query?: never;
@@ -5133,6 +5156,35 @@ export interface operations {
             404: components["responses"]["Error"];
             501: components["responses"]["Error"];
             502: components["responses"]["Error"];
+        };
+    };
+    createBackup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    password: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Encrypted archive */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
         };
     };
     listWebhooks: {

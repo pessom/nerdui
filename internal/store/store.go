@@ -162,3 +162,28 @@ func IsUniqueViolation(err error) bool {
 	code := se.Code()
 	return code == sqlite3.SQLITE_CONSTRAINT_UNIQUE || code == sqlite3.SQLITE_CONSTRAINT_PRIMARYKEY
 }
+
+// Snapshot writes a consistent copy of the database to path with VACUUM INTO (#89). path
+// must not exist.
+func (s *Store) Snapshot(ctx context.Context, path string) error {
+	if _, err := s.writer.ExecContext(ctx, "VACUUM INTO ?", path); err != nil {
+		return fmt.Errorf("snapshot database: %w", err)
+	}
+	return os.Chmod(path, FileMode)
+}
+
+// RewriteStackPaths replaces the directory prefix from with to in the paths of registered
+// stacks, after a restore to other directories (#89).
+func (s *Store) RewriteStackPaths(ctx context.Context, from, to string) (int64, error) {
+	from, to = filepath.Clean(from), filepath.Clean(to)
+	if from == to {
+		return 0, nil
+	}
+	res, err := s.writer.ExecContext(ctx,
+		`UPDATE stacks SET path = ?1 || substr(path, length(?2) + 1)
+		 WHERE path = ?2 OR substr(path, 1, length(?2) + 1) = ?2 || '/'`, to, from)
+	if err != nil {
+		return 0, fmt.Errorf("rewrite stack paths: %w", err)
+	}
+	return res.RowsAffected()
+}

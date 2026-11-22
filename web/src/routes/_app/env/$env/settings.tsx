@@ -10,6 +10,7 @@ import { GitCredentialsSettingsCard } from "../../../../features/settings/GitCre
 import { NotificationsSettingsCard } from "../../../../features/settings/NotificationsSettingsCard";
 import { ImageUpdatesSettingsCard } from "../../../../features/settings/ImageUpdatesSettingsCard";
 import { SecuritySettingsCard } from "../../../../features/settings/SecuritySettingsCard";
+import { BackupSettingsCard } from "../../../../features/settings/BackupSettingsCard";
 import { PrometheusSettingsCard } from "../../../../features/settings/PrometheusSettingsCard";
 
 const envRoute = getRouteApi("/_app/env/$env");
@@ -33,6 +34,7 @@ function SettingsPage() {
       <GitCredentialsSettingsCard />
       <WebhooksSettingsCard env={env} namespace={namespace} />
       <SecuritySettingsCard />
+      <BackupSettingsCard />
     </Stack>
   );
 }
