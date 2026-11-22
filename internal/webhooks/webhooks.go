@@ -294,6 +294,23 @@ func (s *Service) Call(ctx context.Context, token string) (Webhook, jobs.Job, er
 }
 
 func (s *Service) start(ctx context.Context, w db.Webhook) (jobs.Job, error) {
+	return s.StartAction(ctx, Action{
+		Environment: w.Environment, Namespace: w.Namespace, TargetKind: w.TargetKind, Target: w.Target,
+		Action: w.Action, User: "webhook " + w.Name, Label: "webhook " + w.Name,
+	})
+}
+
+// Action is a restart or redeploy of a stack or container, run by a webhook or a schedule.
+type Action struct {
+	Environment, Namespace string
+	TargetKind, Target     string
+	Action                 string
+	// User is the job's user; Label is added to the job title, e.g. "webhook ci".
+	User, Label string
+}
+
+// StartAction starts the job of an action.
+func (s *Service) StartAction(ctx context.Context, w Action) (jobs.Job, error) {
 	env, ok := s.Environments.Get(w.Environment)
 	if !ok {
 		return jobs.Job{}, fmt.Errorf("%w: environment %q is gone", errdefs.ErrFailedPrecondition, w.Environment)
@@ -303,7 +320,7 @@ func (s *Service) start(ctx context.Context, w db.Webhook) (jobs.Job, error) {
 	}
 	ns, name := w.Namespace, w.Target
 	spec := jobs.Spec{
-		Environment: env.ID, Namespace: ns, User: "webhook " + w.Name,
+		Environment: env.ID, Namespace: ns, User: w.User,
 		Resource: fmt.Sprintf("env/%s/ns/%s/%s/%s", env.ID, ns, w.TargetKind, name),
 	}
 	var fn jobs.Func
@@ -322,12 +339,12 @@ func (s *Service) start(ctx context.Context, w db.Webhook) (jobs.Job, error) {
 		rt, compose, dir := env.Runtime, env.Runtime.Compose(), def.Dir
 		spec.Action = string(authz.StacksDeploy)
 		if w.Action == ActionRestart {
-			spec.Kind, spec.Title = "stack.restart", "Restart stack "+name+" (webhook "+w.Name+")"
+			spec.Kind, spec.Title = "stack.restart", "Restart stack "+name+" ("+w.Label+")"
 			fn = func(ctx context.Context, out *jobs.Output) error {
 				return compose.Run(ctx, ns, name, dir, runtime.ComposeRestart, runtime.ComposeOptions{}, out)
 			}
 		} else {
-			spec.Kind, spec.Title = "stack.up", "Redeploy stack "+name+" (webhook "+w.Name+")"
+			spec.Kind, spec.Title = "stack.up", "Redeploy stack "+name+" ("+w.Label+")"
 			fn = func(ctx context.Context, out *jobs.Output) error {
 				return runtime.Redeploy(ctx, rt, ns, name, dir, runtime.RedeployOptions{}, out)
 			}
@@ -340,12 +357,12 @@ func (s *Service) start(ctx context.Context, w db.Webhook) (jobs.Job, error) {
 		}
 		spec.Action = string(authz.ContainersWrite)
 		if w.Action == ActionRestart {
-			spec.Kind, spec.Title = "container.restart", "Restart container "+name+" (webhook "+w.Name+")"
+			spec.Kind, spec.Title = "container.restart", "Restart container "+name+" ("+w.Label+")"
 			fn = func(ctx context.Context, _ *jobs.Output) error {
 				return containers.Do(ctx, ns, id, runtime.ActionRestart, runtime.ActionOptions{})
 			}
 		} else {
-			spec.Kind, spec.Title = "container.recreate", "Redeploy container "+name+" (webhook "+w.Name+")"
+			spec.Kind, spec.Title = "container.recreate", "Redeploy container "+name+" ("+w.Label+")"
 			fn = func(ctx context.Context, out *jobs.Output) error {
 				cur, err := containers.Spec(ctx, ns, id)
 				if err != nil {

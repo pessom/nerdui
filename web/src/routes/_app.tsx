@@ -16,6 +16,7 @@ import {
   IconKey,
   IconLayoutDashboard,
   IconStack3,
+  IconClock,
   IconListSearch,
   IconUsers,
 } from "@tabler/icons-react";
@@ -196,6 +197,12 @@ function AppLayout() {
                 to="/users"
                 label="Users"
                 leftSection={<IconUsers size={18} stroke={1.5} />}
+                onClick={close}
+              />
+              <RouterNavLink
+                to="/schedules"
+                label="Schedules"
+                leftSection={<IconClock size={18} stroke={1.5} />}
                 onClick={close}
               />
               <RouterNavLink

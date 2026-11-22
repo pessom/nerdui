@@ -24,6 +24,7 @@ import (
 	"github.com/pessom/nerdui/internal/jobs"
 	"github.com/pessom/nerdui/internal/notify"
 	"github.com/pessom/nerdui/internal/runtime"
+	"github.com/pessom/nerdui/internal/scheduler"
 	"github.com/pessom/nerdui/internal/stacks"
 	"github.com/pessom/nerdui/internal/webhooks"
 )
@@ -62,7 +63,9 @@ type Handler struct {
 	PrometheusHTTP *http.Client
 	// Backup is what an application backup contains (#89); nil disables backups.
 	Backup *backup.Source
-	Logger *slog.Logger
+	// Schedules are the scheduled jobs (#82); nil disables them.
+	Schedules *scheduler.Service
+	Logger    *slog.Logger
 }
 
 // Routes registers the environment endpoints under the API root.
@@ -74,6 +77,7 @@ func (h *Handler) Routes(r chi.Router, g *authz.Guard) {
 	h.gitRoutes(r, g)
 	h.webhookRoutes(r, g)
 	h.backupRoutes(r, g)
+	h.scheduleRoutes(r, g)
 	r.Method(http.MethodGet, "/compose-schema", g.Protect(authz.StacksRead, h.composeSchema))
 	r.Route("/environments/{env}", func(r chi.Router) {
 		r.Use(h.resolveEnv)
@@ -82,8 +86,6 @@ func (h *Handler) Routes(r chi.Router, g *authz.Guard) {
 		r.Method(http.MethodPut, "/settings/prometheus", g.Protect(authz.SettingsWrite, h.putPrometheusSettings))
 		r.Method(http.MethodDelete, "/settings/prometheus", g.Protect(authz.SettingsWrite, h.deletePrometheusSettings))
 		r.Method(http.MethodPost, "/settings/prometheus/test", g.Protect(authz.SettingsWrite, h.testPrometheusSettings))
-		r.Method(http.MethodGet, "/settings/image-updates", g.Protect(authz.SettingsRead, h.getImageUpdateSettings))
-		r.Method(http.MethodPut, "/settings/image-updates", g.Protect(authz.SettingsWrite, h.putImageUpdateSettings))
 		r.Method(http.MethodGet, "/settings/auto-updates", g.Protect(authz.SettingsRead, h.getAutoUpdateSettings))
 		r.Method(http.MethodPut, "/settings/auto-updates", g.Protect(authz.SettingsWrite, h.putAutoUpdateSettings))
 		// Update checks only ask registries: they work in read-only mode too (#53).

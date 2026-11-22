@@ -19,18 +19,10 @@ import (
 type ImageUpdates interface {
 	Overview(ctx context.Context, env *environment.Environment, ns string) (updates.Overview, error)
 	Check(ctx context.Context, env *environment.Environment, ref string) (updates.Report, error)
-	Interval(ctx context.Context, env string) (time.Duration, error)
-	SetInterval(ctx context.Context, env string, d time.Duration) error
 }
 
 // checkTimeout bounds a check started from the UI.
 const checkTimeout = 3 * time.Minute
-
-// ImageUpdateSettings is the schedule of an environment's checks.
-type ImageUpdateSettings struct {
-	// IntervalSeconds is 0 (off), 3600, 21600, 43200 or 86400.
-	IntervalSeconds int64 `json:"intervalSeconds"`
-}
 
 // CheckImageUpdatesRequest checks one reference, or all used ones when empty.
 type CheckImageUpdatesRequest struct {
@@ -84,43 +76,6 @@ func (h *Handler) checkImageUpdates(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpjson.Write(w, http.StatusOK, rep)
-}
-
-// GET /api/v1/environments/{env}/settings/image-updates
-func (h *Handler) getImageUpdateSettings(w http.ResponseWriter, r *http.Request) {
-	if h.imageUpdatesDisabled(w) {
-		return
-	}
-	d, err := h.ImageUpdates.Interval(r.Context(), EnvFrom(r.Context()).ID)
-	if err != nil {
-		httpjson.WriteErr(w, r, h.Logger, err)
-		return
-	}
-	httpjson.Write(w, http.StatusOK, ImageUpdateSettings{IntervalSeconds: int64(d / time.Second)})
-}
-
-// PUT /api/v1/environments/{env}/settings/image-updates  ImageUpdateSettings
-func (h *Handler) putImageUpdateSettings(w http.ResponseWriter, r *http.Request) {
-	if h.imageUpdatesDisabled(w) {
-		return
-	}
-	var in ImageUpdateSettings
-	if !httpjson.Decode(w, r, &in) {
-		return
-	}
-	env := EnvFrom(r.Context()).ID
-	err := h.ImageUpdates.SetInterval(r.Context(), env, time.Duration(in.IntervalSeconds)*time.Second)
-	if errors.Is(err, updates.ErrInvalidInterval) {
-		httpjson.WriteError(w, http.StatusBadRequest, httpjson.CodeInvalidArgument,
-			"intervalSeconds must be 0, 3600, 21600, 43200 or 86400")
-		return
-	}
-	if err != nil {
-		httpjson.WriteErr(w, r, h.Logger, err)
-		return
-	}
-	h.log().Info("image update settings saved", "environment", env, "interval", time.Duration(in.IntervalSeconds)*time.Second)
-	httpjson.Write(w, http.StatusOK, in)
 }
 
 // AutoUpdates is the log of automatic updates (#54, ADR-0032); *updates.Updater implements it.

@@ -33,6 +33,7 @@ import (
 	"github.com/pessom/nerdui/internal/notify"
 	"github.com/pessom/nerdui/internal/proxy"
 	"github.com/pessom/nerdui/internal/runtime"
+	"github.com/pessom/nerdui/internal/scheduler"
 	"github.com/pessom/nerdui/internal/stacks"
 	"github.com/pessom/nerdui/internal/tlsutil"
 	"github.com/pessom/nerdui/internal/version"
@@ -43,6 +44,8 @@ import (
 type Config struct {
 	// Backup is what an application backup contains (#89); nil disables backups.
 	Backup *backup.Source
+	// Schedules are the scheduled jobs (#82); nil disables them.
+	Schedules *scheduler.Service
 	// BasePath is the path prefix nerdui is served under, e.g. /nerdui, or "" (#222).
 	BasePath string
 	// Auth provides sessions and the authentication endpoints (required).
@@ -152,7 +155,7 @@ func New(cfg Config) http.Handler {
 				ExecDisabled: cfg.DisableExec, Settings: cfg.Settings, Stacks: cfg.Stacks, GitStacks: cfg.GitStacks, Webhooks: cfg.Webhooks,
 				ImageUpdates: cfg.ImageUpdates, AutoUpdates: cfg.AutoUpdates, Logger: cfg.Logger,
 				Notifications: cfg.Notifications, Notifier: cfg.Notifier, Audit: auditLog,
-				Backup: cfg.Backup,
+				Backup: cfg.Backup, Schedules: cfg.Schedules,
 			}).Routes(r, guard)
 		})
 	})

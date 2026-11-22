@@ -29,6 +29,15 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
   the database (users, settings, credentials) and the managed and Git stacks;
   `nerdui admin restore` restores it on a stopped nerdui, also on a new server with other
   directories (#89, ADR-0047).
+- Schedules: cron schedules for prune, backups of nerdui (kept in a host directory, newest N),
+  restarts and redeploys of stacks and containers, and image update checks, with a history of
+  runs, manual runs and descriptions in words; Git polling is listed there too (#82, ADR-0048).
+
+### Changed
+
+- Image update checks run from a schedule under Schedules: the interval set in Settings → Image
+  updates becomes that schedule at the first start. The API endpoints
+  `GET/PUT /environments/{env}/settings/image-updates` are removed.
 
 ### Fixed
 

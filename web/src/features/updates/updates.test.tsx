@@ -21,7 +21,6 @@ const image = (name: string, digest: string): Image => ({
 });
 
 const overview = (checked: boolean): ImageUpdateOverview => ({
-  intervalSeconds: 21600,
   running: false,
   lastCheck: checked ? "2027-03-01T11:00:00Z" : undefined,
   images: checked
@@ -83,18 +82,11 @@ describe("image updates", () => {
     expect(calls.find((c) => c.method === "POST")?.body).toEqual({});
   });
 
-  it("saves the check schedule in Settings", async () => {
-    let interval = 21600;
+  it("shows checks and automatic updates in Settings", async () => {
     let approved = false;
     const { calls } = fakeApi({
       ...signedIn,
       "GET /api/v1/environments/local/settings/prometheus": () => json(200, { configured: false }),
-      "GET /api/v1/environments/local/settings/image-updates": () =>
-        json(200, { intervalSeconds: interval }),
-      "PUT /api/v1/environments/local/settings/image-updates": (c) => {
-        interval = (c.body as { intervalSeconds: number }).intervalSeconds;
-        return json(200, { intervalSeconds: interval });
-      },
       "GET /api/v1/environments/local/image-updates": () => json(200, overview(true)),
       "GET /api/v1/environments/local/settings/auto-updates": () =>
         json(200, { delaySeconds: 0, maxBatch: 5 }),
@@ -147,12 +139,11 @@ describe("image updates", () => {
     renderApp("/env/local/settings");
 
     const card = await screen.findByRole("region", { name: "Image updates" });
-    const select = await within(card).findByLabelText("Check automatically", { selector: "input" });
-    expect(select).toHaveValue("Every 6 hours");
-    expect(within(card).getByText(/Last check/)).toBeInTheDocument();
-    fireEvent.click(select);
-    fireEvent.click(await screen.findByRole("option", { name: "Every day", hidden: true }));
-    await waitFor(() => expect(interval).toBe(86400));
+    expect(await within(card).findByText(/Last check/)).toBeInTheDocument();
+    expect(within(card).getByRole("link", { name: "Schedules" })).toHaveAttribute(
+      "href",
+      "/schedules",
+    );
 
     const log = within(card).getByRole("region", { name: "Automatic updates" });
     expect(await within(log).findByText("Stack app")).toBeInTheDocument();

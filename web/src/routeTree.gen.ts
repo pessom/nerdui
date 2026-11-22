@@ -18,6 +18,7 @@ import { Route as SetupMfaRouteImport } from './routes/setup-mfa'
 import { Route as AppApiDocsRouteImport } from './routes/_app/api-docs'
 import { Route as AppApiKeysRouteImport } from './routes/_app/api-keys'
 import { Route as AppAuditRouteImport } from './routes/_app/audit'
+import { Route as AppSchedulesRouteImport } from './routes/_app/schedules'
 import { Route as AppSecurityRouteImport } from './routes/_app/security'
 import { Route as AppUsersRouteImport } from './routes/_app/users'
 import { Route as AppEnvEnvRouteImport } from './routes/_app/env/$env'
@@ -79,6 +80,11 @@ const AppApiKeysRoute = AppApiKeysRouteImport.update({
 const AppAuditRoute = AppAuditRouteImport.update({
   id: '/audit',
   path: '/audit',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSchedulesRoute = AppSchedulesRouteImport.update({
+  id: '/schedules',
+  path: '/schedules',
   getParentRoute: () => AppRoute,
 } as any)
 const AppSecurityRoute = AppSecurityRouteImport.update({
@@ -182,6 +188,7 @@ export interface FileRoutesByFullPath {
   '/api-docs': typeof AppApiDocsRoute
   '/api-keys': typeof AppApiKeysRoute
   '/audit': typeof AppAuditRoute
+  '/schedules': typeof AppSchedulesRoute
   '/security': typeof AppSecurityRoute
   '/users': typeof AppUsersRoute
   '/env/$env': typeof AppEnvEnvRouteWithChildren
@@ -210,6 +217,7 @@ export interface FileRoutesByTo {
   '/api-docs': typeof AppApiDocsRoute
   '/api-keys': typeof AppApiKeysRoute
   '/audit': typeof AppAuditRoute
+  '/schedules': typeof AppSchedulesRoute
   '/security': typeof AppSecurityRoute
   '/users': typeof AppUsersRoute
   '/env/$env/containers': typeof AppEnvEnvContainersRoute
@@ -239,6 +247,7 @@ export interface FileRoutesById {
   '/_app/api-docs': typeof AppApiDocsRoute
   '/_app/api-keys': typeof AppApiKeysRoute
   '/_app/audit': typeof AppAuditRoute
+  '/_app/schedules': typeof AppSchedulesRoute
   '/_app/security': typeof AppSecurityRoute
   '/_app/users': typeof AppUsersRoute
   '/_app/env/$env': typeof AppEnvEnvRouteWithChildren
@@ -269,6 +278,7 @@ export interface FileRouteTypes {
     | '/api-docs'
     | '/api-keys'
     | '/audit'
+    | '/schedules'
     | '/security'
     | '/users'
     | '/env/$env'
@@ -297,6 +307,7 @@ export interface FileRouteTypes {
     | '/api-docs'
     | '/api-keys'
     | '/audit'
+    | '/schedules'
     | '/security'
     | '/users'
     | '/env/$env/containers'
@@ -325,6 +336,7 @@ export interface FileRouteTypes {
     | '/_app/api-docs'
     | '/_app/api-keys'
     | '/_app/audit'
+    | '/_app/schedules'
     | '/_app/security'
     | '/_app/users'
     | '/_app/env/$env'
@@ -417,6 +429,13 @@ declare module '@tanstack/react-router' {
       path: '/audit'
       fullPath: '/audit'
       preLoaderRoute: typeof AppAuditRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/_app/schedules': {
+      id: '/_app/schedules'
+      path: '/schedules'
+      fullPath: '/schedules'
+      preLoaderRoute: typeof AppSchedulesRouteImport
       parentRoute: typeof AppRoute
     }
     '/_app/security': {
@@ -592,6 +611,7 @@ interface AppRouteChildren {
   AppApiDocsRoute: typeof AppApiDocsRoute
   AppApiKeysRoute: typeof AppApiKeysRoute
   AppAuditRoute: typeof AppAuditRoute
+  AppSchedulesRoute: typeof AppSchedulesRoute
   AppSecurityRoute: typeof AppSecurityRoute
   AppUsersRoute: typeof AppUsersRoute
   AppEnvEnvRoute: typeof AppEnvEnvRouteWithChildren
@@ -601,6 +621,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppApiDocsRoute: AppApiDocsRoute,
   AppApiKeysRoute: AppApiKeysRoute,
   AppAuditRoute: AppAuditRoute,
+  AppSchedulesRoute: AppSchedulesRoute,
   AppSecurityRoute: AppSecurityRoute,
   AppUsersRoute: AppUsersRoute,
   AppEnvEnvRoute: AppEnvEnvRouteWithChildren,
