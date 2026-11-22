@@ -3,7 +3,7 @@
 
 import { Alert, Button, Group, Loader, Title, Tooltip } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { IconDownload } from "@tabler/icons-react";
+import { IconDownload, IconFileImport } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi } from "@tanstack/react-router";
 import { useState } from "react";
@@ -18,6 +18,8 @@ import { ImagesTable } from "../../../../features/images/ImagesTable";
 import { RemoveImagesDialog, TagDialog } from "../../../../features/images/ImageActions";
 import { ImageHistoryDialog } from "../../../../features/images/ImageHistoryDialog";
 import { ImageJobDialog } from "../../../../features/images/ImageJobDialog";
+import { ImageLoadDialog } from "../../../../features/images/ImageLoadDialog";
+import { downloadImages } from "../../../../features/images/archive";
 import { CheckUpdatesButton } from "../../../../features/updates/CheckUpdatesButton";
 import { ImageUpdatesContext } from "../../../../features/updates/context";
 
@@ -36,6 +38,7 @@ function ImagesPage() {
   const list = useQuery(imagesQuery(env, namespace));
   const updates = useQuery(imageUpdatesQuery(env, namespace));
   const [pulling, { open, close }] = useDisclosure();
+  const [loading, loadDialog] = useDisclosure();
   const [history, setHistory] = useState<Image>();
   const [tagging, setTagging] = useState<Image>();
   const [pushing, setPushing] = useState<Image>();
@@ -54,6 +57,16 @@ function ImagesPage() {
         <Group gap="sm">
           {updates.data && <CheckUpdatesButton env={env} overview={updates.data} />}
           <Tooltip label="Read-only mode: host nerdctl is incompatible" disabled={!readOnly}>
+            <Button
+              variant="default"
+              leftSection={<IconFileImport size={16} />}
+              onClick={loadDialog.open}
+              disabled={readOnly}
+            >
+              Load
+            </Button>
+          </Tooltip>
+          <Tooltip label="Read-only mode: host nerdctl is incompatible" disabled={!readOnly}>
             <Button leftSection={<IconDownload size={16} />} onClick={open} disabled={readOnly}>
               Pull image
             </Button>
@@ -66,6 +79,12 @@ function ImagesPage() {
         namespace={namespace}
         opened={pulling}
         onClose={close}
+      />
+      <ImageLoadDialog
+        env={env}
+        namespace={namespace}
+        opened={loading}
+        onClose={loadDialog.close}
       />
       <ImageJobDialog
         key={pushing?.name ?? ""}
@@ -109,6 +128,12 @@ function ImagesPage() {
               tag: setTagging,
               push: setPushing,
               remove: setRemoving,
+              save: (imgs) =>
+                downloadImages(
+                  env,
+                  namespace,
+                  imgs.map((i) => i.name),
+                ),
               disabled: readOnly ? "Read-only mode: host nerdctl is incompatible" : undefined,
             }}
           />

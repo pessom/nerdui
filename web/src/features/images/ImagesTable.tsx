@@ -22,6 +22,7 @@ import {
   IconChevronUp,
   IconSearch,
   IconSelector,
+  IconFileExport,
   IconTrash,
 } from "@tabler/icons-react";
 import {
@@ -239,6 +240,14 @@ export function ImagesTable({
             <Group gap="xs">
               <Button size="xs" variant="default" onClick={() => setSelectedNames(new Set())}>
                 Clear
+              </Button>
+              <Button
+                size="xs"
+                variant="default"
+                leftSection={<IconFileExport size={14} />}
+                onClick={() => actions.save(selected)}
+              >
+                Save as tar
               </Button>
               <Button
                 size="xs"

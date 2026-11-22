@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Image } from "../../api/queries";
 import { renderApp, signedIn } from "../../test/render";
 import { SilentWebSocket, fakeApi, json } from "../../test/server";
+import { saveUrl } from "./archive";
 import { displayName, matchesUsage, shortID } from "./format";
 
 const img = (over: Partial<Image>): Image => ({
@@ -244,5 +245,81 @@ describe("image actions", () => {
     expect(within(dialog).getByRole("button", { name: "Remove" })).toBeDisabled();
     fireEvent.click(within(dialog).getByLabelText(/Force/));
     expect(within(dialog).getByRole("button", { name: "Remove" })).toBeEnabled();
+  });
+});
+
+const listedImages = () => json(200, { namespace: "default", images });
+
+describe("image archives", () => {
+  beforeEach(() => vi.stubGlobal("WebSocket", SilentWebSocket));
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("builds the download URL", () => {
+    expect(saveUrl("local", "k8s.io", ["docker.io/library/nginx:1.27", "app:1"])).toBe(
+      "/api/v1/environments/local/images/save?namespace=k8s.io&ref=docker.io%2Flibrary%2Fnginx%3A1.27&ref=app%3A1",
+    );
+  });
+
+  it("saves an image from its menu", async () => {
+    fakeApi({ ...signedIn, "GET /api/v1/environments/local/images": listedImages });
+    const clicked: string[] = [];
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (
+      this: HTMLAnchorElement,
+    ) {
+      clicked.push(this.getAttribute("href") ?? "");
+    });
+    renderApp("/env/local/images");
+    fireEvent.click(await screen.findByRole("button", { name: "Actions for nginx:1.27" }));
+    const menu = await screen.findByRole("menu", { hidden: true });
+    fireEvent.click(within(menu).getByRole("menuitem", { name: "Save as tar", hidden: true }));
+    expect(clicked).toEqual([
+      "/api/v1/environments/local/images/save?namespace=default&ref=docker.io%2Flibrary%2Fnginx%3A1.27",
+    ]);
+    click.mockRestore();
+  });
+
+  it("uploads an archive and lists the loaded images", async () => {
+    fakeApi({ ...signedIn, "GET /api/v1/environments/local/images": listedImages });
+    const sent: { url: string; headers: Record<string, string>; body: unknown }[] = [];
+    class FakeXHR {
+      upload: { onprogress?: (e: ProgressEvent) => void } = {};
+      status = 0;
+      statusText = "";
+      responseText = "";
+      onload?: () => void;
+      onerror?: () => void;
+      onabort?: () => void;
+      private req = { url: "", headers: {} as Record<string, string>, body: undefined as unknown };
+      open(_method: string, url: string) {
+        this.req.url = url;
+      }
+      setRequestHeader(k: string, v: string) {
+        this.req.headers[k] = v;
+      }
+      abort() {}
+      send(body: unknown) {
+        this.req.body = body;
+        sent.push(this.req);
+        this.upload.onprogress?.({ lengthComputable: true, loaded: 5, total: 10 } as ProgressEvent);
+        setTimeout(() => {
+          this.status = 200;
+          this.responseText = JSON.stringify({ images: ["docker.io/library/app:1"] });
+          this.onload?.();
+        }, 0);
+      }
+    }
+    vi.stubGlobal("XMLHttpRequest", FakeXHR);
+    renderApp("/env/local/images");
+    fireEvent.click(await screen.findByRole("button", { name: "Load" }));
+    const dialog = await screen.findByRole("dialog", { name: "Load images" });
+    const file = new File(["tar"], "app.tar.gz");
+    const input = dialog.querySelector('input[type="file"]') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [file] } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Load" }));
+    expect(await within(dialog).findByText("docker.io/library/app:1")).toBeInTheDocument();
+    expect(within(dialog).getByText("Loaded 1 image")).toBeInTheDocument();
+    expect(sent[0]?.url).toBe("/api/v1/environments/local/images/load?namespace=default");
+    expect(sent[0]?.headers["Content-Type"]).toBe("application/gzip");
+    expect(sent[0]?.body).toBe(file);
   });
 });

@@ -1538,6 +1538,76 @@ paths:
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
         "503": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/images/save:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - $ref: "#/components/parameters/Namespace"
+    get:
+      tags: [images]
+      operationId: saveImages
+      summary: Download images as a tar archive
+      description: |
+        Requires `images:write` (#46). The images for the host's platform as one tar archive,
+        like `nerdctl save`; `nerdctl load` and `docker load` read it. Also available in
+        read-only mode. A failure after the archive started aborts the connection.
+      parameters:
+        - name: ref
+          in: query
+          required: true
+          description: Image names as listed, e.g. docker.io/library/nginx:1.27 (1 to 50)
+          schema: { type: array, items: { type: string }, minItems: 1, maxItems: 50 }
+          style: form
+          explode: true
+      responses:
+        "200":
+          description: Tar archive
+          headers:
+            Content-Disposition: { schema: { type: string }, description: 'attachment; filename="nginx_1.27.tar"' }
+          content:
+            application/x-tar:
+              schema: { type: string, format: binary }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/images/load:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - $ref: "#/components/parameters/Namespace"
+    post:
+      tags: [images]
+      operationId: loadImages
+      summary: Load images from a tar archive
+      description: |
+        Requires `images:write` and a compatible host nerdctl (#46). Imports the images of an
+        archive from `nerdctl save` or `docker save` (optionally gzip-compressed) for the host's
+        platform and unpacks them, like `nerdctl load`. Images without a name are named
+        `import-<date>@<digest>`. Returns the images created or updated.
+      requestBody:
+        required: true
+        content:
+          application/x-tar:
+            schema: { type: string, format: binary }
+          application/gzip:
+            schema: { type: string, format: binary }
+          application/octet-stream:
+            schema: { type: string, format: binary }
+      responses:
+        "200":
+          description: Loaded images
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [images]
+                properties:
+                  images: { type: array, items: { type: string } }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "415": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
   /api/v1/environments/{env}/images/pull:
     parameters:
       - $ref: "#/components/parameters/Env"

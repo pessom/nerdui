@@ -14,6 +14,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -87,6 +88,8 @@ type fakeRuntime struct {
 	recreated    []runtime.CreateSpec
 	procs        []runtime.Process
 	history      []runtime.HistoryEntry
+	loaded       []byte // the body of the last image load
+	saveErr      error
 	recreatePull bool
 }
 
@@ -451,6 +454,40 @@ func (fi fakeImages) Push(_ context.Context, ns, ref string, opts runtime.PushOp
 	fi.f.mu.Unlock()
 	_, _ = io.WriteString(out, "pushing "+ref+"\n")
 	return fi.f.imageErr[ref]
+}
+
+func (fi fakeImages) CheckSave(_ context.Context, ns string, names []string) error {
+	fi.f.mu.Lock()
+	defer fi.f.mu.Unlock()
+	fi.f.gotNS = ns
+	if len(names) == 0 {
+		return fmt.Errorf("%w: 1 to 50 images are required", errdefs.ErrInvalidArgument)
+	}
+	for _, n := range names {
+		if !slices.ContainsFunc(fi.f.images, func(img runtime.Image) bool { return img.Name == n }) {
+			return fmt.Errorf("image %s: %w", n, errdefs.ErrNotFound)
+		}
+	}
+	return nil
+}
+
+func (fi fakeImages) Save(ctx context.Context, ns string, names []string, w io.Writer) error {
+	if err := fi.CheckSave(ctx, ns, names); err != nil {
+		return err
+	}
+	_, _ = io.WriteString(w, "TAR:"+strings.Join(names, ","))
+	return fi.f.saveErr
+}
+
+func (fi fakeImages) Load(_ context.Context, ns string, r io.Reader) ([]string, error) {
+	b, err := io.ReadAll(r)
+	fi.f.mu.Lock()
+	defer fi.f.mu.Unlock()
+	fi.f.gotNS, fi.f.loaded = ns, b
+	if err != nil || string(b) == "bad" {
+		return nil, fmt.Errorf("%w: not an image archive", errdefs.ErrInvalidArgument)
+	}
+	return []string{"docker.io/library/app:1"}, nil
 }
 
 type pushCall struct {
