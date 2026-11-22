@@ -55,3 +55,23 @@ export function portBindings(c: ContainerInspect): PortBinding[] {
 export function inspectJSON(c: ContainerInspect): string {
   return JSON.stringify(c, null, 4);
 }
+
+/** The healthcheck command as `--health-cmd` shows it; undefined when checks are disabled. */
+export function healthTest(test: readonly string[] | null | undefined): string | undefined {
+  if (!test?.length || test[0] === "NONE") return undefined;
+  const [kind, ...rest] = test;
+  if (kind === "CMD-SHELL") return rest.join(" ");
+  if (kind === "CMD") return rest.map(quoteArg).join(" ");
+  return test.map(quoteArg).join(" ");
+}
+
+/** A Go duration in nanoseconds as "1m30s", "500ms"; undefined for 0 (the default). */
+export function goDuration(ns: number | undefined): string | undefined {
+  if (!ns) return undefined;
+  if (ns < 1e9) return `${Math.round(ns / 1e6)}ms`;
+  let s = Math.round(ns / 1e9);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  s %= 60;
+  return [h && `${h}h`, m && `${m}m`, s && `${s}s`].filter(Boolean).join("");
+}

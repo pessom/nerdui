@@ -3571,7 +3571,7 @@ components:
         userAgent: { type: string }
     NotificationKind:
       type: string
-      enum: [image.update, autoupdate.updated, autoupdate.failed, autoupdate.pending, container.died, container.oom, job.failed, git.update]
+      enum: [image.update, autoupdate.updated, autoupdate.failed, autoupdate.pending, container.died, container.oom, container.unhealthy, container.autoheal, job.failed, git.update]
     NotificationConfig:
       type: object
       description: |
@@ -3886,6 +3886,23 @@ components:
             Error: { type: string }
             StartedAt: { type: string }
             FinishedAt: { type: string }
+            Health:
+              type: [object, "null"]
+              description: Healthcheck state with the last results, newest first (#22).
+              additionalProperties: true
+              properties:
+                Status: { type: string, description: "starting, healthy or unhealthy" }
+                FailingStreak: { type: integer }
+                Log:
+                  type: [array, "null"]
+                  items:
+                    type: object
+                    additionalProperties: true
+                    properties:
+                      Start: { type: string }
+                      End: { type: string }
+                      ExitCode: { type: integer }
+                      Output: { type: string }
         HostConfig:
           type: [object, "null"]
           additionalProperties: true
@@ -3920,6 +3937,16 @@ components:
             Cmd: { type: array, items: { type: string } }
             Entrypoint: { type: array, items: { type: string } }
             Labels: { type: object, additionalProperties: { type: string } }
+            Healthcheck:
+              type: [object, "null"]
+              description: Healthcheck configuration; durations in nanoseconds.
+              additionalProperties: true
+              properties:
+                Test: { type: [array, "null"], items: { type: string } }
+                Interval: { type: integer }
+                Timeout: { type: integer }
+                Retries: { type: integer }
+                StartPeriod: { type: integer }
         NetworkSettings:
           type: [object, "null"]
           additionalProperties: true

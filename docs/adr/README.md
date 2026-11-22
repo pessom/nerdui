@@ -51,3 +51,4 @@ We record significant architectural decisions as ADRs
 | 0040 | [Automatic updates of Git stacks: polling and webhooks](0040-git-stack-auto-updates.md) | Accepted |
 | 0041 | [Incoming webhooks](0041-incoming-webhooks.md) | Accepted |
 | 0042 | [Redeploying stacks with new images, and operations on one service](0042-stack-redeploy-and-service-operations.md) | Accepted |
+| 0043 | [Container health reports and restarts of unhealthy containers](0043-health-and-auto-heal.md) | Accepted |

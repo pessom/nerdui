@@ -13,6 +13,8 @@ const kinds = [
   "autoupdate.pending",
   "container.died",
   "container.oom",
+  "container.unhealthy",
+  "container.autoheal",
   "job.failed",
 ];
 

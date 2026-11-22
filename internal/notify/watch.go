@@ -113,7 +113,11 @@ func (w *Watcher) handle(ctx context.Context, ev runtime.Event, delay time.Durat
 		out.Title = "Container " + name + " ran out of memory"
 		out.Message = "Image " + ct.Image
 	case "exit":
-		if ct.Labels[explicitlyStopped] == "true" {
+		project := ""
+		if ct.Compose != nil {
+			project = ct.Compose.Project
+		}
+		if ct.Labels[explicitlyStopped] == "true" || runtime.ExpectedExit(ev.Namespace, ct.ID, project, ev.Timestamp) {
 			return
 		}
 		code, _ := strconv.Atoi(ev.Attributes["exitStatus"])
