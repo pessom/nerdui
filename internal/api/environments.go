@@ -151,6 +151,10 @@ func (h *Handler) runtimeRoutes(r chi.Router, g *authz.Guard) {
 	r.Method(http.MethodGet, "/volumes", g.Protect(authz.VolumesRead, h.listVolumes))
 	r.Method(http.MethodPost, "/volumes", g.Protect(authz.VolumesWrite, h.createVolume))
 	r.Method(http.MethodDelete, "/volumes/{name}", g.Protect(authz.VolumesWrite, h.removeVolume))
+	// Volume contents may hold secrets: reading them needs volumes:write (#58, ADR-0045).
+	r.Method(http.MethodGet, "/volumes/{name}/files", g.Protect(authz.VolumesWrite, h.listVolumeFiles))
+	r.Method(http.MethodGet, "/volumes/{name}/files/preview", g.Protect(authz.VolumesWrite, h.previewVolumeFile))
+	r.Method(http.MethodGet, "/volumes/{name}/files/download", g.Protect(authz.VolumesWrite, h.downloadVolumeFile))
 	r.Method(http.MethodGet, "/registries", g.Protect(authz.RegistriesRead, h.listRegistries))
 	r.Method(http.MethodPost, "/registries", g.Protect(authz.RegistriesWrite, h.loginRegistry))
 	r.Method(http.MethodDelete, "/registries", g.Protect(authz.RegistriesWrite, h.logoutRegistry))

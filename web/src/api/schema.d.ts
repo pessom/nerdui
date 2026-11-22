@@ -2054,6 +2054,91 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/environments/{env}/volumes/{name}/files": {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * List a directory of a volume
+         * @description Requires `volumes:write`: a volume's files may hold secrets (#58, ADR-0045). Read on the
+         *     host, read-only; paths cannot leave the volume, also not through symlinks. Directories
+         *     first, at most 5000 entries (`truncated`).
+         */
+        get: operations["listVolumeFiles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/environments/{env}/volumes/{name}/files/preview": {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * The beginning of a file in a volume
+         * @description Requires `volumes:write`. Up to 256 KiB of a regular file as text; binary files have no content.
+         */
+        get: operations["previewVolumeFile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/environments/{env}/volumes/{name}/files/download": {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * Download a file, a directory or the whole volume
+         * @description Requires `volumes:write`. A regular file as is; a directory (`path=/` for the volume) as
+         *     a gzip-compressed tar archive with symlinks kept as links. An error after the download
+         *     started aborts the connection.
+         */
+        get: operations["downloadVolumeFile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/environments/{env}/registries": {
         parameters: {
             query?: never;
@@ -3356,6 +3441,24 @@ export interface components {
             attributes?: {
                 [key: string]: string;
             };
+        };
+        VolumeEntry: {
+            name: string;
+            /** @enum {string} */
+            type: "dir" | "file" | "symlink" | "other";
+            /** Format: int64 */
+            size: number;
+            /** @example -rw-r--r-- */
+            mode: string;
+            /** Format: date-time */
+            modTime: string;
+            /** @description Target of a symlink */
+            target?: string;
+            /**
+             * @description Type of a symlink's target inside the volume
+             * @enum {string}
+             */
+            targetType?: "dir" | "file";
         };
         CreateContainerRequest: {
             /** @example nginx:1.27 */
@@ -7198,6 +7301,115 @@ export interface operations {
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
             503: components["responses"]["Error"];
+        };
+    };
+    listVolumeFiles: {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+                /** @description Directory in the volume */
+                path?: string;
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Directory entries */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        entries: components["schemas"]["VolumeEntry"][];
+                        truncated: boolean;
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    previewVolumeFile: {
+        parameters: {
+            query: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+                path: string;
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Preview */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** Format: int64 */
+                        size: number;
+                        /** Format: date-time */
+                        modTime: string;
+                        content: string;
+                        binary: boolean;
+                        truncated: boolean;
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    downloadVolumeFile: {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+                path?: string;
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description File or archive */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                    "application/gzip": string;
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
         };
     };
     listRegistries: {
