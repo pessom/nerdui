@@ -31,6 +31,7 @@ import (
 	"github.com/pessom/nerdui/internal/notify"
 	"github.com/pessom/nerdui/internal/proxy"
 	"github.com/pessom/nerdui/internal/runtime"
+	"github.com/pessom/nerdui/internal/scheduler"
 	"github.com/pessom/nerdui/internal/server"
 	"github.com/pessom/nerdui/internal/stacks"
 	"github.com/pessom/nerdui/internal/store"
@@ -193,7 +194,23 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 	imageUpdates := &updates.Checker{
 		Environments: envs, Store: st.Write(), Logger: logger, AfterCheck: autoUpdates.Run, Notify: notifier.Notify,
 	}
-	checks.Go(func() { imageUpdates.Run(checkCtx) })
+	// Scheduled jobs (#82): prune, backups, restarts and redeploys, image update checks.
+	backupSource := &backup.Source{Store: st, DataDir: cfg.DataDir, StacksDir: cfg.EffectiveStacksDir()}
+	schedules := &scheduler.Service{
+		Store: st.Write(), Jobs: jobManager, Environments: envs, Actions: incoming, Backup: backupSource,
+		CheckImages: imageUpdates.CheckAndUpdate, Logger: logger,
+	}
+	imageUpdates.NextCheck = func(ctx context.Context, env string) *time.Time {
+		return schedules.NextOf(ctx, scheduler.KindImageUpdates, env)
+	}
+	var envIDs []string
+	for _, e := range envs.List() {
+		envIDs = append(envIDs, e.ID)
+	}
+	if err := schedules.MigrateImageChecks(ctx, st.Write(), envIDs, imageUpdates.Interval); err != nil {
+		logger.Warn("scheduler: move image update checks to a schedule", "error", err)
+	}
+	checks.Go(func() { schedules.Run(checkCtx) })
 
 	// Hijacked WebSocket connections are neither tracked nor closed by Shutdown; their
 	// request contexts derive from streamsCtx, which is canceled after Shutdown so streams
@@ -206,9 +223,10 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 	}
 	srv := &http.Server{
 		Handler: server.New(server.Config{
-			BasePath: basePath,
-			Backup:   &backup.Source{Store: st, DataDir: cfg.DataDir, StacksDir: cfg.EffectiveStacksDir()},
-			Auth:     authSvc, Environments: envs, UI: web.Dist(), Jobs: jobManager, TrustedProxies: trusted,
+			BasePath:  basePath,
+			Backup:    backupSource,
+			Schedules: schedules,
+			Auth:      authSvc, Environments: envs, UI: web.Dist(), Jobs: jobManager, TrustedProxies: trusted,
 			ACME:         acmeCerts,
 			EventHistory: eventHistory, DisableExec: cfg.DisableExec, Settings: st.Write(),
 			Stacks:        stackService,

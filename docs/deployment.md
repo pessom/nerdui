@@ -181,6 +181,10 @@ channels, webhooks, and the files of managed and Git stacks — as an archive en
 password (at least 12 characters). Containers, images and volumes are not included
 ([ADR-0047](adr/0047-application-backup.md)).
 
+Under Schedules, a *Backup of nerdui* schedule writes such archives to a directory on the host
+(default `<data-dir>/backups`) and keeps the newest ones (7 by default). The systemd unit gives
+nerdui a private `/tmp`: choose a directory elsewhere, and copy the archives off the host.
+
 To restore, on the same or a new host with nerdui installed:
 
 ```bash

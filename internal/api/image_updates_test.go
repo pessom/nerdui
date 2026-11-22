@@ -63,17 +63,6 @@ func TestImageUpdates(t *testing.T) {
 	}
 	h := updatesRouter(t, rt)
 
-	var settings ImageUpdateSettings
-	if rec := do(t, h, "/api/v1/environments/local/settings/image-updates", &settings); rec.Code != http.StatusOK || settings.IntervalSeconds != 21600 {
-		t.Fatalf("default settings: %d %s", rec.Code, rec.Body)
-	}
-	if rec := send(t, h, http.MethodPut, "/api/v1/environments/local/settings/image-updates", `{"intervalSeconds":60}`); rec.Code != http.StatusBadRequest {
-		t.Errorf("invalid interval: %d", rec.Code)
-	}
-	if rec := send(t, h, http.MethodPut, "/api/v1/environments/local/settings/image-updates", `{"intervalSeconds":0}`); rec.Code != http.StatusOK {
-		t.Errorf("turn off: %d %s", rec.Code, rec.Body)
-	}
-
 	rec := send(t, h, http.MethodPost, "/api/v1/environments/local/image-updates/check", `{}`)
 	var rep updates.Report
 	if rec.Code != http.StatusOK || json.Unmarshal(rec.Body.Bytes(), &rep) != nil {
@@ -104,7 +93,7 @@ func TestImageUpdates(t *testing.T) {
 	if _, ok := byRef["docker.io/library/alpine:3"]; ok {
 		t.Error("unchecked alpine listed")
 	}
-	if ov.IntervalSeconds != 0 || ov.LastCheck == nil || ov.NextCheck != nil {
+	if ov.LastCheck == nil || ov.NextCheck != nil {
 		t.Errorf("schedule %+v", ov)
 	}
 

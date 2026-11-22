@@ -24,6 +24,7 @@ import (
 	"github.com/pessom/nerdui/internal/backup"
 	"github.com/pessom/nerdui/internal/environment"
 	"github.com/pessom/nerdui/internal/runtime"
+	"github.com/pessom/nerdui/internal/scheduler"
 	"github.com/pessom/nerdui/internal/store"
 	"github.com/pessom/nerdui/internal/store/db"
 )
@@ -311,6 +312,7 @@ func TestRouteAuthorization(t *testing.T) {
 	cfg := withRuntime(fakeRuntime{})
 	cfg.Auth, cfg.Logger = lastAuth, slog.New(slog.DiscardHandler)
 	cfg.Backup = &backup.Source{}
+	cfg.Schedules = &scheduler.Service{}
 	h := New(cfg)
 	routes, err := authz.Inspect(h.(chi.Routes), APIPrefix)
 	if err != nil {
@@ -381,8 +383,6 @@ func TestRouteAuthorization(t *testing.T) {
 		"POST /api/v1/environments/{env}/auto-updates/approve":                  "settings:write",
 		"GET /api/v1/environments/{env}/settings/auto-updates":                  "settings:read",
 		"PUT /api/v1/environments/{env}/settings/auto-updates":                  "settings:write",
-		"GET /api/v1/environments/{env}/settings/image-updates":                 "settings:read",
-		"PUT /api/v1/environments/{env}/settings/image-updates":                 "settings:write",
 		"POST /api/v1/environments/{env}/namespaces":                            "namespaces:write",
 		"DELETE /api/v1/environments/{env}/namespaces/{name}":                   "namespaces:write",
 		"GET /api/v1/environments/{env}/events/stream":                          "system:read",
@@ -415,6 +415,12 @@ func TestRouteAuthorization(t *testing.T) {
 		"GET /api/v1/webhooks":                                                  "settings:read",
 		"POST /api/v1/webhooks":                                                 "settings:write",
 		"POST /api/v1/backup":                                                   "settings:write",
+		"GET /api/v1/schedules":                                                 "settings:read",
+		"POST /api/v1/schedules":                                                "settings:write",
+		"PUT /api/v1/schedules/{id}":                                            "settings:write",
+		"DELETE /api/v1/schedules/{id}":                                         "settings:write",
+		"POST /api/v1/schedules/{id}/run":                                       "settings:write",
+		"GET /api/v1/schedules/{id}/runs":                                       "settings:read",
 		"PUT /api/v1/webhooks/{id}":                                             "settings:write",
 		"DELETE /api/v1/webhooks/{id}":                                          "settings:write",
 		"POST /api/v1/webhooks/{id}/token":                                      "settings:write",

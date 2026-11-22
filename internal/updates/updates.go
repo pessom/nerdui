@@ -29,20 +29,17 @@ import (
 // Intervals are the allowed check intervals; 0 turns scheduled checks off.
 var Intervals = []time.Duration{0, time.Hour, 6 * time.Hour, 12 * time.Hour, 24 * time.Hour}
 
-// DefaultInterval applies until an administrator chooses another.
+// DefaultInterval applied until an administrator chose another; the interval of nerdui
+// 0.2.0-alpha.1 is read once to create the image update schedule (#82).
 const DefaultInterval = 6 * time.Hour
 
 const (
 	concurrency   = 4
 	refTimeout    = 20 * time.Second
-	tick          = time.Minute
-	firstDelay    = 2 * time.Minute // after start, let containerd and the UI settle
 	maxErrorChars = 300
 )
 
 var (
-	// ErrInvalidInterval is returned for intervals outside Intervals.
-	ErrInvalidInterval = errors.New("invalid interval")
 	// ErrBusy is returned while a check of the environment runs.
 	ErrBusy = errors.New("a check is already running")
 )
@@ -64,6 +61,9 @@ type Checker struct {
 	Now          func() time.Time
 	// AfterCheck runs after each successful scheduled check, e.g. Updater.Run (#54).
 	AfterCheck func(ctx context.Context, env *environment.Environment) error
+	// NextCheck is when the scheduler checks an environment next (#82); nil when no schedule is
+	// enabled.
+	NextCheck func(ctx context.Context, env string) *time.Time
 	// Notify, when set, receives an event when a check finds new images for tags in use (#96).
 	Notify func(notify.Event)
 
@@ -87,11 +87,10 @@ type Status struct {
 
 // Overview is the state of an environment's update checks for one namespace.
 type Overview struct {
-	IntervalSeconds int64      `json:"intervalSeconds"`
-	LastCheck       *time.Time `json:"lastCheck,omitempty"`
-	NextCheck       *time.Time `json:"nextCheck,omitempty"`
-	Running         bool       `json:"running"`
-	Images          []Status   `json:"images"`
+	LastCheck *time.Time `json:"lastCheck,omitempty"`
+	NextCheck *time.Time `json:"nextCheck,omitempty"`
+	Running   bool       `json:"running"`
+	Images    []Status   `json:"images"`
 }
 
 // Report summarizes a check.
@@ -139,62 +138,6 @@ func (c *Checker) Interval(ctx context.Context, env string) (time.Duration, erro
 		return DefaultInterval, nil
 	}
 	return d, nil
-}
-
-// SetInterval stores the environment's check interval.
-func (c *Checker) SetInterval(ctx context.Context, env string, d time.Duration) error {
-	if !slices.Contains(Intervals, d) {
-		return fmt.Errorf("%w: %s", ErrInvalidInterval, d)
-	}
-	b, _ := json.Marshal(settings{IntervalSeconds: int64(d / time.Second)})
-	return c.Store.SetSetting(ctx, db.SetSettingParams{Key: settingKey(env), Value: string(b), Now: c.now().Unix()})
-}
-
-// Run checks every environment when its interval has passed, until ctx ends.
-func (c *Checker) Run(ctx context.Context) {
-	timer := time.NewTimer(firstDelay)
-	defer timer.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-timer.C:
-		}
-		for _, env := range c.Environments.List() {
-			if !c.due(ctx, env.ID) {
-				continue
-			}
-			if _, err := c.Check(ctx, env, ""); err != nil {
-				if !errors.Is(err, ErrBusy) && ctx.Err() == nil {
-					c.log().Warn("image update check failed", "environment", env.ID, "error", err)
-				}
-				continue
-			}
-			if c.AfterCheck != nil {
-				if err := c.AfterCheck(ctx, env); err != nil && ctx.Err() == nil {
-					c.log().Warn("automatic updates failed", "environment", env.ID, "error", err)
-				}
-			}
-		}
-		timer.Reset(tick)
-	}
-}
-
-// due reports whether the environment's interval has passed since its last full check.
-func (c *Checker) due(ctx context.Context, env string) bool {
-	interval, err := c.Interval(ctx, env)
-	if err != nil || interval == 0 {
-		return false
-	}
-	last, ok := c.last(env)
-	if !ok {
-		// After a restart, continue from the newest stored check.
-		if ts, err := c.Store.LastImageUpdateCheck(ctx, env); err == nil && ts > 0 {
-			last = time.Unix(ts, 0)
-			c.setLast(env, last)
-		}
-	}
-	return c.now().Sub(last) >= interval
 }
 
 func (c *Checker) last(env string) (time.Time, bool) {
@@ -407,11 +350,7 @@ func truncate(s string) string {
 // Overview reports the stored checks of the references present in a namespace: those used by
 // containers, and any other image of the namespace that was checked.
 func (c *Checker) Overview(ctx context.Context, env *environment.Environment, ns string) (Overview, error) {
-	interval, err := c.Interval(ctx, env.ID)
-	if err != nil {
-		return Overview{}, err
-	}
-	out := Overview{IntervalSeconds: int64(interval / time.Second), Running: c.isRunning(env.ID), Images: []Status{}}
+	out := Overview{Running: c.isRunning(env.ID), Images: []Status{}}
 	rows, err := c.Store.ListImageUpdates(ctx, env.ID)
 	if err != nil {
 		return Overview{}, err
@@ -441,10 +380,21 @@ func (c *Checker) Overview(ctx context.Context, env *environment.Environment, ns
 	}
 	if !last.IsZero() {
 		out.LastCheck = &last
-		if interval > 0 {
-			next := last.Add(interval)
-			out.NextCheck = &next
-		}
+	}
+	if c.NextCheck != nil {
+		out.NextCheck = c.NextCheck(ctx, env.ID)
 	}
 	return out, nil
+}
+
+// CheckAndUpdate checks an environment and then runs AfterCheck (automatic updates): the
+// scheduled image update check (#82).
+func (c *Checker) CheckAndUpdate(ctx context.Context, env *environment.Environment) error {
+	if _, err := c.Check(ctx, env, ""); err != nil {
+		return err
+	}
+	if c.AfterCheck != nil {
+		return c.AfterCheck(ctx, env)
+	}
+	return nil
 }

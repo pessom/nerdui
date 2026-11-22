@@ -132,6 +132,36 @@ type NotificationChannel struct {
 	UpdatedAt  int64
 }
 
+type Schedule struct {
+	ID          int64
+	Name        string
+	Kind        string
+	Environment string
+	Namespace   string
+	Target      string
+	Options     string
+	Secret      string
+	Cron        string
+	Enabled     int64
+	CreatedBy   string
+	CreatedAt   int64
+	UpdatedAt   int64
+	LastRunAt   int64
+	LastStatus  string
+	LastMessage string
+}
+
+type ScheduleRun struct {
+	ID         int64
+	ScheduleID int64
+	Trigger    string
+	StartedAt  int64
+	FinishedAt int64
+	Status     string
+	Message    string
+	JobID      string
+}
+
 type Session struct {
 	TokenHash  []byte
 	UserID     int64

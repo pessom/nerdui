@@ -856,6 +856,125 @@ paths:
         "400": { $ref: "#/components/responses/Error" }
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
+  /api/v1/schedules:
+    get:
+      tags: [settings]
+      operationId: listSchedules
+      summary: Scheduled jobs
+      description: Requires `settings:read` (#82, ADR-0048).
+      responses:
+        "200":
+          description: Schedules
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [schedules]
+                properties:
+                  schedules: { type: array, items: { $ref: "#/components/schemas/Schedule" } }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+    post:
+      tags: [settings]
+      operationId: createSchedule
+      summary: Create a schedule
+      description: |
+        Requires `settings:write`. Cron expressions have five fields (minute hour day month
+        weekday) or are descriptors such as `@daily` or `@every 6h`, in the server's time zone.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ScheduleInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Schedule" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/v1/schedules/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+    put:
+      tags: [settings]
+      operationId: updateSchedule
+      summary: Change a schedule
+      description: Requires `settings:write`. An empty `password` keeps a backup's stored password.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ScheduleInput" }
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Schedule" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [settings]
+      operationId: deleteSchedule
+      summary: Delete a schedule and its history
+      description: Requires `settings:write`.
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/v1/schedules/{id}/run:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+    post:
+      tags: [settings]
+      operationId: runSchedule
+      summary: Run a schedule now
+      description: Requires `settings:write`. Also for disabled schedules; 409 while its previous run is not finished.
+      responses:
+        "202":
+          description: Started
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [job]
+                properties:
+                  job: { $ref: "#/components/schemas/Job" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+  /api/v1/schedules/{id}/runs:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+    get:
+      tags: [settings]
+      operationId: listScheduleRuns
+      summary: The last 50 runs of a schedule
+      description: Requires `settings:read`.
+      responses:
+        "200":
+          description: Runs, newest first
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [runs]
+                properties:
+                  runs: { type: array, items: { $ref: "#/components/schemas/ScheduleRun" } }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
   /api/v1/webhooks:
     get:
       tags: [webhooks]
@@ -3257,45 +3376,6 @@ paths:
         "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
         "501": { $ref: "#/components/responses/Error" }
-  /api/v1/environments/{env}/settings/image-updates:
-    parameters:
-      - $ref: "#/components/parameters/Env"
-    get:
-      tags: [settings]
-      operationId: getImageUpdateSettings
-      summary: Schedule of image update checks
-      description: "Requires `settings:read`. Default every 6 hours."
-      responses:
-        "200":
-          description: Settings
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/ImageUpdateSettings" }
-        "401": { $ref: "#/components/responses/Error" }
-        "403": { $ref: "#/components/responses/Error" }
-        "404": { $ref: "#/components/responses/Error" }
-        "501": { $ref: "#/components/responses/Error" }
-    put:
-      tags: [settings]
-      operationId: putImageUpdateSettings
-      summary: Set the schedule of image update checks
-      description: "Requires `settings:write`."
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: "#/components/schemas/ImageUpdateSettings" }
-      responses:
-        "200":
-          description: Saved
-          content:
-            application/json:
-              schema: { $ref: "#/components/schemas/ImageUpdateSettings" }
-        "400": { $ref: "#/components/responses/Error" }
-        "401": { $ref: "#/components/responses/Error" }
-        "403": { $ref: "#/components/responses/Error" }
-        "404": { $ref: "#/components/responses/Error" }
-        "501": { $ref: "#/components/responses/Error" }
   /api/v1/environments/{env}/settings/auto-updates:
     parameters:
       - $ref: "#/components/parameters/Env"
@@ -3640,16 +3720,67 @@ components:
         - type: object
           properties:
             pull: { type: boolean, description: Pull the image first (update) }
-    ImageUpdateSettings:
+    ScheduleKind:
+      type: string
+      enum: [prune, backup, stack.redeploy, stack.restart, container.redeploy, container.restart, image-updates.check]
+    ScheduleOptions:
       type: object
-      required: [intervalSeconds]
+      additionalProperties: false
+      description: "prune: what to remove; backup: directory on the host (default <data-dir>/backups) and how many archives to keep (default 7)"
+      properties:
+        containers: { type: boolean }
+        images: { type: boolean }
+        allImages: { type: boolean }
+        networks: { type: boolean }
+        buildCache: { type: boolean }
+        directory: { type: string }
+        keep: { type: integer, minimum: 0, maximum: 1000 }
+    ScheduleInput:
+      type: object
+      required: [name, kind, cron, enabled]
       additionalProperties: false
       properties:
-        intervalSeconds:
-          type: integer
-          format: int64
-          enum: [0, 3600, 21600, 43200, 86400]
-          description: 0 turns scheduled checks off
+        name: { type: string }
+        kind: { $ref: "#/components/schemas/ScheduleKind" }
+        environment: { type: string, description: All kinds but backup }
+        namespace: { type: string, description: Prune, stacks and containers }
+        target: { type: string, description: Stack or container name }
+        options: { $ref: "#/components/schemas/ScheduleOptions" }
+        password: { type: string, writeOnly: true, description: "Backups: at least 12 characters; empty keeps the stored one" }
+        cron: { type: string, examples: ["0 3 * * *", "@daily"] }
+        enabled: { type: boolean }
+    Schedule:
+      type: object
+      required: [id, name, kind, options, cron, enabled, createdAt, updatedAt]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        kind: { $ref: "#/components/schemas/ScheduleKind" }
+        environment: { type: string }
+        namespace: { type: string }
+        target: { type: string }
+        options: { $ref: "#/components/schemas/ScheduleOptions" }
+        hasPassword: { type: boolean }
+        cron: { type: string }
+        enabled: { type: boolean }
+        createdBy: { type: string }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        nextRunAt: { type: string, format: date-time }
+        lastRunAt: { type: string, format: date-time }
+        lastStatus: { type: string, enum: ["", running, succeeded, failed, skipped] }
+        lastMessage: { type: string }
+    ScheduleRun:
+      type: object
+      required: [id, trigger, startedAt, status]
+      properties:
+        id: { type: integer, format: int64 }
+        trigger: { type: string, enum: [schedule, manual] }
+        startedAt: { type: string, format: date-time }
+        finishedAt: { type: string, format: date-time }
+        status: { type: string, enum: [running, succeeded, failed, skipped] }
+        message: { type: string }
+        jobId: { type: string }
     CheckImageUpdatesRequest:
       type: object
       additionalProperties: false
@@ -3675,11 +3806,10 @@ components:
         containers: { type: integer, description: Containers of the namespace created from the reference }
     ImageUpdateOverview:
       type: object
-      required: [intervalSeconds, running, images]
+      required: [running, images]
       properties:
-        intervalSeconds: { type: integer, format: int64 }
         lastCheck: { type: string, format: date-time }
-        nextCheck: { type: string, format: date-time }
+        nextCheck: { type: string, format: date-time, description: Next run of the image update schedule (#82) }
         running: { type: boolean }
         images:
           type: array

@@ -633,6 +633,101 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/schedules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Scheduled jobs
+         * @description Requires `settings:read` (#82, ADR-0048).
+         */
+        get: operations["listSchedules"];
+        put?: never;
+        /**
+         * Create a schedule
+         * @description Requires `settings:write`. Cron expressions have five fields (minute hour day month
+         *     weekday) or are descriptors such as `@daily` or `@every 6h`, in the server's time zone.
+         */
+        post: operations["createSchedule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/schedules/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change a schedule
+         * @description Requires `settings:write`. An empty `password` keeps a backup's stored password.
+         */
+        put: operations["updateSchedule"];
+        post?: never;
+        /**
+         * Delete a schedule and its history
+         * @description Requires `settings:write`.
+         */
+        delete: operations["deleteSchedule"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/schedules/{id}/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run a schedule now
+         * @description Requires `settings:write`. Also for disabled schedules; 409 while its previous run is not finished.
+         */
+        post: operations["runSchedule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/schedules/{id}/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        /**
+         * The last 50 runs of a schedule
+         * @description Requires `settings:read`.
+         */
+        get: operations["listScheduleRuns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/webhooks": {
         parameters: {
             query?: never;
@@ -2576,33 +2671,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/environments/{env}/settings/image-updates": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Environment ID */
-                env: components["parameters"]["Env"];
-            };
-            cookie?: never;
-        };
-        /**
-         * Schedule of image update checks
-         * @description Requires `settings:read`. Default every 6 hours.
-         */
-        get: operations["getImageUpdateSettings"];
-        /**
-         * Set the schedule of image update checks
-         * @description Requires `settings:write`.
-         */
-        put: operations["putImageUpdateSettings"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/environments/{env}/settings/auto-updates": {
         parameters: {
             query?: never;
@@ -2797,13 +2865,75 @@ export interface components {
             /** @description Pull the image first (update) */
             pull?: boolean;
         };
-        ImageUpdateSettings: {
+        /** @enum {string} */
+        ScheduleKind: "prune" | "backup" | "stack.redeploy" | "stack.restart" | "container.redeploy" | "container.restart" | "image-updates.check";
+        /** @description prune: what to remove; backup: directory on the host (default <data-dir>/backups) and how many archives to keep (default 7) */
+        ScheduleOptions: {
+            containers?: boolean;
+            images?: boolean;
+            allImages?: boolean;
+            networks?: boolean;
+            buildCache?: boolean;
+            directory?: string;
+            keep?: number;
+        };
+        ScheduleInput: {
+            name: string;
+            kind: components["schemas"]["ScheduleKind"];
+            /** @description All kinds but backup */
+            environment?: string;
+            /** @description Prune */
+            namespace?: string;
+            /** @description Stack or container name */
+            target?: string;
+            options?: components["schemas"]["ScheduleOptions"];
+            /** @description Backups: at least 12 characters; empty keeps the stored one */
+            password?: string;
             /**
-             * Format: int64
-             * @description 0 turns scheduled checks off
-             * @enum {integer}
+             * @example 0 3 * * *
+             * @example @daily
              */
-            intervalSeconds: 0 | 3600 | 21600 | 43200 | 86400;
+            cron: string;
+            enabled: boolean;
+        };
+        Schedule: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            kind: components["schemas"]["ScheduleKind"];
+            environment?: string;
+            namespace?: string;
+            target?: string;
+            options: components["schemas"]["ScheduleOptions"];
+            hasPassword?: boolean;
+            cron: string;
+            enabled: boolean;
+            createdBy?: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+            /** Format: date-time */
+            nextRunAt?: string;
+            /** Format: date-time */
+            lastRunAt?: string;
+            /** @enum {string} */
+            lastStatus?: "" | "running" | "succeeded" | "failed" | "skipped";
+            lastMessage?: string;
+        };
+        ScheduleRun: {
+            /** Format: int64 */
+            id: number;
+            /** @enum {string} */
+            trigger: "schedule" | "manual";
+            /** Format: date-time */
+            startedAt: string;
+            /** Format: date-time */
+            finishedAt?: string;
+            /** @enum {string} */
+            status: "running" | "succeeded" | "failed" | "skipped";
+            message?: string;
+            jobId?: string;
         };
         CheckImageUpdatesRequest: {
             /**
@@ -2830,11 +2960,12 @@ export interface components {
             containers: number;
         };
         ImageUpdateOverview: {
-            /** Format: int64 */
-            intervalSeconds: number;
             /** Format: date-time */
             lastCheck?: string;
-            /** Format: date-time */
+            /**
+             * Format: date-time
+             * @description Next run of the image update schedule (#82)
+             */
             nextCheck?: string;
             running: boolean;
             images: components["schemas"]["ImageUpdateStatus"][];
@@ -5185,6 +5316,169 @@ export interface operations {
             400: components["responses"]["Error"];
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
+        };
+    };
+    listSchedules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Schedules */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        schedules: components["schemas"]["Schedule"][];
+                    };
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
+    createSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScheduleInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Schedule"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    updateSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScheduleInput"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Schedule"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    deleteSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    runSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Started */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        job: components["schemas"]["Job"];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    listScheduleRuns: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Runs, newest first */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        runs: components["schemas"]["ScheduleRun"][];
+                    };
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
         };
     };
     listWebhooks: {
@@ -8006,65 +8300,6 @@ export interface operations {
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
-            501: components["responses"]["Error"];
-        };
-    };
-    getImageUpdateSettings: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Environment ID */
-                env: components["parameters"]["Env"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Settings */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ImageUpdateSettings"];
-                };
-            };
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
-            501: components["responses"]["Error"];
-        };
-    };
-    putImageUpdateSettings: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Environment ID */
-                env: components["parameters"]["Env"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ImageUpdateSettings"];
-            };
-        };
-        responses: {
-            /** @description Saved */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ImageUpdateSettings"];
-                };
-            };
-            400: components["responses"]["Error"];
-            401: components["responses"]["Error"];
-            403: components["responses"]["Error"];
-            404: components["responses"]["Error"];
             501: components["responses"]["Error"];
         };
     };
