@@ -5,6 +5,7 @@ import { QueryClient } from "@tanstack/react-query";
 import { createRouter } from "@tanstack/react-router";
 import { ApiError } from "./api/client";
 import { routeTree } from "./routeTree.gen";
+import { basePath } from "./lib/base";
 
 export interface RouterContext {
   queryClient: QueryClient;
@@ -27,6 +28,7 @@ export function createQueryClient() {
 export function createAppRouter(queryClient: QueryClient) {
   return createRouter({
     routeTree,
+    basepath: basePath || "/",
     context: { queryClient },
     defaultPreload: "intent",
     defaultPreloadStaleTime: 0,

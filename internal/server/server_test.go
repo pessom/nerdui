@@ -251,6 +251,50 @@ func TestSPA(t *testing.T) {
 	}
 }
 
+func TestBasePath(t *testing.T) {
+	ui := fstest.MapFS{
+		"index.html":    {Data: []byte(`<html><head><base href="/" /></head>nerdui</html>`)},
+		"assets/app.js": {Data: []byte("console.log(1)")},
+	}
+	srv := newTestServer(t, Config{UI: ui, BasePath: "/tools/nerdui"})
+	noRedirect := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+
+	tests := []struct {
+		path       string
+		wantStatus int
+		wantBody   string
+	}{
+		{"/tools/nerdui/", http.StatusOK, `<base href="/tools/nerdui/" />`},
+		{"/tools/nerdui/containers/abc", http.StatusOK, `<base href="/tools/nerdui/" />`},
+		{"/tools/nerdui/assets/app.js", http.StatusOK, "console.log"},
+		{"/tools/nerdui/api/v1/version", http.StatusOK, `"nerdui"`},
+		{"/tools/nerdui/healthz", http.StatusOK, "ok"},
+		// A proxy that strips the prefix, and local health checks.
+		{"/api/v1/version", http.StatusOK, `"nerdui"`},
+		{"/healthz", http.StatusOK, "ok"},
+		{"/", http.StatusOK, `<base href="/tools/nerdui/" />`},
+	}
+	for _, tt := range tests {
+		resp, body := get(t, srv.URL+tt.path)
+		if resp.StatusCode != tt.wantStatus || !strings.Contains(body, tt.wantBody) {
+			t.Errorf("%s: %d %q", tt.path, resp.StatusCode, body)
+		}
+	}
+	for path, want := range map[string]string{
+		"/tools/nerdui?x=1":      "/tools/nerdui/?x=1",
+		"/tools/nerdui/api/docs": "/tools/nerdui/api-docs",
+	} {
+		resp, err := noRedirect.Get(srv.URL + path) //nolint:noctx // test
+		if err != nil {
+			t.Fatal(err)
+		}
+		resp.Body.Close()
+		if resp.StatusCode/100 != 3 || resp.Header.Get("Location") != want {
+			t.Errorf("%s: %d → %s, want %s", path, resp.StatusCode, resp.Header.Get("Location"), want)
+		}
+	}
+}
+
 func TestSPANotBuilt(t *testing.T) {
 	srv := newTestServer(t, Config{UI: fstest.MapFS{".gitkeep": {}}})
 	resp, body := get(t, srv.URL+"/")

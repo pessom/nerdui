@@ -3,6 +3,7 @@
 
 import createClient, { type Middleware } from "openapi-fetch";
 import type { components, paths } from "./schema";
+import { basePath } from "../lib/base";
 
 export type { components, paths } from "./schema";
 export type ErrorBody = components["schemas"]["Error"];
@@ -48,7 +49,7 @@ export const csrfMiddleware: Middleware = {
  * Run `npm run api:gen` (or `make api-gen`) after changing the spec.
  */
 export const api = createClient<paths>({
-  baseUrl: globalThis.location.origin,
+  baseUrl: globalThis.location.origin + basePath,
   credentials: "same-origin",
   // Resolve fetch lazily so tests can stub globalThis.fetch.
   fetch: (request) => globalThis.fetch(request),

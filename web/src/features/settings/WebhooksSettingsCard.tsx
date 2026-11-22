@@ -30,6 +30,7 @@ import { api, unwrap, unwrapEmpty } from "../../api/client";
 import { containersQuery, namespacesQuery, stacksQuery } from "../../api/queries";
 import type { components } from "../../api/schema";
 import { formatTime, usePreferences } from "../preferences/context";
+import { absoluteURL } from "../../lib/base";
 
 type Webhook = components["schemas"]["Webhook"];
 type Input = components["schemas"]["WebhookInput"];
@@ -66,7 +67,7 @@ export function WebhooksSettingsCard({ env, namespace }: { env: string; namespac
   const newToken = useMutation({
     mutationFn: (w: Webhook) =>
       unwrap(api.POST("/api/v1/webhooks/{id}/token", { params: { path: { id: w.id } } })),
-    onSuccess: ({ path }, w) => setShown({ name: w.name, url: window.location.origin + path }),
+    onSuccess: ({ path }, w) => setShown({ name: w.name, url: absoluteURL(path) }),
     onError: (e) =>
       notifications.show({ color: "red", title: "Cannot replace the URL", message: e.message }),
   });
@@ -313,7 +314,7 @@ function WebhookDialog({
     onSuccess: (created) => {
       void queryClient.invalidateQueries({ queryKey: webhooksKey });
       onClose();
-      if (created) onCreated(created.webhook.name, window.location.origin + created.path);
+      if (created) onCreated(created.webhook.name, absoluteURL(created.path));
     },
   });
   const submit = (e: FormEvent) => {

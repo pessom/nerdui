@@ -101,8 +101,10 @@ type Client struct {
 // Options configures the service.
 type Options struct {
 	// Audit, when set, records setups and logins, also failed ones (#79).
-	Audit           Auditor
-	SecureCookie    bool
+	Audit        Auditor
+	SecureCookie bool
+	// CookiePath limits the session cookie to nerdui's base path (#222); "" means "/".
+	CookiePath      string
 	IdleTimeout     time.Duration
 	AbsoluteTimeout time.Duration
 	Argon2          Argon2Params

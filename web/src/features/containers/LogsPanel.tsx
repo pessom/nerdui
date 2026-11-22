@@ -38,6 +38,7 @@ import {
   type LogsStatus,
   type StreamFilter,
 } from "./logs";
+import { withBase } from "../../lib/base";
 
 const LogTerminal = lazy(() => import("./LogTerminal"));
 
@@ -104,7 +105,7 @@ export function LogsPanel({
     cleared,
   ]);
 
-  const download = `${logsPath(env, id)}?${new URLSearchParams({
+  const download = `${withBase(logsPath(env, id))}?${new URLSearchParams({
     namespace,
     timestamps: String(timestamps),
   }).toString()}`;

@@ -11,6 +11,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -252,6 +253,21 @@ func TestAuthAudit(t *testing.T) {
 	for i := range want {
 		if a.got[i] != want[i] {
 			t.Errorf("event %d: %+v, want %+v", i, a.got[i], want[i])
+		}
+	}
+}
+
+func TestCookiePath(t *testing.T) {
+	for path, want := range map[string]string{"": "/", "/nerdui": "/nerdui"} {
+		s := &Service{opts: Options{CookiePath: path}}
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", nil)
+		s.setCookie(rec, req, Issued{Token: "t", ExpiresAt: time.Now().Add(time.Hour)})
+		s.clearCookie(rec, req)
+		for _, c := range rec.Result().Cookies() {
+			if c.Path != want {
+				t.Errorf("CookiePath %q: cookie path %q", path, c.Path)
+			}
 		}
 	}
 }

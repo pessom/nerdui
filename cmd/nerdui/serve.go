@@ -89,6 +89,10 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 		scheme = "https"
 		acmeCerts = a
 	}
+	basePath, err := config.NormalizeBasePath(cfg.BasePath) // validated with the config
+	if err != nil {
+		return err
+	}
 	trusted, err := proxy.ParsePrefixes(cfg.TrustedProxies) // validated with the config
 	if err != nil {
 		_ = ln.Close()
@@ -105,7 +109,7 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 
 	// The audit log (#79) records requests through the authorization guard and logins.
 	auditLog := &audit.Recorder{Store: st.Write(), Retention: cfg.AuditRetention, Logger: logger}
-	authSvc, err := auth.New(ctx, st, auth.Options{SecureCookie: cfg.TLS, Logger: logger, Audit: auditLog})
+	authSvc, err := auth.New(ctx, st, auth.Options{SecureCookie: cfg.TLS, CookiePath: basePath, Logger: logger, Audit: auditLog})
 	if err != nil {
 		_ = ln.Close()
 		return fmt.Errorf("init authentication: %w", err)
@@ -201,7 +205,8 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 	}
 	srv := &http.Server{
 		Handler: server.New(server.Config{
-			Auth: authSvc, Environments: envs, UI: web.Dist(), Jobs: jobManager, TrustedProxies: trusted,
+			BasePath: basePath,
+			Auth:     authSvc, Environments: envs, UI: web.Dist(), Jobs: jobManager, TrustedProxies: trusted,
 			ACME:         acmeCerts,
 			EventHistory: eventHistory, DisableExec: cfg.DisableExec, Settings: st.Write(),
 			Stacks:        stackService,

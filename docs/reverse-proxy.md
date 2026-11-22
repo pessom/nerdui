@@ -28,8 +28,8 @@ NERDUI_TRUSTED_PROXIES=127.0.0.1,::1
   range that untrusted clients can connect from.
 - The terminal, logs and live updates use WebSockets: the proxy must pass `Upgrade` and keep
   connections open for at least an hour.
-- nerdui must be served at the root of its host name (`https://nerdui.example.com/`); a sub-path
-  such as `/nerdui` is not supported yet.
+- To serve nerdui under a path such as `https://example.com/nerdui/`, see
+  [Sub-path](#sub-path).
 
 ## Caddy
 
@@ -100,6 +100,40 @@ http:
 
 Traefik forwards WebSockets and the `X-Forwarded-*` headers by default. Trust the network its
 container is on, e.g. `--trusted-proxies 10.4.0.0/24` with `--listen 10.4.0.1:9443`.
+
+## Sub-path
+
+`--base-path /nerdui` (`NERDUI_BASE_PATH=/nerdui`) serves the UI, the API and WebSockets under
+`/nerdui/` and redirects `/nerdui` to `/nerdui/`; the session cookie is limited to the path. The
+proxy may pass the path as is or strip the prefix: nerdui accepts both. See
+[ADR-0046](adr/0046-base-path.md).
+
+```caddyfile
+example.com {
+	handle_path /nerdui/* {
+		reverse_proxy 127.0.0.1:9443
+	}
+	redir /nerdui /nerdui/
+}
+```
+
+```nginx
+location /nerdui/ {
+    proxy_pass http://127.0.0.1:9443;    # no path: /nerdui/… is passed as is
+    # the proxy_set_header, proxy_read_timeout and buffering lines from the nginx example
+}
+```
+
+```yaml
+# Traefik: the prefix is passed as is
+http:
+  routers:
+    nerdui:
+      rule: Host(`example.com`) && PathPrefix(`/nerdui`)
+      service: nerdui
+```
+
+Webhook URLs shown in the UI (Git stacks, incoming webhooks) include the prefix.
 
 ## Checking
 

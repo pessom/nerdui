@@ -26,6 +26,7 @@ import {
   type OpenAPIDoc,
   type Operation,
 } from "../../features/apidocs/spec";
+import { absoluteURL, withBase } from "../../lib/base";
 
 /** Documentation of the REST API from the server's own specification (#87). */
 export const Route = createFileRoute("/_app/api-docs")({
@@ -130,7 +131,7 @@ function OperationCard({ op }: { op: Operation }) {
           ))}
         </Group>
         <Code block fz="xs">
-          {curlExample(op, window.location.origin)}
+          {curlExample(op, absoluteURL(""))}
         </Code>
       </Stack>
     </Paper>
@@ -141,7 +142,7 @@ function APIDocsPage() {
   const spec = useQuery({
     queryKey: ["openapi"],
     queryFn: async () => {
-      const r = await fetch(new URL("/api/v1/openapi.json", window.location.origin));
+      const r = await fetch(absoluteURL("/api/v1/openapi.json"));
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       return (await r.json()) as OpenAPIDoc;
     },
@@ -166,10 +167,10 @@ function APIDocsPage() {
       <Group justify="space-between">
         <Title order={2}>API documentation</Title>
         <Group gap="sm">
-          <Anchor href="/api/v1/openapi.yaml" download size="sm">
+          <Anchor href={withBase("/api/v1/openapi.yaml")} download size="sm">
             openapi.yaml
           </Anchor>
-          <Anchor href="/api/v1/openapi.json" download size="sm">
+          <Anchor href={withBase("/api/v1/openapi.json")} download size="sm">
             openapi.json
           </Anchor>
         </Group>
