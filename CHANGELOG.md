@@ -7,6 +7,12 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 
 ## [Unreleased]
 
+## [0.2.0-alpha.1] - 2026-11-22
+
+First preview of 0.2: automatic updates with notifications, Git stacks with push webhooks and
+polling, incoming webhooks, audit log, two-factor authentication, Let's Encrypt certificates,
+operations on one stack service, container processes and image history.
+
 ### Added
 
 - Automatic updates: containers and compose services labeled `nerdui.auto-update=true` ("Update
@@ -375,7 +381,8 @@ First preview release: manage containers on one Linux host with containerd and n
 - Every user is an administrator; roles are planned (#78).
 - The container image is experimental (#145); install the binary with systemd.
 
-[Unreleased]: https://github.com/pessom/nerdui/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/pessom/nerdui/compare/v0.2.0-alpha.1...HEAD
+[0.2.0-alpha.1]: https://github.com/pessom/nerdui/compare/v0.1.1...v0.2.0-alpha.1
 [0.1.1]: https://github.com/pessom/nerdui/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/pessom/nerdui/compare/v0.1.0-rc.1...v0.1.0
 [0.1.0-rc.1]: https://github.com/pessom/nerdui/compare/v0.1.0-beta.1...v0.1.0-rc.1
