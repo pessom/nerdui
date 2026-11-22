@@ -4,9 +4,12 @@
 import { Badge, Code, Paper, SimpleGrid, Stack, Table, Text, Title } from "@mantine/core";
 import type { ReactNode } from "react";
 import { timeAgo } from "../../lib/time";
+import { AUTO_HEAL_LABEL, labelEnabled } from "./create";
 import {
   commandLine,
   envPairs,
+  goDuration,
+  healthTest,
   portBindings,
   restartPolicy,
   type ContainerInspect,
@@ -54,6 +57,8 @@ export function ContainerOverview({ inspect: c }: { inspect: ContainerInspect })
         </Block>
       </SimpleGrid>
 
+      <HealthBlock inspect={c} />
+
       <Block title="Ports" empty={ports.length === 0 && "No published ports."}>
         <List head={["Host", "Container"]} rows={ports.map((p) => [p.host, p.container])} mono />
       </Block>
@@ -97,6 +102,60 @@ export function ContainerOverview({ inspect: c }: { inspect: ContainerInspect })
         <List head={["Name", "Value"]} rows={labels} mono />
       </Block>
     </Stack>
+  );
+}
+
+const healthColor: Record<string, string> = {
+  healthy: "teal",
+  starting: "yellow",
+  unhealthy: "red",
+};
+
+/** Healthcheck settings, state and the last results (#22). */
+function HealthBlock({ inspect: c }: { inspect: ContainerInspect }) {
+  const cfg = c.Config?.Healthcheck;
+  const health = c.State?.Health;
+  const test = healthTest(cfg?.Test);
+  if (!test && !health) return null;
+  const autoHeal = labelEnabled(c.Config?.Labels, AUTO_HEAL_LABEL);
+  const log = health?.Log ?? [];
+  return (
+    <Block title="Health">
+      <KeyValues
+        rows={[
+          [
+            "Status",
+            health?.Status ? (
+              <Badge variant="light" color={healthColor[health.Status] ?? "gray"}>
+                {health.Status}
+              </Badge>
+            ) : (
+              "no checks yet"
+            ),
+          ],
+          ["Failing streak", health?.FailingStreak ? String(health.FailingStreak) : undefined],
+          ["Check", test ? <Code key="test">{test}</Code> : undefined],
+          ["Interval", goDuration(cfg?.Interval)],
+          ["Timeout", goDuration(cfg?.Timeout)],
+          ["Retries", cfg?.Retries ? String(cfg.Retries) : undefined],
+          ["Start period", goDuration(cfg?.StartPeriod)],
+          [
+            "When unhealthy",
+            autoHeal ? `restarted by nerdui (${AUTO_HEAL_LABEL})` : "reported only",
+          ],
+        ]}
+      />
+      {log.length > 0 && (
+        <List
+          head={["Checked", "Exit code", "Output"]}
+          rows={log.map((r) => [
+            time(r.End ?? r.Start) ?? "",
+            String(r.ExitCode ?? ""),
+            r.Output?.trim() ?? "",
+          ])}
+        />
+      )}
+    </Block>
   );
 }
 

@@ -25,21 +25,23 @@ import (
 
 // Event kinds. Keep in sync with api/openapi.yaml and the web UI.
 const (
-	KindImageUpdate       = "image.update"       // a tag in use points to a new image (#96)
-	KindAutoUpdateDone    = "autoupdate.updated" // an automatic update succeeded (#54)
-	KindAutoUpdateFailed  = "autoupdate.failed"  // an automatic update failed and was rolled back
-	KindAutoUpdatePending = "autoupdate.pending" // automatic updates wait for approval (#56)
-	KindContainerDied     = "container.died"     // a container exited with an error code
-	KindContainerOOM      = "container.oom"      // a container ran out of memory
-	KindJobFailed         = "job.failed"         // a background operation failed
-	KindGitUpdate         = "git.update"         // a Git stack has a new commit or was updated from it (#38, #39)
-	KindTest              = "test"               // sent by "Send test"; every channel receives it
+	KindImageUpdate        = "image.update"        // a tag in use points to a new image (#96)
+	KindAutoUpdateDone     = "autoupdate.updated"  // an automatic update succeeded (#54)
+	KindAutoUpdateFailed   = "autoupdate.failed"   // an automatic update failed and was rolled back
+	KindAutoUpdatePending  = "autoupdate.pending"  // automatic updates wait for approval (#56)
+	KindContainerDied      = "container.died"      // a container exited with an error code
+	KindContainerOOM       = "container.oom"       // a container ran out of memory
+	KindContainerUnhealthy = "container.unhealthy" // a container's healthcheck started failing (#22)
+	KindContainerAutoHeal  = "container.autoheal"  // nerdui restarted an unhealthy container, or gave up (#22)
+	KindJobFailed          = "job.failed"          // a background operation failed
+	KindGitUpdate          = "git.update"          // a Git stack has a new commit or was updated from it (#38, #39)
+	KindTest               = "test"                // sent by "Send test"; every channel receives it
 )
 
 // Kinds are the event kinds a channel can subscribe to.
 var Kinds = []string{
 	KindImageUpdate, KindAutoUpdateDone, KindAutoUpdateFailed, KindAutoUpdatePending,
-	KindContainerDied, KindContainerOOM, KindJobFailed, KindGitUpdate,
+	KindContainerDied, KindContainerOOM, KindContainerUnhealthy, KindContainerAutoHeal, KindJobFailed, KindGitUpdate,
 }
 
 // Severities.

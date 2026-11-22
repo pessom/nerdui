@@ -44,6 +44,8 @@ const kindLabels: Record<Kind, string> = {
   "autoupdate.pending": "Automatic updates wait for approval",
   "container.died": "Container exited with an error",
   "container.oom": "Container ran out of memory",
+  "container.unhealthy": "Container became unhealthy",
+  "container.autoheal": "Unhealthy container restarted, or left after repeated restarts",
   "job.failed": "Operation failed",
   "git.update": "New commit or update of a Git stack",
 };
@@ -69,6 +71,8 @@ const emptyInput: ChannelInput = {
     "autoupdate.pending",
     "container.died",
     "container.oom",
+    "container.unhealthy",
+    "container.autoheal",
     "job.failed",
   ],
   enabled: true,

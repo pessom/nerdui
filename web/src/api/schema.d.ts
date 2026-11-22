@@ -2752,7 +2752,7 @@ export interface components {
             userAgent?: string;
         };
         /** @enum {string} */
-        NotificationKind: "image.update" | "autoupdate.updated" | "autoupdate.failed" | "autoupdate.pending" | "container.died" | "container.oom" | "job.failed" | "git.update";
+        NotificationKind: "image.update" | "autoupdate.updated" | "autoupdate.failed" | "autoupdate.pending" | "container.died" | "container.oom" | "container.unhealthy" | "container.autoheal" | "job.failed" | "git.update";
         /**
          * @description Settings of a channel; which fields apply depends on the type. `secret`, `token`,
          *     `password` and, for Slack and Discord, `url` are write-only.
@@ -3057,6 +3057,22 @@ export interface components {
                 Error?: string;
                 StartedAt?: string;
                 FinishedAt?: string;
+                /** @description Healthcheck state with the last results, newest first (#22). */
+                Health?: ({
+                    /** @description starting, healthy or unhealthy */
+                    Status?: string;
+                    FailingStreak?: number;
+                    Log?: ({
+                        Start?: string;
+                        End?: string;
+                        ExitCode?: number;
+                        Output?: string;
+                    } & {
+                        [key: string]: unknown;
+                    })[] | null;
+                } & {
+                    [key: string]: unknown;
+                }) | null;
             } & {
                 [key: string]: unknown;
             }) | null;
@@ -3091,6 +3107,16 @@ export interface components {
                 Labels?: {
                     [key: string]: string;
                 };
+                /** @description Healthcheck configuration; durations in nanoseconds. */
+                Healthcheck?: ({
+                    Test?: string[] | null;
+                    Interval?: number;
+                    Timeout?: number;
+                    Retries?: number;
+                    StartPeriod?: number;
+                } & {
+                    [key: string]: unknown;
+                }) | null;
             } & {
                 [key: string]: unknown;
             }) | null;

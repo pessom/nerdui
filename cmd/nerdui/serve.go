@@ -21,6 +21,7 @@ import (
 	"github.com/pessom/nerdui/internal/api"
 	"github.com/pessom/nerdui/internal/audit"
 	"github.com/pessom/nerdui/internal/auth"
+	"github.com/pessom/nerdui/internal/autoheal"
 	"github.com/pessom/nerdui/internal/config"
 	"github.com/pessom/nerdui/internal/environment"
 	"github.com/pessom/nerdui/internal/events"
@@ -150,6 +151,9 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 		w := &notify.Watcher{Env: env, Notifier: notifier, Logger: logger}
 		checks.Go(func() { w.Run(checkCtx) })
 	}
+	// Unhealthy containers are reported, and restarted when labeled (#22).
+	healer := &autoheal.Healer{Environments: envs, Notify: notifier.Notify, Logger: logger}
+	checks.Go(func() { healer.Run(checkCtx) })
 
 	// Background jobs (#126) are canceled and awaited when serving ends.
 	jobManager := jobs.NewManager()

@@ -228,6 +228,9 @@ func (cc clientCompose) Run(ctx context.Context, namespace, project, dir, op str
 	}
 	global = append(global, "--cni-path="+cfg.CNIPath, "--cni-netconfpath="+cfg.CNINetConfPath)
 	argv := slices.Concat(global, args)
+	if op != ComposeStart && op != ComposePull {
+		defer expect(projectKey(namespace, project))()
+	}
 	_, _ = fmt.Fprintf(out, "\x1b[1m$ nerdctl %s\x1b[0m\r\n", strings.Join(args, " "))
 	cmd := exec.CommandContext(ctx, bin, argv...) //nolint:gosec // G204: validated arguments, no shell (ADR-0026)
 	cmd.Dir = dir

@@ -8,6 +8,8 @@ import { SilentWebSocket, fakeApi, json, type Call } from "../../test/server";
 import {
   commandLine,
   envPairs,
+  goDuration,
+  healthTest,
   portBindings,
   restartPolicy,
   type ContainerInspect,
@@ -85,6 +87,14 @@ describe("inspect helpers", () => {
         NetworkSettings: { Ports: { "53/udp": [{ HostIp: "::", HostPort: "53" }] } },
       }),
     ).toEqual([{ container: "53/udp", host: "[::]:53" }]);
+    expect(healthTest(["CMD-SHELL", "curl -f http://localhost/ || exit 1"])).toBe(
+      "curl -f http://localhost/ || exit 1",
+    );
+    expect(healthTest(["CMD", "pg_isready", "-U", "my user"])).toBe("pg_isready -U 'my user'");
+    expect(healthTest(["NONE"])).toBeUndefined();
+    expect(goDuration(90e9)).toBe("1m30s");
+    expect(goDuration(5e8)).toBe("500ms");
+    expect(goDuration(0)).toBeUndefined();
   });
 });
 
@@ -124,6 +134,44 @@ describe("container page", () => {
 
     // Actions from the list are available on the page too.
     expect(screen.getByRole("button", { name: "Actions for web" })).toBeEnabled();
+    // No healthcheck: no Health block.
+    expect(screen.queryByRole("region", { name: "Health" })).not.toBeInTheDocument();
+  });
+
+  it("shows healthcheck results", async () => {
+    setup({
+      [`GET ${base}/${id}/inspect`]: () =>
+        json(200, {
+          ...inspect,
+          State: {
+            ...inspect.State,
+            Health: {
+              Status: "unhealthy",
+              FailingStreak: 4,
+              Log: [
+                {
+                  Start: "2027-03-01T10:05:00Z",
+                  End: "2027-03-01T10:05:01Z",
+                  ExitCode: 1,
+                  Output: "connection refused\n",
+                },
+              ],
+            },
+          },
+          Config: {
+            ...inspect.Config,
+            Labels: { "nerdui.auto-heal": "true" },
+            Healthcheck: { Test: ["CMD-SHELL", "curl -f localhost"], Interval: 30e9, Retries: 3 },
+          },
+        }),
+    });
+    renderApp(`/env/local/containers/${id}?ns=default`);
+    const health = await screen.findByRole("region", { name: "Health" });
+    expect(within(health).getByText("unhealthy")).toBeInTheDocument();
+    expect(within(health).getByText("curl -f localhost")).toBeInTheDocument();
+    expect(within(health).getByText("30s")).toBeInTheDocument();
+    expect(within(health).getByText("connection refused")).toBeInTheDocument();
+    expect(within(health).getByText(/restarted by nerdui/)).toBeInTheDocument();
   });
 
   it("lists processes and refreshes them", async () => {

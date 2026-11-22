@@ -78,6 +78,10 @@ func (cc clientContainers) Do(ctx context.Context, namespace, id string, action 
 		return err
 	}
 
+	switch action {
+	case ActionStop, ActionRestart, ActionKill, ActionRemove:
+		defer expect(containerKey(namespace, id))()
+	}
 	cfg := cc.c.nerdctlFor(namespace)
 	nerdctlCmd, nerdctlArgs := cc.c.nerdctlInvocation(cfg)
 	switch action {

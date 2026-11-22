@@ -60,10 +60,21 @@ export function parseArgs(line: string): { args: string[]; error?: string } {
 /** Opts a container in to automatic updates (#54, ADR-0032). */
 export const AUTO_UPDATE_LABEL = "nerdui.auto-update";
 
+/** Opts a container in to restarts when its healthcheck fails (#22, ADR-0043). */
+export const AUTO_HEAL_LABEL = "nerdui.auto-heal";
+
+/** Whether a boolean nerdui label is on, as the server reads it. */
+export function labelEnabled(
+  labels: Record<string, string> | null | undefined,
+  label: string,
+): boolean {
+  const v = labels?.[label]?.trim().toLowerCase();
+  return v === "true" || v === "1" || v === "yes" || v === "on";
+}
+
 /** Whether labels opt in to automatic updates, as the server reads them. */
 export function autoUpdateEnabled(labels?: Record<string, string> | null): boolean {
-  const v = labels?.[AUTO_UPDATE_LABEL]?.trim().toLowerCase();
-  return v === "true" || v === "1" || v === "yes" || v === "on";
+  return labelEnabled(labels, AUTO_UPDATE_LABEL);
 }
 
 export interface PortRow {

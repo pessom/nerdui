@@ -7,6 +7,18 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 
 ## [Unreleased]
 
+### Added
+
+- Container health: the container page shows the healthcheck, its status, failing streak and
+  last results; a `container.unhealthy` notification reports containers that turn unhealthy,
+  and containers labeled `nerdui.auto-heal=true` are restarted, at most 3 times an hour, with a
+  `container.autoheal` notification (#22, ADR-0043).
+
+### Fixed
+
+- Restarting a container from nerdui (also from webhooks and stack operations) no longer sends
+  a "container exited" notification.
+
 ## [0.2.0-alpha.1] - 2026-11-22
 
 First preview of 0.2: automatic updates with notifications, Git stacks with push webhooks and
