@@ -89,21 +89,26 @@ func (h *Healer) Run(ctx context.Context) {
 	if interval == 0 {
 		interval = DefaultInterval
 	}
+	// The first check waits for an interval: right after start nerdui may still be connecting
+	// to containerd, which does not follow ctx and would delay a shutdown.
 	t := time.NewTicker(interval)
 	defer t.Stop()
 	for {
-		h.Check(ctx)
 		select {
 		case <-ctx.Done():
 			return
 		case <-t.C:
 		}
+		h.Check(ctx)
 	}
 }
 
 // Check reads the health of the containers of every environment once.
 func (h *Healer) Check(ctx context.Context) {
 	for _, env := range h.Environments.List() {
+		if ctx.Err() != nil {
+			return
+		}
 		if err := h.checkEnv(ctx, env); err != nil && ctx.Err() == nil {
 			h.log().Debug("auto-heal: read containers", "environment", env.ID, "error", err)
 		}
