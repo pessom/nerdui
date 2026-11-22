@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"maps"
+	"reflect"
 	"slices"
 	"sort"
 	"strconv"
@@ -15,7 +16,9 @@ import (
 
 	"github.com/containerd/containerd/v2/pkg/namespaces"
 	"github.com/containerd/errdefs"
+	"github.com/containerd/nerdctl/v2/pkg/healthcheck"
 	"github.com/containerd/nerdctl/v2/pkg/inspecttypes/dockercompat"
+	nlabels "github.com/containerd/nerdctl/v2/pkg/labels"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	specs "github.com/opencontainers/runtime-spec/specs-go"
 )
@@ -274,6 +277,14 @@ func specFrom(c *dockercompat.Container, oci *specs.Spec, img ocispec.ImageConfi
 		s.Labels[k] = v
 	}
 
+	// Healthcheck: nerdctl merges the image's (its nerdctl/healthcheck label) with --health-*
+	// flags; a healthcheck that differs from the image's is carried over.
+	if h, ok := containerHealthcheck(labels[nlabels.HealthCheck], img.Labels[nlabels.HealthCheck]); !ok {
+		add("healthcheck in exec form")
+	} else {
+		s.Healthcheck = h
+	}
+
 	// Settings the form does not express.
 	if hc.AutoRemove {
 		add("automatic removal (--rm)")
@@ -349,4 +360,51 @@ func parseJSONList(v string) []string {
 		return nil
 	}
 	return out
+}
+
+// containerHealthcheck returns the healthcheck of a container that differs from its image's,
+// nil when they are the same; ok is false for one the form cannot express (exec form).
+func containerHealthcheck(container, image string) (h *HealthcheckSpec, ok bool) {
+	parse := func(v string) *healthcheck.Healthcheck {
+		hc, err := healthcheck.HealthCheckFromJSON(v)
+		if v == "" || err != nil || hc == nil {
+			return nil
+		}
+		hc.ApplyDefaults()
+		return hc
+	}
+	c, img := parse(container), parse(image)
+	if c == nil || reflect.DeepEqual(c, img) {
+		return nil, true
+	}
+	if len(c.Test) == 0 {
+		return nil, true
+	}
+	switch {
+	case c.Test[0] == "NONE":
+		return &HealthcheckSpec{Disabled: true}, true
+	case c.Test[0] == "CMD-SHELL" && len(c.Test) == 2:
+		h = &HealthcheckSpec{Command: c.Test[1]}
+	default:
+		return nil, false
+	}
+	// Settings left out on create come from the image's healthcheck, else nerdctl's defaults.
+	def := img
+	if def == nil {
+		def = &healthcheck.Healthcheck{}
+		def.ApplyDefaults()
+	}
+	if c.Interval != def.Interval {
+		h.Interval = c.Interval.String()
+	}
+	if c.Timeout != def.Timeout {
+		h.Timeout = c.Timeout.String()
+	}
+	if c.StartPeriod != def.StartPeriod {
+		h.StartPeriod = c.StartPeriod.String()
+	}
+	if c.Retries != def.Retries {
+		h.Retries = c.Retries
+	}
+	return h, true
 }

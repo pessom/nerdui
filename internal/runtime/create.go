@@ -14,6 +14,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/containerd/containerd/v2/pkg/namespaces"
 	"github.com/containerd/errdefs"
@@ -56,6 +57,67 @@ type CreateSpec struct {
 	// ExtraHosts are name:address entries for /etc/hosts (--add-host); the address may be
 	// host-gateway.
 	ExtraHosts []string `json:"extraHosts,omitempty"`
+
+	// Healthcheck overrides the image's healthcheck (#237).
+	Healthcheck *HealthcheckSpec `json:"healthcheck,omitempty"`
+}
+
+// HealthcheckSpec is a healthcheck as `nerdctl create --health-*` sets it. Durations are Go
+// durations such as "30s" or "1m30s"; empty values keep the image's or nerdctl's defaults
+// (30s interval and timeout, 3 retries, no start period).
+type HealthcheckSpec struct {
+	// Command runs with /bin/sh -c in the container; exit code 0 means healthy.
+	Command     string `json:"command,omitempty"`
+	Interval    string `json:"interval,omitempty"`
+	Timeout     string `json:"timeout,omitempty"`
+	StartPeriod string `json:"startPeriod,omitempty"`
+	Retries     int    `json:"retries,omitempty"`
+	// Disabled turns off a healthcheck of the image (--no-healthcheck); no other field is set.
+	Disabled bool `json:"disabled,omitempty"`
+}
+
+// healthcheckArgs validates h and returns its --health-* arguments.
+func healthcheckArgs(h *HealthcheckSpec) ([]string, error) {
+	if h == nil {
+		return nil, nil
+	}
+	if h.Disabled {
+		if *h != (HealthcheckSpec{Disabled: true}) {
+			return nil, invalid("a disabled healthcheck takes no other settings")
+		}
+		return []string{"--no-healthcheck"}, nil
+	}
+	var a []string
+	if h.Command != "" {
+		if err := noControl("healthcheck command", h.Command); err != nil {
+			return nil, err
+		}
+		if len(h.Command) > 4096 {
+			return nil, invalid("healthcheck command is longer than 4096 characters")
+		}
+		a = append(a, "--health-cmd="+h.Command)
+	}
+	for _, d := range []struct{ flag, name, v string }{
+		{"--health-interval", "interval", h.Interval},
+		{"--health-timeout", "timeout", h.Timeout},
+		{"--health-start-period", "start period", h.StartPeriod},
+	} {
+		if d.v == "" {
+			continue
+		}
+		v, err := time.ParseDuration(d.v)
+		if err != nil || v < time.Millisecond || v > 24*time.Hour {
+			return nil, invalid("healthcheck %s must be a duration from 1ms to 24h such as 30s, got %q", d.name, d.v)
+		}
+		a = append(a, d.flag+"="+v.String())
+	}
+	if h.Retries < 0 || h.Retries > 100 {
+		return nil, invalid("healthcheck retries must be from 0 to 100")
+	}
+	if h.Retries > 0 {
+		a = append(a, "--health-retries="+strconv.Itoa(h.Retries))
+	}
+	return a, nil
 }
 
 // PortSpec publishes a container port.
@@ -167,6 +229,11 @@ func CreateArgs(s CreateSpec) ([]string, error) {
 		return nil, err
 	}
 	a = append(a, advanced...)
+	health, err := healthcheckArgs(s.Healthcheck)
+	if err != nil {
+		return nil, err
+	}
+	a = append(a, health...)
 	if s.Hostname != "" {
 		if !hostnameRe.MatchString(s.Hostname) {
 			return nil, invalid("invalid hostname %q", s.Hostname)

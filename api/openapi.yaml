@@ -4168,6 +4168,19 @@ components:
           type: array
           items: { type: string }
           description: "name:address entries for /etc/hosts; the address may be host-gateway"
+        healthcheck:
+          type: object
+          additionalProperties: false
+          description: |
+            Overrides the image's healthcheck (#237). Durations are Go durations such as `30s`;
+            empty values keep the image's settings, else 30s interval and timeout and 3 retries.
+          properties:
+            command: { type: string, description: Runs with /bin/sh -c in the container (--health-cmd) }
+            interval: { type: string, examples: ["30s"] }
+            timeout: { type: string, examples: ["5s"] }
+            startPeriod: { type: string, examples: ["1m"] }
+            retries: { type: integer, minimum: 0, maximum: 100 }
+            disabled: { type: boolean, description: Turns off the image's healthcheck; no other field may be set }
     Job:
       type: object
       required: [id, kind, title, environment, status, startedAt]

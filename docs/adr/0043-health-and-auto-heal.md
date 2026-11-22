@@ -54,5 +54,5 @@ code 137 or 143.
   it, independent of how often checks run.
 - The container page shows the healthcheck settings, status, failing streak and the last
   results from `nerdctl inspect`.
-- The create form does not set healthchecks yet, and editing or recreating a container loses a
-  healthcheck set with `--health-cmd`; both are follow-ups (#237).
+- The create form sets healthchecks, and recreating a container keeps one that differs from
+  its image's (#237).

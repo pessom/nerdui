@@ -40,7 +40,8 @@ func TestIntegrationRecreate(t *testing.T) {
 
 	run := []string{"run", "-d", "--name", name, "-p", "127.0.0.1:18095:80", "-v", vol + ":/data",
 		"-e", "TZ=UTC", "--restart=unless-stopped", "--cap-add=NET_ADMIN", "--dns=9.9.9.9",
-		"--add-host=db.internal:10.0.0.9", "--label", "app=it", "docker.io/library/alpine:3", "sleep", "600"}
+		"--add-host=db.internal:10.0.0.9", "--label", "app=it", "--health-cmd=test -d /data", "--health-interval=7s",
+		"--health-retries=2", "docker.io/library/alpine:3", "sleep", "600"}
 	if out, err := exec.Command("nerdctl", run...).CombinedOutput(); err != nil {
 		t.Fatalf("nerdctl run: %v: %s", err, out)
 	}
@@ -72,6 +73,9 @@ func TestIntegrationRecreate(t *testing.T) {
 	if !slices.Equal(s.DNS, []string{"9.9.9.9"}) || !slices.Contains(s.ExtraHosts, "db.internal:10.0.0.9") || s.Labels["app"] != "it" {
 		t.Errorf("dns %v hosts %v labels %v", s.DNS, s.ExtraHosts, s.Labels)
 	}
+	if h := s.Healthcheck; h == nil || *h != (HealthcheckSpec{Command: "test -d /data", Interval: "7s", Retries: 2}) {
+		t.Errorf("healthcheck %+v", h)
+	}
 	if _, err := CreateArgs(s); err != nil {
 		t.Fatalf("reconstructed spec is invalid: %v", err)
 	}
@@ -91,6 +95,9 @@ func TestIntegrationRecreate(t *testing.T) {
 	env, _ := exec.Command("nerdctl", "exec", name, "printenv", "TZ").Output()
 	if strings.TrimSpace(string(env)) != "Europe/Berlin" {
 		t.Errorf("TZ in the new container: %q\n%s", env, out.String())
+	}
+	if hc, _ := exec.Command("nerdctl", "inspect", "-f", "{{json .Config.Healthcheck}}", name).Output(); !strings.Contains(string(hc), `"Interval":7000000000`) {
+		t.Errorf("healthcheck of the new container: %s", hc)
 	}
 	if all, _ := exec.Command("nerdctl", "ps", "-aq", "--no-trunc").Output(); strings.Contains(string(all), cs.ID) {
 		t.Error("the previous container was not removed")
