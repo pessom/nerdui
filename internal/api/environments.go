@@ -17,6 +17,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/pessom/nerdui/internal/authz"
+	"github.com/pessom/nerdui/internal/backup"
 	"github.com/pessom/nerdui/internal/environment"
 	"github.com/pessom/nerdui/internal/gitstacks"
 	"github.com/pessom/nerdui/internal/httpjson"
@@ -59,7 +60,9 @@ type Handler struct {
 	Audit AuditLog
 	// PrometheusHTTP is the HTTP client for Prometheus; nil uses a default with a timeout.
 	PrometheusHTTP *http.Client
-	Logger         *slog.Logger
+	// Backup is what an application backup contains (#89); nil disables backups.
+	Backup *backup.Source
+	Logger *slog.Logger
 }
 
 // Routes registers the environment endpoints under the API root.
@@ -70,6 +73,7 @@ func (h *Handler) Routes(r chi.Router, g *authz.Guard) {
 	h.auditRoutes(r, g)
 	h.gitRoutes(r, g)
 	h.webhookRoutes(r, g)
+	h.backupRoutes(r, g)
 	r.Method(http.MethodGet, "/compose-schema", g.Protect(authz.StacksRead, h.composeSchema))
 	r.Route("/environments/{env}", func(r chi.Router) {
 		r.Use(h.resolveEnv)

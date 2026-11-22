@@ -25,6 +25,10 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 - Sub-path deployment: `--base-path /nerdui` serves nerdui under `https://example.com/nerdui/`
   behind a reverse proxy that passes or strips the prefix; examples for Caddy, nginx and
   Traefik in docs/reverse-proxy.md (#222, ADR-0046).
+- Backups of nerdui's own data: Settings → Backup downloads a password-encrypted archive of
+  the database (users, settings, credentials) and the managed and Git stacks;
+  `nerdui admin restore` restores it on a stopped nerdui, also on a new server with other
+  directories (#89, ADR-0047).
 
 ### Fixed
 

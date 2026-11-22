@@ -55,3 +55,4 @@ We record significant architectural decisions as ADRs
 | 0044 | [Saving and loading images as tar archives](0044-image-save-and-load.md) | Accepted |
 | 0045 | [Browsing and downloading volume contents on the host](0045-volume-browser.md) | Accepted |
 | 0046 | [Serving nerdui under a path prefix](0046-base-path.md) | Accepted |
+| 0047 | [Backups of nerdui's own data](0047-application-backup.md) | Accepted |

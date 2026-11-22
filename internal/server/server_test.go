@@ -21,6 +21,7 @@ import (
 
 	"github.com/pessom/nerdui/internal/auth"
 	"github.com/pessom/nerdui/internal/authz"
+	"github.com/pessom/nerdui/internal/backup"
 	"github.com/pessom/nerdui/internal/environment"
 	"github.com/pessom/nerdui/internal/runtime"
 	"github.com/pessom/nerdui/internal/store"
@@ -309,6 +310,7 @@ func TestRouteAuthorization(t *testing.T) {
 	newTestServer(t, Config{})
 	cfg := withRuntime(fakeRuntime{})
 	cfg.Auth, cfg.Logger = lastAuth, slog.New(slog.DiscardHandler)
+	cfg.Backup = &backup.Source{}
 	h := New(cfg)
 	routes, err := authz.Inspect(h.(chi.Routes), APIPrefix)
 	if err != nil {
@@ -412,6 +414,7 @@ func TestRouteAuthorization(t *testing.T) {
 		"GET /api/v1/git/credentials":                                           "stacks:read",
 		"GET /api/v1/webhooks":                                                  "settings:read",
 		"POST /api/v1/webhooks":                                                 "settings:write",
+		"POST /api/v1/backup":                                                   "settings:write",
 		"PUT /api/v1/webhooks/{id}":                                             "settings:write",
 		"DELETE /api/v1/webhooks/{id}":                                          "settings:write",
 		"POST /api/v1/webhooks/{id}/token":                                      "settings:write",

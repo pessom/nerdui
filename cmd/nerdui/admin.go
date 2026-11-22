@@ -16,6 +16,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/pessom/nerdui/internal/auth"
+	"github.com/pessom/nerdui/internal/backup"
 	"github.com/pessom/nerdui/internal/config"
 	"github.com/pessom/nerdui/internal/store"
 )
@@ -26,7 +27,7 @@ func newAdminCmd() *cobra.Command {
 		Short: "Administrative commands that operate on the data directory (run on the host)",
 		Args:  cobra.NoArgs,
 	}
-	cmd.AddCommand(newResetPasswordCmd(), newResetMFACmd())
+	cmd.AddCommand(newResetPasswordCmd(), newResetMFACmd(), newRestoreCmd())
 	return cmd
 }
 
@@ -141,4 +142,70 @@ func readNewPassword(in io.Reader, prompt io.Writer, fromStdin bool) (string, er
 		return "", err
 	}
 	return password, nil
+}
+
+func newRestoreCmd() *cobra.Command {
+	cfg := config.Default()
+	var fromStdin, force bool
+	cmd := &cobra.Command{
+		Use:   "restore <backup-file>",
+		Short: "Restore nerdui's database, stacks and Git stacks from a backup",
+		Long: "Restore a backup made under Settings → Backup (or a scheduled backup): the database\n" +
+			"with users, settings and credentials, the managed stacks and the Git stacks. Stack paths\n" +
+			"move to this host's --data-dir and --stacks-dir. Stop nerdui first\n" +
+			"(systemctl stop nerdui). An existing database, stacks directory or Git directory is\n" +
+			"only replaced with --force; the previous ones are kept as <name>.before-restore-<time>.\n" +
+			"The password is read from the terminal, or from the first line of standard input with\n" +
+			"--password-stdin.",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := cfg.Validate(); err != nil {
+				return err
+			}
+			f, err := os.Open(args[0])
+			if err != nil {
+				return err
+			}
+			defer f.Close() //nolint:errcheck // read-only
+			password, err := readPassword(cmd.InOrStdin(), cmd.ErrOrStderr(), fromStdin, "Backup password: ")
+			if err != nil {
+				return err
+			}
+			out := cmd.OutOrStdout()
+			m, err := backup.Restore(cmd.Context(), bufio.NewReader(f), password, backup.Target{
+				DataDir: cfg.DataDir, StacksDir: cfg.EffectiveStacksDir(), Force: force,
+				Logf: func(format string, a ...any) { _, _ = fmt.Fprintf(out, format+"\n", a...) },
+			})
+			if err != nil {
+				return err
+			}
+			_, err = fmt.Fprintf(out, "Restored the backup of %s (nerdui %s) into %s. Start nerdui: systemctl start nerdui\n",
+				m.Created.Local().Format(time.DateTime), m.Nerdui, cfg.DataDir)
+			return err
+		},
+	}
+	config.BindDataDirFlag(cmd.Flags(), &cfg)
+	cmd.Flags().StringVar(&cfg.StacksDir, "stacks-dir", cfg.StacksDir, "directory of managed stacks (default <data-dir>/stacks)")
+	cmd.Flags().BoolVar(&fromStdin, "password-stdin", false, "read the backup password from the first line of stdin")
+	cmd.Flags().BoolVar(&force, "force", false, "replace an existing database, stacks and Git stacks")
+	return cmd
+}
+
+// readPassword reads a password once from stdin (fromStdin) or from the terminal without echo.
+func readPassword(in io.Reader, prompt io.Writer, fromStdin bool, label string) (string, error) {
+	if fromStdin {
+		line, err := bufio.NewReader(in).ReadString('\n')
+		if err != nil && !errors.Is(err, io.EOF) {
+			return "", fmt.Errorf("read password: %w", err)
+		}
+		return strings.TrimRight(line, "\r\n"), nil
+	}
+	f, ok := in.(*os.File)
+	if !ok || !term.IsTerminal(int(f.Fd())) { //nolint:gosec // fd fits in int
+		return "", errors.New("stdin is not a terminal; use --password-stdin")
+	}
+	_, _ = fmt.Fprint(prompt, label)
+	b, err := term.ReadPassword(int(f.Fd())) //nolint:gosec // fd fits in int
+	_, _ = fmt.Fprintln(prompt)
+	return string(b), err
 }

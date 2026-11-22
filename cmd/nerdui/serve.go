@@ -22,6 +22,7 @@ import (
 	"github.com/pessom/nerdui/internal/audit"
 	"github.com/pessom/nerdui/internal/auth"
 	"github.com/pessom/nerdui/internal/autoheal"
+	"github.com/pessom/nerdui/internal/backup"
 	"github.com/pessom/nerdui/internal/config"
 	"github.com/pessom/nerdui/internal/environment"
 	"github.com/pessom/nerdui/internal/events"
@@ -206,6 +207,7 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 	srv := &http.Server{
 		Handler: server.New(server.Config{
 			BasePath: basePath,
+			Backup:   &backup.Source{Store: st, DataDir: cfg.DataDir, StacksDir: cfg.EffectiveStacksDir()},
 			Auth:     authSvc, Environments: envs, UI: web.Dist(), Jobs: jobManager, TrustedProxies: trusted,
 			ACME:         acmeCerts,
 			EventHistory: eventHistory, DisableExec: cfg.DisableExec, Settings: st.Write(),

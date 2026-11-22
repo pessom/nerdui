@@ -25,6 +25,7 @@ import (
 	"github.com/pessom/nerdui/internal/audit"
 	"github.com/pessom/nerdui/internal/auth"
 	"github.com/pessom/nerdui/internal/authz"
+	"github.com/pessom/nerdui/internal/backup"
 	"github.com/pessom/nerdui/internal/environment"
 	"github.com/pessom/nerdui/internal/gitstacks"
 	"github.com/pessom/nerdui/internal/httpjson"
@@ -40,6 +41,8 @@ import (
 
 // Config configures the HTTP server.
 type Config struct {
+	// Backup is what an application backup contains (#89); nil disables backups.
+	Backup *backup.Source
 	// BasePath is the path prefix nerdui is served under, e.g. /nerdui, or "" (#222).
 	BasePath string
 	// Auth provides sessions and the authentication endpoints (required).
@@ -149,6 +152,7 @@ func New(cfg Config) http.Handler {
 				ExecDisabled: cfg.DisableExec, Settings: cfg.Settings, Stacks: cfg.Stacks, GitStacks: cfg.GitStacks, Webhooks: cfg.Webhooks,
 				ImageUpdates: cfg.ImageUpdates, AutoUpdates: cfg.AutoUpdates, Logger: cfg.Logger,
 				Notifications: cfg.Notifications, Notifier: cfg.Notifier, Audit: auditLog,
+				Backup: cfg.Backup,
 			}).Routes(r, guard)
 		})
 	})

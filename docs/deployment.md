@@ -174,6 +174,27 @@ nerdui serves **HTTPS on port 9443** by default ([ADR-0005](adr/0005-authenticat
   user and client address (Audit log page); kept for `--audit-retention` (default `2160h`, `0`
   keeps everything).
 
+## Backup and moving to another server
+
+Settings → Backup downloads nerdui's own data — users, settings, credentials, notification
+channels, webhooks, and the files of managed and Git stacks — as an archive encrypted with a
+password (at least 12 characters). Containers, images and volumes are not included
+([ADR-0047](adr/0047-application-backup.md)).
+
+To restore, on the same or a new host with nerdui installed:
+
+```bash
+systemctl stop nerdui
+nerdui admin restore nerdui-backup-20270301-100000.tar.gz.age   # asks for the password
+systemctl start nerdui
+```
+
+- Pass `--data-dir` and `--stacks-dir` when they differ from the defaults; stack paths are moved
+  to them.
+- An existing database or stacks directory is only replaced with `--force`; the previous ones are
+  kept as `<name>.before-restore-<time>`.
+- Without nerdui, `age -d backup.tar.gz.age | tar tz` lists the archive.
+
 ## Metrics history (Prometheus, optional)
 
 The Stats tab of a container can show CPU, memory, block I/O and PIDs for the last hour up to a
