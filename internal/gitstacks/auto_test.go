@@ -135,4 +135,19 @@ func TestAutoPoll(t *testing.T) {
 	if len(events) != 2 || !strings.Contains(events[1].Title, "updated") {
 		t.Errorf("events %+v", events)
 	}
+	// Events name the commit, so the notifier's deduplication keeps distinct commits apart.
+	if events[0].Object != "stack/web@"+Short(second.String()) || events[1].Object != events[0].Object {
+		t.Errorf("objects %q %q", events[0].Object, events[1].Object)
+	}
+
+	// The next commit is announced again, under another object.
+	if err := s.SetAuto(ctx, "web", AutoNotify, 300); err != nil {
+		t.Fatal(err)
+	}
+	third := src.commit(map[string]string{"compose.yaml": "services: {web: {image: nginx:alpine}}\n"}, "third")
+	now = now.Add(10 * time.Minute)
+	a.Poll(ctx)
+	if len(events) != 3 || events[2].Object != "stack/web@"+Short(third.String()) {
+		t.Errorf("third commit events %+v", events)
+	}
 }

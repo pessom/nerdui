@@ -281,7 +281,7 @@ func (a *Auto) Check(ctx context.Context, name string) {
 				Kind: notify.KindGitUpdate, Severity: notify.SeverityInfo,
 				Title:   "New commit for stack " + name,
 				Message: fmt.Sprintf("%s has %s; %s is deployed. Pull it in nerdui.", after.Url, Short(after.RemoteHash), Short(after.CommitHash)),
-				Object:  "stack/" + name,
+				Object:  commitObject(name, after.RemoteHash),
 			})
 		}
 	case AutoDeploy:
@@ -290,6 +290,10 @@ func (a *Auto) Check(ctx context.Context, name string) {
 		}
 	}
 }
+
+// commitObject names a stack's commit in notifications: the notifier sends an event about the
+// same object at most once per DedupeWindow, which must not swallow the next commit.
+func commitObject(name, hash string) string { return "stack/" + name + "@" + Short(hash) }
 
 // target is a namespace where a stack's project has containers.
 type target struct {
@@ -357,7 +361,7 @@ func (a *Auto) Deploy(ctx context.Context, name string) (jobs.Job, error) {
 				Kind: notify.KindGitUpdate, Severity: notify.SeverityInfo, Environment: spec.Environment, Namespace: spec.Namespace,
 				Title:   "Stack " + name + " updated from Git",
 				Message: Short(commit.Hash) + " " + commit.Message,
-				Object:  "stack/" + name,
+				Object:  commitObject(name, commit.Hash),
 			})
 		}
 		return err
