@@ -26,6 +26,11 @@ export function setCsrfToken(token: string) {
   csrfToken = token;
 }
 
+/** The CSRF token for requests made without the API client (uploads with progress). */
+export function getCsrfToken(): string {
+  return csrfToken;
+}
+
 const UNSAFE = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
 /** Adds X-CSRF-Token to unsafe requests. */

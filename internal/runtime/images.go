@@ -57,6 +57,11 @@ type Images interface {
 	History(ctx context.Context, namespace, name string) ([]HistoryEntry, error)
 	// RemoteDigest resolves a tag in its registry without pulling (#53).
 	RemoteDigest(ctx context.Context, ref string) (string, error)
+	// CheckSave verifies the images of an archive exist; Save writes them as a tar archive
+	// and Load imports one (#46).
+	CheckSave(ctx context.Context, namespace string, names []string) error
+	Save(ctx context.Context, namespace string, names []string, w io.Writer) error
+	Load(ctx context.Context, namespace string, r io.Reader) ([]string, error)
 }
 
 // Images returns image operations of the local containerd.

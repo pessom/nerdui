@@ -128,6 +128,8 @@ func (h *Handler) runtimeRoutes(r chi.Router, g *authz.Guard) {
 	h.containerActionRoutes(r, g)
 	r.Method(http.MethodGet, "/images", g.Protect(authz.ImagesRead, h.listImages))
 	r.Method(http.MethodGet, "/images/history", g.Protect(authz.ImagesRead, h.imageHistory))
+	r.Method(http.MethodGet, "/images/save", g.Protect(authz.ImagesWrite, h.saveImages))
+	r.Method(http.MethodPost, "/images/load", g.Protect(authz.ImagesWrite, h.loadImages))
 	r.Method(http.MethodPost, "/images/pull", g.Protect(authz.ImagesWrite, h.pullImage))
 	r.Method(http.MethodPost, "/images/push", g.Protect(authz.ImagesWrite, h.pushImage))
 	r.Method(http.MethodPost, "/images/tag", g.Protect(authz.ImagesWrite, h.tagImage))

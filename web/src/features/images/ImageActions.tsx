@@ -16,7 +16,14 @@ import {
   TextInput,
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
-import { IconDots, IconHistory, IconTag, IconTrash, IconUpload } from "@tabler/icons-react";
+import {
+  IconDots,
+  IconFileExport,
+  IconHistory,
+  IconTag,
+  IconTrash,
+  IconUpload,
+} from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { api, unwrap, unwrapEmpty } from "../../api/client";
@@ -28,11 +35,13 @@ export interface ImageActionHandlers {
   tag: (img: Image) => void;
   push: (img: Image) => void;
   remove: (imgs: Image[]) => void;
+  /** Downloads images as a tar archive (#46); available in read-only mode. */
+  save: (imgs: Image[]) => void;
   /** Why actions are unavailable (read-only mode); undefined when they are available. */
   disabled?: string;
 }
 
-/** Row menu: history (#47), tag, push, remove (#44); changes are off in read-only mode. */
+/** Row menu: history (#47), save (#46), tag, push, remove (#44); changes are off in read-only mode. */
 export function ImageRowActions({
   image,
   actions,
@@ -51,6 +60,9 @@ export function ImageRowActions({
       <Menu.Dropdown>
         <Menu.Item leftSection={<IconHistory size={16} />} onClick={() => actions.history(image)}>
           History
+        </Menu.Item>
+        <Menu.Item leftSection={<IconFileExport size={16} />} onClick={() => actions.save([image])}>
+          Save as tar
         </Menu.Item>
         <Menu.Divider />
         <Menu.Item

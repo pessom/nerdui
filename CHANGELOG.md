@@ -15,6 +15,10 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
   `container.autoheal` notification (#22, ADR-0043).
 - Healthcheck in the container form: the image's, a custom command with interval, timeout,
   start period and retries, or none, and a "Restart when unhealthy" switch (#237).
+- Image archives for hosts without registry access: Save as tar downloads one or more images
+  for the host's platform, Load on the images page uploads an archive from `nerdctl save` or
+  `docker save` (also gzip-compressed); like `nerdctl save` and `nerdctl load` (#46,
+  ADR-0044). Behind nginx, raise `client_max_body_size` (docs/reverse-proxy.md).
 
 ### Fixed
 

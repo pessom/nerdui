@@ -56,7 +56,7 @@ server {
     ssl_certificate     /etc/letsencrypt/live/nerdui.example.com/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/nerdui.example.com/privkey.pem;
 
-    client_max_body_size 64m;   # stack files and uploads
+    client_max_body_size 10g;   # image archives (Images → Load); 0 = no limit
 
     location / {
         proxy_pass http://127.0.0.1:9443;
@@ -69,6 +69,7 @@ server {
         proxy_set_header Connection $connection_upgrade;
         proxy_read_timeout 1h;
         proxy_buffering off;    # streamed logs and pull progress
+        proxy_request_buffering off;  # stream image archives to nerdui as they upload
     }
 }
 ```

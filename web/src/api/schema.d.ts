@@ -1186,6 +1186,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/environments/{env}/images/save": {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Download images as a tar archive
+         * @description Requires `images:write` (#46). The images for the host's platform as one tar archive,
+         *     like `nerdctl save`; `nerdctl load` and `docker load` read it. Also available in
+         *     read-only mode. A failure after the archive started aborts the connection.
+         */
+        get: operations["saveImages"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/environments/{env}/images/load": {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Load images from a tar archive
+         * @description Requires `images:write` and a compatible host nerdctl (#46). Imports the images of an
+         *     archive from `nerdctl save` or `docker save` (optionally gzip-compressed) for the host's
+         *     platform and unpacks them, like `nerdctl load`. Images without a name are named
+         *     `import-<date>@<digest>`. Returns the images created or updated.
+         */
+        post: operations["loadImages"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/environments/{env}/images/pull": {
         parameters: {
             query?: {
@@ -5843,6 +5900,80 @@ export interface operations {
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    saveImages: {
+        parameters: {
+            query: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+                /** @description Image names as listed, e.g. docker.io/library/nginx:1.27 (1 to 50) */
+                ref: string[];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tar archive */
+            200: {
+                headers: {
+                    /** @description attachment; filename="nginx_1.27.tar" */
+                    "Content-Disposition"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/x-tar": string;
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    loadImages: {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/x-tar": string;
+                "application/gzip": string;
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /** @description Loaded images */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        images: string[];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            415: components["responses"]["Error"];
             503: components["responses"]["Error"];
         };
     };
