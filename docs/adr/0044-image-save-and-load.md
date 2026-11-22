@@ -34,6 +34,9 @@ as a service, whose stdin is empty.
   the transfer service, and answers with the images created or updated. No temporary file and
   no size limit beyond the host's disk; an archive that cannot be read is a 400. It needs
   `images:write` and a compatible nerdctl, like the other image changes.
+- containerd's export and import streams copy in goroutines that can outlive `Transfer`: Save
+  waits until the export stream is closed, and both stop their wrappers of the response and
+  request body before returning, so nothing touches them after the handler ended.
 - The images page has Load (upload with progress) and Save as tar in the image menu and for
   selected images.
 

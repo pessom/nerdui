@@ -9,6 +9,7 @@ import (
 	"io"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/containerd/containerd/v2/core/transfer"
@@ -56,10 +57,21 @@ func (ci clientImages) Save(ctx context.Context, namespace string, names []strin
 	for _, name := range slices.Compact(slices.Sorted(slices.Values(names))) {
 		refs = append(refs, transferimage.WithExtraReference(name))
 	}
+	// containerd copies the archive to w in a goroutine that can outlive Transfer: wait until
+	// it closed the stream, and never let it write to w after Save returned.
+	sw := &stoppableWriter{w: w, closed: make(chan struct{})}
+	defer sw.stop()
 	err = cl.Transfer(ctx,
 		transferimage.NewStore("", refs...),
-		tarchive.NewImageExportStream(nopWriteCloser{w}, "", tarchive.WithPlatform(platforms.DefaultSpec())),
+		tarchive.NewImageExportStream(sw, "", tarchive.WithPlatform(platforms.DefaultSpec())),
 	)
+	if err == nil {
+		select {
+		case <-sw.closed:
+		case <-ctx.Done():
+			err = ctx.Err()
+		}
+	}
 	if err != nil {
 		return fmt.Errorf("save images: %w", classify(err))
 	}
@@ -78,8 +90,13 @@ func (ci clientImages) Load(ctx context.Context, namespace string, r io.Reader) 
 	ctx = namespaces.WithNamespace(ctx, namespace)
 	started := time.Now()
 	platform := platforms.DefaultSpec()
-	err = cl.Transfer(ctx,
-		tarchive.NewImageImportStream(r, ""),
+	// containerd reads r in a goroutine that can outlive Transfer: stop it before returning.
+	tctx, cancel := context.WithCancel(ctx)
+	sr := &stoppableReader{r: r}
+	defer sr.stop()
+	defer cancel()
+	err = cl.Transfer(tctx,
+		tarchive.NewImageImportStream(sr, ""),
 		transferimage.NewStore("",
 			transferimage.WithPlatforms(platform),
 			transferimage.WithUnpack(platform, ci.c.nerdctlFor(namespace).Snapshotter),
@@ -121,6 +138,54 @@ func notArchive(err error) bool {
 	return false
 }
 
-type nopWriteCloser struct{ io.Writer }
+// stoppableReader reads r until stop; stop waits for a read in progress.
+type stoppableReader struct {
+	mu      sync.Mutex
+	r       io.Reader
+	stopped bool
+}
 
-func (nopWriteCloser) Close() error { return nil }
+func (s *stoppableReader) Read(p []byte) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.stopped {
+		return 0, io.EOF
+	}
+	return s.r.Read(p)
+}
+
+func (s *stoppableReader) stop() {
+	s.mu.Lock()
+	s.stopped = true
+	s.mu.Unlock()
+}
+
+// stoppableWriter writes to w until stop; stop waits for a write in progress. closed is closed
+// when the writer of the stream closes it.
+type stoppableWriter struct {
+	mu      sync.Mutex
+	w       io.Writer
+	stopped bool
+	once    sync.Once
+	closed  chan struct{}
+}
+
+func (s *stoppableWriter) Write(p []byte) (int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.stopped {
+		return 0, io.ErrClosedPipe
+	}
+	return s.w.Write(p)
+}
+
+func (s *stoppableWriter) Close() error {
+	s.once.Do(func() { close(s.closed) })
+	return nil
+}
+
+func (s *stoppableWriter) stop() {
+	s.mu.Lock()
+	s.stopped = true
+	s.mu.Unlock()
+}
