@@ -5,8 +5,10 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"html"
 	"io/fs"
 	"log/slog"
 	"net/http"
@@ -38,6 +40,8 @@ import (
 
 // Config configures the HTTP server.
 type Config struct {
+	// BasePath is the path prefix nerdui is served under, e.g. /nerdui, or "" (#222).
+	BasePath string
 	// Auth provides sessions and the authentication endpoints (required).
 	Auth *auth.Service
 	// Authorizer decides per-action access; defaults to authz.AdminOnly (ADR-0009).
@@ -126,7 +130,7 @@ func New(cfg Config) http.Handler {
 	}
 	// /api/docs leads to the documentation page of the UI (#87).
 	r.Method(http.MethodGet, "/api/docs", authz.Public(func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/api-docs", http.StatusFound)
+		http.Redirect(w, r, cfg.BasePath+"/api-docs", http.StatusFound)
 	}))
 	r.Route("/api/v1", func(r chi.Router) {
 		cfg.Auth.Routes(r, guard)
@@ -155,9 +159,36 @@ func New(cfg Config) http.Handler {
 	}
 
 	if cfg.UI != nil {
-		r.NotFound(spaHandler(cfg.UI))
+		r.NotFound(spaHandler(cfg.UI, cfg.BasePath))
 	}
-	return r
+	return withBasePath(cfg.BasePath, r)
+}
+
+// withBasePath serves h under base (#222, ADR-0046): requests for base/… reach h without the
+// prefix, base alone redirects to base/. Requests without the prefix are served as well, for
+// proxies that strip it and for local health checks.
+func withBasePath(base string, h http.Handler) http.Handler {
+	if base == "" {
+		return h
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.URL.Path == base:
+			u := *r.URL
+			u.Path, u.RawPath = base+"/", ""
+			http.Redirect(w, r, u.RequestURI(), http.StatusMovedPermanently) //nolint:gosec // G710: the path is the validated base path
+			return
+		case strings.HasPrefix(r.URL.Path, base+"/"):
+			r2 := r.Clone(r.Context())
+			r2.URL.Path = strings.TrimPrefix(r.URL.Path, base)
+			if r.URL.RawPath != "" {
+				r2.URL.RawPath = strings.TrimPrefix(r.URL.RawPath, base)
+			}
+			h.ServeHTTP(w, r2)
+			return
+		}
+		h.ServeHTTP(w, r)
+	})
 }
 
 // specHandler serves the embedded API specification.
@@ -195,27 +226,34 @@ func versionHandler(envs *environment.Registry, guard *authz.Guard, acmeCerts *t
 	}
 }
 
-// spaHandler serves static files and falls back to index.html for client-side routes.
-func spaHandler(ui fs.FS) http.HandlerFunc {
+// spaHandler serves static files and falls back to index.html for client-side routes. The page
+// gets <base href> with the base path, which the UI reads for its URLs (#222).
+func spaHandler(ui fs.FS, base string) http.HandlerFunc {
 	files := http.FileServerFS(ui)
+	index, indexErr := fs.ReadFile(ui, "index.html")
+	index = bytes.Replace(index, []byte(`<base href="/"`), []byte(`<base href="`+html.EscapeString(base)+`/"`), 1)
+	serveIndex := func(w http.ResponseWriter) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-cache")
+		_, _ = w.Write(index)
+	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/api/") {
 			httpjson.WriteError(w, http.StatusNotFound, httpjson.CodeNotFound, "not found")
 			return
 		}
 		name := strings.TrimPrefix(path.Clean(r.URL.Path), "/")
-		if name == "" {
-			name = "index.html"
-		}
-		if _, err := fs.Stat(ui, name); errors.Is(err, fs.ErrNotExist) {
-			if _, err := fs.Stat(ui, "index.html"); err != nil {
-				http.Error(w, "web UI is not built: run `make web` and rebuild nerdui", http.StatusNotFound)
+		if name != "" && name != "index.html" {
+			if _, err := fs.Stat(ui, name); !errors.Is(err, fs.ErrNotExist) {
+				files.ServeHTTP(w, r)
 				return
 			}
-			r = r.Clone(r.Context())
-			r.URL.Path = "/"
 		}
-		files.ServeHTTP(w, r)
+		if indexErr != nil {
+			http.Error(w, "web UI is not built: run `make web` and rebuild nerdui", http.StatusNotFound)
+			return
+		}
+		serveIndex(w)
 	}
 }
 

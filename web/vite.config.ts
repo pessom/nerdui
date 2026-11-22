@@ -12,6 +12,9 @@ import { tanstackRouter } from "@tanstack/router-plugin/vite";
 const apiTarget = process.env.NERDUI_API_URL ?? "https://localhost:9443";
 
 export default defineConfig({
+  // Relative asset URLs resolve against <base href>, which the server sets to its base path
+  // (--base-path, #222).
+  base: "./",
   // The router plugin generates src/routeTree.gen.ts from src/routes and splits each route
   // into its own chunk (ADR-0010). It must run before the React plugin.
   plugins: [tanstackRouter({ target: "react", autoCodeSplitting: true }), react()],

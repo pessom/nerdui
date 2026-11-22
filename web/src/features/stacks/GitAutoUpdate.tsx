@@ -22,6 +22,7 @@ import { api, unwrap, unwrapEmpty } from "../../api/client";
 import { keys, type Stack as StackT } from "../../api/queries";
 import type { components } from "../../api/schema";
 import { formatTime, usePreferences } from "../preferences/context";
+import { absoluteURL } from "../../lib/base";
 
 type GitInfo = NonNullable<StackT["git"]>;
 type AutoRequest = components["schemas"]["GitAutoRequest"];
@@ -74,7 +75,7 @@ export function GitAutoUpdate({
     mutationFn: () =>
       unwrap(api.POST("/api/v1/environments/{env}/stacks/{name}/git/webhook", path)),
     onSuccess: ({ path }) => {
-      setHookURL(window.location.origin + path);
+      setHookURL(absoluteURL(path));
       refresh();
     },
     onError: (e) =>

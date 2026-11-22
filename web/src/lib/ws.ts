@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2026 The nerdui Authors
 // SPDX-License-Identifier: AGPL-3.0-only
 
+import { withBase } from "./base";
+
 /**
  * WebSocket stream client (ADR-0007). Every stream is a separate WebSocket carrying JSON
  * envelopes `{type: "data" | "error" | "end"}`. The client reconnects with exponential
@@ -45,13 +47,13 @@ export interface Stream {
   close: () => void;
 }
 
-/** Absolute ws(s):// URL for an API path on the current origin. */
+/** Absolute ws(s):// URL for an API path of this nerdui, under its base path (#222). */
 export function streamURL(
   path: string,
   loc: Pick<Location, "protocol" | "host"> = window.location,
 ): string {
   const scheme = loc.protocol === "https:" ? "wss:" : "ws:";
-  return `${scheme}//${loc.host}${path}`;
+  return `${scheme}//${loc.host}${withBase(path)}`;
 }
 
 /** Delay before reconnect attempt n (0-based): exponential, capped, 50–100 % jitter. */

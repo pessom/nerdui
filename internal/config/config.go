@@ -14,6 +14,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -83,6 +84,8 @@ type Config struct {
 	// TrustedProxies are the addresses (IPs or CIDRs) of reverse proxies whose X-Forwarded-*
 	// headers are honored (#112, ADR-0035).
 	TrustedProxies []string
+	// BasePath serves nerdui under a path prefix such as /nerdui behind a reverse proxy (#222).
+	BasePath string
 }
 
 // Default returns the configuration with all default values.
@@ -152,6 +155,9 @@ func (c Config) Validate() error {
 	if !c.TLS && (c.TLSCert != "" || c.TLSKey != "") {
 		errs = append(errs, errors.New("--tls-cert/--tls-key cannot be used with --tls=false"))
 	}
+	if _, err := NormalizeBasePath(c.BasePath); err != nil {
+		errs = append(errs, fmt.Errorf("--base-path %q: %w", c.BasePath, err))
+	}
 	if _, err := proxy.ParsePrefixes(c.TrustedProxies); err != nil {
 		errs = append(errs, fmt.Errorf("--trusted-proxies: %w", err))
 	}
@@ -218,4 +224,20 @@ func (c Config) EnsureDataDir() (insecure bool, err error) {
 		return false, fmt.Errorf("data dir %q is not a directory", c.DataDir)
 	}
 	return info.Mode().Perm()&0o077 != 0, nil
+}
+
+var basePathRe = regexp.MustCompile(`^(/[A-Za-z0-9._~-]+)+$`)
+
+// NormalizeBasePath returns the path prefix without a trailing slash ("" for none, "/" too),
+// e.g. "nerdui/" → "/nerdui".
+func NormalizeBasePath(p string) (string, error) {
+	p = "/" + strings.Trim(strings.TrimSpace(p), "/")
+	if p == "/" {
+		return "", nil
+	}
+	if !basePathRe.MatchString(p) || strings.Contains(p, "/./") || strings.Contains(p, "/../") ||
+		strings.HasSuffix(p, "/.") || strings.HasSuffix(p, "/..") || strings.HasPrefix(p, "/api/") || p == "/api" {
+		return "", errors.New("must be a path of letters, digits, '.', '_', '~' and '-' segments such as /nerdui, not /api")
+	}
+	return p, nil
 }

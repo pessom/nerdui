@@ -98,11 +98,12 @@ func TestValidate(t *testing.T) {
 	bad.LogLevel = "loud"
 	bad.Namespace = " "
 	bad.TrustedProxies = []string{"proxy.local"}
+	bad.BasePath = "/a b"
 	err := bad.Validate()
 	if err == nil {
 		t.Fatal("expected error")
 	}
-	for _, want := range []string{"--listen", "--data-dir", "--stacks-scan-dirs", "--log-level", "--namespace", "--trusted-proxies"} {
+	for _, want := range []string{"--listen", "--data-dir", "--stacks-scan-dirs", "--log-level", "--namespace", "--trusted-proxies", "--base-path"} {
 		if !strings.Contains(err.Error(), want) {
 			t.Errorf("error %q does not mention %s", err, want)
 		}
@@ -189,5 +190,18 @@ func TestSlogLevel(t *testing.T) {
 	c.LogLevel = "debug"
 	if c.SlogLevel().String() != "DEBUG" {
 		t.Errorf("got %v", c.SlogLevel())
+	}
+}
+
+func TestNormalizeBasePath(t *testing.T) {
+	for in, want := range map[string]string{"": "", "/": "", "nerdui": "/nerdui", "/nerdui/": "/nerdui", "/tools/nerd-ui": "/tools/nerd-ui"} {
+		if got, err := NormalizeBasePath(in); err != nil || got != want {
+			t.Errorf("%q: %q %v", in, got, err)
+		}
+	}
+	for _, in := range []string{"/a b", "/x/../y", "/..", "/api", "/api/x", "/a?b", "/a%2f"} {
+		if _, err := NormalizeBasePath(in); err == nil {
+			t.Errorf("%q accepted", in)
+		}
 	}
 }

@@ -49,6 +49,7 @@ func BindServeFlags(fs *pflag.FlagSet, c *Config) {
 	fs.StringSliceVar(&c.TrustedProxies, "trusted-proxies", c.TrustedProxies,
 		"comma-separated IPs or CIDRs of reverse proxies whose X-Forwarded-For/-Proto/-Host headers are trusted (env "+
 			EnvName("trusted-proxies")+")")
+	str(&c.BasePath, "base-path", "path prefix to serve nerdui under behind a reverse proxy, e.g. /nerdui (default: none)")
 	fs.DurationVar(&c.AuditRetention, "audit-retention", c.AuditRetention,
 		"how long the audit log is kept, e.g. 2160h; 0 keeps it forever (env "+EnvName("audit-retention")+")")
 	fs.DurationVar(&c.EventsRetention, "events-retention", c.EventsRetention,

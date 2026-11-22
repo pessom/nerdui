@@ -25,6 +25,7 @@ import { useMemo, useState } from "react";
 import { api, unwrap } from "../../api/client";
 import type { components } from "../../api/schema";
 import { Time } from "../../components/Time";
+import { withBase } from "../../lib/base";
 
 type Entry = components["schemas"]["AuditEntry"];
 type Result = Entry["result"];
@@ -94,7 +95,7 @@ function AuditPage() {
       last.entries.length === pageSize ? last.entries[last.entries.length - 1]?.id : undefined,
   });
   const entries = log.data?.pages.flatMap((p) => p.entries) ?? [];
-  const exportHref = `/api/v1/audit/export?${new URLSearchParams(filters).toString()}`;
+  const exportHref = withBase(`/api/v1/audit/export?${new URLSearchParams(filters).toString()}`);
 
   return (
     <Stack>

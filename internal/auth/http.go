@@ -333,11 +333,18 @@ func (s *Service) writeAuthError(w http.ResponseWriter, err error) bool {
 // Secure is on with TLS, and behind a trusted reverse proxy that reports HTTPS (ADR-0005, #112).
 func (s *Service) secure(r *http.Request) bool { return s.opts.SecureCookie || proxy.Secure(r) }
 
+func (s *Service) cookiePath() string {
+	if s.opts.CookiePath == "" {
+		return "/"
+	}
+	return s.opts.CookiePath
+}
+
 func (s *Service) setCookie(w http.ResponseWriter, r *http.Request, is Issued) {
 	http.SetCookie(w, &http.Cookie{ //nolint:gosec // G124: Secure follows the TLS setting
 		Name:     CookieName,
 		Value:    is.Token,
-		Path:     "/",
+		Path:     s.cookiePath(),
 		Expires:  is.ExpiresAt,
 		HttpOnly: true,
 		Secure:   s.secure(r),
@@ -349,7 +356,7 @@ func (s *Service) clearCookie(w http.ResponseWriter, r *http.Request) {
 	http.SetCookie(w, &http.Cookie{ //nolint:gosec // G124: Secure follows the TLS setting
 		Name:     CookieName,
 		Value:    "",
-		Path:     "/",
+		Path:     s.cookiePath(),
 		MaxAge:   -1,
 		HttpOnly: true,
 		Secure:   s.secure(r),
