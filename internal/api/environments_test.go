@@ -353,6 +353,36 @@ func (fv fakeVolumes) Create(_ context.Context, _, name string, lbls map[string]
 	return v, nil
 }
 
+func (fv fakeVolumes) ListFiles(ns, name, dir string) ([]runtime.VolumeEntry, bool, error) {
+	fv.f.gotNS = ns
+	if name != "data" {
+		return nil, false, fmt.Errorf("volume %s: %w", name, errdefs.ErrNotFound)
+	}
+	if dir != "/" {
+		return nil, false, fmt.Errorf("%w: %s is not a directory", errdefs.ErrInvalidArgument, dir)
+	}
+	return []runtime.VolumeEntry{{Name: "app.conf", Type: "file", Size: 10}}, false, nil
+}
+
+func (fv fakeVolumes) PreviewFile(ns, _, _ string) (runtime.VolumeFile, error) {
+	fv.f.gotNS = ns
+	return runtime.VolumeFile{Size: 10, Content: "listen 80\n"}, nil
+}
+
+func (fv fakeVolumes) Download(ns, _, target string) (runtime.VolumeDownload, error) {
+	fv.f.gotNS = ns
+	if target == "/" {
+		return runtime.VolumeDownload{
+			Name: "data.tar.gz", Size: -1, Close: func() error { return nil },
+			Write: func(w io.Writer) error { _, err := io.WriteString(w, "GZ"); return err },
+		}, nil
+	}
+	return runtime.VolumeDownload{
+		Name: "app conf\".txt", Size: 10, Close: func() error { return nil },
+		Write: func(w io.Writer) error { _, err := io.WriteString(w, "listen 80\n"); return err },
+	}, nil
+}
+
 func (fv fakeVolumes) Remove(_ context.Context, _, name string) error {
 	for i, v := range fv.f.volumes {
 		if v.Name != name {
