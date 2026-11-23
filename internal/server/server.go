@@ -36,6 +36,7 @@ import (
 	"github.com/pessom/nerdui/internal/scheduler"
 	"github.com/pessom/nerdui/internal/stacks"
 	"github.com/pessom/nerdui/internal/tlsutil"
+	"github.com/pessom/nerdui/internal/variables"
 	"github.com/pessom/nerdui/internal/version"
 	"github.com/pessom/nerdui/internal/webhooks"
 )
@@ -46,6 +47,8 @@ type Config struct {
 	Backup *backup.Source
 	// Schedules are the scheduled jobs (#82); nil disables them.
 	Schedules *scheduler.Service
+	// Variables are the stack variables (#35); nil disables them.
+	Variables *variables.Service
 	// BasePath is the path prefix nerdui is served under, e.g. /nerdui, or "" (#222).
 	BasePath string
 	// Auth provides sessions and the authentication endpoints (required).
@@ -155,7 +158,7 @@ func New(cfg Config) http.Handler {
 				ExecDisabled: cfg.DisableExec, Settings: cfg.Settings, Stacks: cfg.Stacks, GitStacks: cfg.GitStacks, Webhooks: cfg.Webhooks,
 				ImageUpdates: cfg.ImageUpdates, AutoUpdates: cfg.AutoUpdates, Logger: cfg.Logger,
 				Notifications: cfg.Notifications, Notifier: cfg.Notifier, Audit: auditLog,
-				Backup: cfg.Backup, Schedules: cfg.Schedules,
+				Backup: cfg.Backup, Schedules: cfg.Schedules, Variables: cfg.Variables,
 			}).Routes(r, guard)
 		})
 	})

@@ -49,11 +49,19 @@ func BindServeFlags(fs *pflag.FlagSet, c *Config) {
 	fs.StringSliceVar(&c.TrustedProxies, "trusted-proxies", c.TrustedProxies,
 		"comma-separated IPs or CIDRs of reverse proxies whose X-Forwarded-For/-Proto/-Host headers are trusted (env "+
 			EnvName("trusted-proxies")+")")
+	BindSecretKeyFlag(fs, c)
 	str(&c.BasePath, "base-path", "path prefix to serve nerdui under behind a reverse proxy, e.g. /nerdui (default: none)")
 	fs.DurationVar(&c.AuditRetention, "audit-retention", c.AuditRetention,
 		"how long the audit log is kept, e.g. 2160h; 0 keeps it forever (env "+EnvName("audit-retention")+")")
 	fs.DurationVar(&c.EventsRetention, "events-retention", c.EventsRetention,
 		"how long the event history is kept, e.g. 168h; 0 disables it (env "+EnvName("events-retention")+")")
+}
+
+// BindSecretKeyFlag registers --secret-key-file (shared by serve and admin restore).
+func BindSecretKeyFlag(fs *pflag.FlagSet, c *Config) {
+	fs.StringVar(&c.SecretKeyFile, "secret-key-file", c.SecretKeyFile,
+		"file with the key that encrypts stack variables in the database, created when missing (default <data-dir>/secret.key) (env "+
+			EnvName("secret-key-file")+")")
 }
 
 // BindListenFlags registers --listen and --tls (shared by serve and healthcheck).

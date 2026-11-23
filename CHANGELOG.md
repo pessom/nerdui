@@ -32,6 +32,11 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 - Schedules: cron schedules for prune, backups of nerdui (kept in a host directory, newest N),
   restarts and redeploys of stacks and containers, and image update checks, with a history of
   runs, manual runs and descriptions in words; Git polling is listed there too (#82, ADR-0048).
+- Stack variables: global variables (Settings) and each stack's own (its Variables tab), with
+  secrets that are never shown again. They are encrypted in the database with a key file
+  (`<data-dir>/secret.key`, `--secret-key-file`) and passed to `nerdctl compose` as
+  environment variables, so compose files use them as `${NAME}`; they win over `.env`
+  (#35, ADR-0049).
 
 ### Changed
 

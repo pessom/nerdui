@@ -32,11 +32,13 @@ import (
 	"github.com/pessom/nerdui/internal/proxy"
 	"github.com/pessom/nerdui/internal/runtime"
 	"github.com/pessom/nerdui/internal/scheduler"
+	"github.com/pessom/nerdui/internal/secretbox"
 	"github.com/pessom/nerdui/internal/server"
 	"github.com/pessom/nerdui/internal/stacks"
 	"github.com/pessom/nerdui/internal/store"
 	"github.com/pessom/nerdui/internal/tlsutil"
 	"github.com/pessom/nerdui/internal/updates"
+	"github.com/pessom/nerdui/internal/variables"
 	"github.com/pessom/nerdui/internal/version"
 	"github.com/pessom/nerdui/internal/webhooks"
 	"github.com/pessom/nerdui/web"
@@ -125,9 +127,17 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 		logger.Warn("cannot read nerdctl config, using nerdctl defaults", "path", ncfgPath, "error", err)
 	}
 	logger.Info("nerdctl config", "path", ncfgPath, "data_root", ncfg.DataRoot)
+	// Stack variables (#35) are encrypted with a key file next to the database.
+	box, err := secretbox.LoadOrCreate(cfg.EffectiveSecretKeyFile())
+	if err != nil {
+		_ = ln.Close()
+		return err
+	}
+	stackVars := &variables.Service{Store: st.Write(), Box: box}
 	rt := runtime.New(cfg.ContainerdAddress, cfg.Namespace,
 		runtime.WithNerdctl(cfg.NerdctlPath, cfg.SkipNerdctlVersionCheck),
-		runtime.WithNerdctlConfig(ncfg))
+		runtime.WithNerdctlConfig(ncfg),
+		runtime.WithComposeVars(stackVars.Values))
 	envs := environment.NewRegistry(environment.Local(rt, cfg.Namespace))
 	defer func() { _ = envs.Close() }()
 	// Background work (compatibility check, event hubs) does not delay startup; it is
@@ -195,7 +205,9 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 		Environments: envs, Store: st.Write(), Logger: logger, AfterCheck: autoUpdates.Run, Notify: notifier.Notify,
 	}
 	// Scheduled jobs (#82): prune, backups, restarts and redeploys, image update checks.
-	backupSource := &backup.Source{Store: st, DataDir: cfg.DataDir, StacksDir: cfg.EffectiveStacksDir()}
+	backupSource := &backup.Source{
+		Store: st, DataDir: cfg.DataDir, StacksDir: cfg.EffectiveStacksDir(), KeyFile: cfg.EffectiveSecretKeyFile(),
+	}
 	schedules := &scheduler.Service{
 		Store: st.Write(), Jobs: jobManager, Environments: envs, Actions: incoming, Backup: backupSource,
 		CheckImages: imageUpdates.CheckAndUpdate, Logger: logger,
@@ -226,6 +238,7 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 			BasePath:  basePath,
 			Backup:    backupSource,
 			Schedules: schedules,
+			Variables: stackVars,
 			Auth:      authSvc, Environments: envs, UI: web.Dist(), Jobs: jobManager, TrustedProxies: trusted,
 			ACME:         acmeCerts,
 			EventHistory: eventHistory, DisableExec: cfg.DisableExec, Settings: st.Write(),

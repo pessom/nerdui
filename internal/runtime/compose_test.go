@@ -5,6 +5,7 @@ package runtime
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"slices"
@@ -169,5 +170,51 @@ func TestComposeValidate(t *testing.T) {
 	}
 	if _, err := cc.Validate(ctx, "app", dir, "../compose.yaml", nil, nil); !errdefs.IsInvalidArgument(err) {
 		t.Errorf("file name: %v", err)
+	}
+}
+
+func TestComposeVariables(t *testing.T) {
+	dir := t.TempDir()
+	file := filepath.Join(dir, "compose.yaml")
+	for n, c := range map[string]string{
+		"compose.yaml": "services:\n  web:\n    image: nginx:${TAG}\n    environment: [\"PW=${PW:?PW is required}\"]\n",
+		".env":         "TAG=1.27\n",
+	} {
+		if err := os.WriteFile(filepath.Join(dir, n), []byte(c), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var asked []string
+	c := New("", "", WithComposeVars(func(_ context.Context, stack string) (map[string]string, error) {
+		asked = append(asked, stack)
+		return map[string]string{"PW": "s3cret", "TAG": "1.29"}, nil
+	}))
+	cc := clientCompose{c}
+	ctx := context.Background()
+	if _, err := (clientCompose{}).Validate(ctx, "app", dir, "compose.yaml", nil, nil); err == nil {
+		t.Error("PW is not required without variables")
+	}
+	if svcs, err := cc.Validate(ctx, "app", dir, "compose.yaml", nil, nil); err != nil || !slices.Equal(svcs, []string{"web"}) {
+		t.Errorf("validate: %v %v", svcs, err)
+	}
+	if svcs, err := cc.Services(ctx, "default", "app", dir, file); err != nil || !slices.Equal(svcs, []string{"web"}) {
+		t.Errorf("services: %v %v", svcs, err)
+	}
+	// The variables win over .env.
+	p, err := loadProject(ctx, "app", dir, file, withVars(map[string]string{"PW": "x", "TAG": "1.29"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if img := p.Services["web"].Image; img != "nginx:1.29" {
+		t.Errorf("image %q", img)
+	}
+	if !slices.Equal(asked, []string{"app", "app"}) {
+		t.Errorf("asked %v", asked)
+	}
+	failing := clientCompose{New("", "", WithComposeVars(func(context.Context, string) (map[string]string, error) {
+		return nil, errors.New("bad key")
+	}))}
+	if _, err := failing.Validate(ctx, "app", dir, "compose.yaml", nil, nil); err == nil || !strings.Contains(err.Error(), "bad key") {
+		t.Errorf("failing source: %v", err)
 	}
 }

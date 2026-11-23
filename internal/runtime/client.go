@@ -68,6 +68,8 @@ type Client struct {
 	client *containerd.Client
 
 	images *imageCache
+	// vars returns nerdui's variables of a stack (#35); nil: none.
+	vars func(ctx context.Context, stack string) (map[string]string, error)
 }
 
 // New creates a client. The connection is established on first use, so nerdui
@@ -102,6 +104,12 @@ func WithNerdctlConfig(cfg *config.Config) Option {
 			c.nerdctlConfig = *cfg
 		}
 	}
+}
+
+// WithComposeVars sets the source of stack variables (#35, ADR-0049): they are passed to
+// `nerdctl compose` as environment variables and used when compose files are loaded.
+func WithComposeVars(vars func(ctx context.Context, stack string) (map[string]string, error)) Option {
+	return func(c *Client) { c.vars = vars }
 }
 
 // Nerdctl reports the host nerdctl binary and whether mutations are allowed (ADR-0011).

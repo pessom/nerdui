@@ -31,6 +31,8 @@ var ErrWrongPassword = errors.New("wrong password, or not a nerdui backup")
 type Target struct {
 	DataDir   string
 	StacksDir string
+	// KeyFile is where the key of secrets in the database is restored (#35).
+	KeyFile string
 	// Force replaces an existing database, stacks and Git stacks; they are kept next to
 	// their place as <name>.before-restore-<time>.
 	Force bool
@@ -122,7 +124,11 @@ func Restore(ctx context.Context, r io.Reader, password string, t Target) (Manif
 		{filepath.Join(tmp, dbName), dbPath},
 		{filepath.Join(tmp, stacksName), t.StacksDir},
 		{filepath.Join(tmp, gitName), gitDir},
+		{filepath.Join(tmp, keyName), t.KeyFile},
 	} {
+		if mv.to == "" {
+			continue
+		}
 		if _, err := os.Lstat(mv.to); err == nil {
 			if err := os.Rename(mv.to, mv.to+suffix); err != nil {
 				return Manifest{}, fmt.Errorf("keep %s: %w", mv.to, err)
@@ -180,7 +186,7 @@ func extract(tr *tar.Reader, dir string) (Manifest, error) {
 			}
 			seenManifest = true
 			continue
-		case name == dbName, top == stacksName, top == gitName:
+		case name == dbName, name == keyName, top == stacksName, top == gitName:
 		default:
 			return m, fmt.Errorf("unexpected entry %q in the backup", hdr.Name)
 		}

@@ -177,7 +177,8 @@ nerdui serves **HTTPS on port 9443** by default ([ADR-0005](adr/0005-authenticat
 ## Backup and moving to another server
 
 Settings → Backup downloads nerdui's own data — users, settings, credentials, notification
-channels, webhooks, and the files of managed and Git stacks — as an archive encrypted with a
+channels, webhooks, stack variables with their key (`secret.key`), and the files of managed and
+Git stacks — as an archive encrypted with a
 password (at least 12 characters). Containers, images and volumes are not included
 ([ADR-0047](adr/0047-application-backup.md)).
 
@@ -194,10 +195,18 @@ systemctl start nerdui
 ```
 
 - Pass `--data-dir` and `--stacks-dir` when they differ from the defaults; stack paths are moved
-  to them.
+  to them. With `--secret-key-file`, pass it too.
 - An existing database or stacks directory is only replaced with `--force`; the previous ones are
   kept as `<name>.before-restore-<time>`.
 - Without nerdui, `age -d backup.tar.gz.age | tar tz` lists the archive.
+
+## Stack variables and the secret key
+
+Variables of stacks (Settings → Global variables, a stack's Variables tab) are encrypted in the
+database with the key in `<data-dir>/secret.key`, created at the first start
+([ADR-0049](adr/0049-stack-variables.md)). Keep it with the database: without it, stored
+variables cannot be read and stacks that use them do not deploy. Backups of nerdui include it.
+`--secret-key-file` (`NERDUI_SECRET_KEY_FILE`) keeps the key elsewhere, e.g. on another disk.
 
 ## Metrics history (Prometheus, optional)
 

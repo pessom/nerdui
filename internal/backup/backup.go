@@ -40,6 +40,7 @@ const (
 	dbName       = "nerdui.db"
 	stacksName   = "stacks"
 	gitName      = "git"
+	keyName      = "secret.key"
 )
 
 // Manifest describes an archive.
@@ -59,6 +60,8 @@ type Source struct {
 	Store     *store.Store
 	DataDir   string
 	StacksDir string
+	// KeyFile encrypts secrets in the database (#35); it is included when it exists.
+	KeyFile string
 }
 
 // GitDir is where Git stacks are cloned.
@@ -120,6 +123,11 @@ func Write(ctx context.Context, src Source, password string, w io.Writer) error 
 	}
 	if err := addFile(tw, snapshot, dbName); err != nil {
 		return err
+	}
+	if src.KeyFile != "" {
+		if err := addFile(tw, src.KeyFile, keyName); err != nil && !errors.Is(err, fs.ErrNotExist) {
+			return fmt.Errorf("secret key: %w", err)
+		}
 	}
 	if err := addTree(ctx, tw, src.StacksDir, stacksName); err != nil {
 		return fmt.Errorf("stacks: %w", err)

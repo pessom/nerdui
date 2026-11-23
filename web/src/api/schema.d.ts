@@ -728,6 +728,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/variables": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Global variables of all stacks
+         * @description Requires `settings:read` (#35, ADR-0049). Global variables are passed to every stack's
+         *     `nerdctl compose`; a stack's own variable of the same name wins. Secret values are empty.
+         */
+        get: operations["listGlobalVariables"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/variables/{var}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Variable name */
+                var: components["parameters"]["VariableName"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Create or change a global variable
+         * @description Requires `settings:write`.
+         */
+        put: operations["putGlobalVariable"];
+        post?: never;
+        /**
+         * Delete a global variable
+         * @description Requires `settings:write`.
+         */
+        delete: operations["deleteGlobalVariable"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/webhooks": {
         parameters: {
             query?: never;
@@ -1869,6 +1917,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/environments/{env}/stacks/{name}/variables": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * Variables of a stack
+         * @description Requires `stacks:read` (#35, ADR-0049). Passed to `nerdctl compose` as environment
+         *     variables: compose files interpolate them as `${NAME}`, and they win over `.env` and
+         *     global variables. Secret values are empty.
+         */
+        get: operations["listStackVariables"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/environments/{env}/stacks/{name}/variables/{var}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+                /** @description Variable name */
+                var: components["parameters"]["VariableName"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Create or change a variable of a stack
+         * @description Requires `stacks:write`. Takes effect on the next deploy.
+         */
+        put: operations["putStackVariable"];
+        post?: never;
+        /**
+         * Delete a variable of a stack
+         * @description Requires `stacks:write`.
+         */
+        delete: operations["deleteStackVariable"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/environments/{env}/stacks/{name}/validate": {
         parameters: {
             query?: never;
@@ -2920,6 +3024,15 @@ export interface components {
             /** @enum {string} */
             lastStatus?: "" | "running" | "succeeded" | "failed" | "skipped";
             lastMessage?: string;
+        };
+        Variable: {
+            name: string;
+            /** @description Empty for secrets */
+            value: string;
+            secret: boolean;
+            updatedBy?: string;
+            /** Format: date-time */
+            updatedAt: string;
         };
         ScheduleRun: {
             /** Format: int64 */
@@ -4234,6 +4347,26 @@ export interface components {
                 };
             };
         };
+        /** @description The variable */
+        Variable: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Variable"];
+            };
+        };
+        /** @description Variables by name */
+        Variables: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": {
+                    variables: components["schemas"]["Variable"][];
+                };
+            };
+        };
         /** @description Error (ADR-0006) */
         Error: {
             headers: {
@@ -4256,6 +4389,8 @@ export interface components {
         };
     };
     parameters: {
+        /** @description Variable name */
+        VariableName: string;
         /** @description Job ID */
         JobId: string;
         /** @description User ID */
@@ -4275,6 +4410,16 @@ export interface components {
                 "application/json": {
                     /** @description The current password */
                     password: string;
+                };
+            };
+        };
+        VariableInput: {
+            content: {
+                "application/json": {
+                    /** @description Left out, the stored value is kept (required for a new variable and to make a secret visible) */
+                    value?: string;
+                    /** @description Never return the value */
+                    secret?: boolean;
                 };
             };
         };
@@ -5475,6 +5620,62 @@ export interface operations {
                         runs: components["schemas"]["ScheduleRun"][];
                     };
                 };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    listGlobalVariables: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["Variables"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
+    putGlobalVariable: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Variable name */
+                var: components["parameters"]["VariableName"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["VariableInput"];
+        responses: {
+            200: components["responses"]["Variable"];
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
+    deleteGlobalVariable: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Variable name */
+                var: components["parameters"]["VariableName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
@@ -7230,6 +7431,74 @@ export interface operations {
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
             415: components["responses"]["Error"];
+        };
+    };
+    listStackVariables: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["Variables"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    putStackVariable: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+                /** @description Variable name */
+                var: components["parameters"]["VariableName"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["VariableInput"];
+        responses: {
+            200: components["responses"]["Variable"];
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    deleteStackVariable: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+                /** @description Variable name */
+                var: components["parameters"]["VariableName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
         };
     };
     validateStack: {

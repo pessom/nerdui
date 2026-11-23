@@ -335,6 +335,7 @@ func (h *Handler) removeGitStack(w http.ResponseWriter, r *http.Request) {
 		httpjson.WriteErr(w, r, h.Logger, err)
 		return
 	}
+	h.forgetVariables(r, name)
 	h.log().Info("git stack removed", "environment", env.ID, "stack", name, "user", principalName(r))
 	w.WriteHeader(http.StatusNoContent)
 }

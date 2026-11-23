@@ -61,7 +61,8 @@ func source(t *testing.T) (Source, []byte) {
 	if err := os.Symlink("compose.yaml", filepath.Join(stacks, "shop", "docker-compose.yml")); err != nil {
 		t.Fatal(err)
 	}
-	src := Source{Store: st, DataDir: data, StacksDir: stacks}
+	write(t, filepath.Join(data, "secret.key"), "00112233\n")
+	src := Source{Store: st, DataDir: data, StacksDir: stacks, KeyFile: filepath.Join(data, "secret.key")}
 	var buf bytes.Buffer
 	if err := Write(ctx, src, password, &buf); err != nil {
 		t.Fatal(err)
@@ -79,9 +80,13 @@ func TestBackupRestore(t *testing.T) {
 	// Restore on a "new server" with other directories.
 	data := t.TempDir()
 	stacks := filepath.Join(t.TempDir(), "my-stacks")
-	m, err := Restore(ctx, bytes.NewReader(archive), password, Target{DataDir: data, StacksDir: stacks})
+	key := filepath.Join(t.TempDir(), "keys", "nerdui.key")
+	m, err := Restore(ctx, bytes.NewReader(archive), password, Target{DataDir: data, StacksDir: stacks, KeyFile: key})
 	if err != nil {
 		t.Fatal(err)
+	}
+	if b, err := os.ReadFile(key); err != nil || string(b) != "00112233\n" {
+		t.Errorf("secret key: %q %v", b, err)
 	}
 	if m.Format != Format || m.Schema == 0 || time.Since(m.Created) > time.Minute {
 		t.Errorf("manifest %+v", m)

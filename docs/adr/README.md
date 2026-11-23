@@ -57,3 +57,4 @@ We record significant architectural decisions as ADRs
 | 0046 | [Serving nerdui under a path prefix](0046-base-path.md) | Accepted |
 | 0047 | [Backups of nerdui's own data](0047-application-backup.md) | Accepted |
 | 0048 | [Scheduled jobs](0048-scheduler.md) | Accepted |
+| 0049 | [Encrypted variables of stacks](0049-stack-variables.md) | Accepted |
