@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -59,11 +60,15 @@ type clientCompose struct{ c *Client }
 
 // The package composer is not imported: its test dependencies reference a nerdctl-internal
 // module (mod/tigron) that `go mod tidy` cannot resolve outside nerdctl's repository.
-func (clientCompose) Services(ctx context.Context, _, project, dir, file string) ([]string, error) {
+func (cc clientCompose) Services(ctx context.Context, _, project, dir, file string) ([]string, error) {
 	if err := identifiers.ValidateDockerCompat(project); err != nil {
 		return nil, fmt.Errorf("%w: project name: %w", errdefs.ErrInvalidArgument, err)
 	}
-	p, err := loadProject(ctx, project, dir, file)
+	vars, err := cc.c.composeVars(ctx, project)
+	if err != nil {
+		return nil, err
+	}
+	p, err := loadProject(ctx, project, dir, file, withVars(vars))
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +76,7 @@ func (clientCompose) Services(ctx context.Context, _, project, dir, file string)
 }
 
 func (clientCompose) Describe(ctx context.Context, dir, file string) (ComposeProject, error) {
-	p, err := loadProject(ctx, "", dir, file)
+	p, err := loadProject(ctx, "", dir, file, nil)
 	if err != nil {
 		return ComposeProject{}, err
 	}
@@ -121,14 +126,19 @@ func (clientCompose) Describe(ctx context.Context, dir, file string) (ComposePro
 
 // loadProject loads a compose project like `nerdctl compose` run in dir without -f: the default
 // files (compose.yaml and compose.override.yaml, …) are found there; file only has to exist.
-// An empty name derives it from the file or the directory.
-func loadProject(ctx context.Context, project, dir, file string) (*types.Project, error) {
+// An empty name derives it from the file or the directory. vars (withVars) adds nerdui's
+// variables of the stack.
+func loadProject(ctx context.Context, project, dir, file string, vars composecli.ProjectOptionsFn) (*types.Project, error) {
 	if _, err := os.Stat(file); err != nil {
 		return nil, fmt.Errorf("%w: compose file: %w", errdefs.ErrInvalidArgument, err)
 	}
 	// The options of nerdctl's composer.New, in its order.
+	if vars == nil {
+		vars = withVars(nil)
+	}
 	opts, err := composecli.NewProjectOptions(nil,
 		composecli.WithOsEnv,
+		vars,
 		composecli.WithWorkingDirectory(dir),
 		composecli.WithConfigFileEnv,
 		composecli.WithDefaultConfigPath,
@@ -232,8 +242,20 @@ func (cc clientCompose) Run(ctx context.Context, namespace, project, dir, op str
 		defer expect(projectKey(namespace, project))()
 	}
 	_, _ = fmt.Fprintf(out, "\x1b[1m$ nerdctl %s\x1b[0m\r\n", strings.Join(args, " "))
+	vars, err := cc.c.composeVars(ctx, project)
+	if err != nil {
+		return err
+	}
 	cmd := exec.CommandContext(ctx, bin, argv...) //nolint:gosec // G204: validated arguments, no shell (ADR-0026)
 	cmd.Dir = dir
+	if len(vars) > 0 {
+		// Later entries win: the variables override nerdui's own environment, and compose
+		// prefers the environment over .env.
+		cmd.Env = os.Environ()
+		for _, k := range slices.Sorted(maps.Keys(vars)) {
+			cmd.Env = append(cmd.Env, k+"="+vars[k])
+		}
+	}
 	cmd.Stdout, cmd.Stderr = out, out
 	if err := cmd.Run(); err != nil {
 		if ctx.Err() != nil {
@@ -248,12 +270,42 @@ func (cc clientCompose) Run(ctx context.Context, namespace, project, dir, op str
 	return nil
 }
 
+// withVars sets nerdui's variables of a stack (#35) over the process environment, as Run
+// passes them to nerdctl; .env values apply only to names still unset.
+func withVars(vars map[string]string) composecli.ProjectOptionsFn {
+	return func(o *composecli.ProjectOptions) error {
+		if o.Environment == nil && len(vars) > 0 {
+			o.Environment = map[string]string{}
+		}
+		for k, v := range vars {
+			o.Environment[k] = v
+		}
+		return nil
+	}
+}
+
+// composeVars returns the variables of a stack from WithComposeVars.
+func (c *Client) composeVars(ctx context.Context, project string) (map[string]string, error) {
+	if c == nil || c.vars == nil || project == "" {
+		return nil, nil
+	}
+	vars, err := c.vars(ctx, project)
+	if err != nil {
+		return nil, fmt.Errorf("variables of stack %s: %w", project, err)
+	}
+	return vars, nil
+}
+
 // overrideFileNames are compose-go's override files (cli.DefaultOverrideFileNames).
 var overrideFileNames = []string{"compose.override.yml", "compose.override.yaml", "docker-compose.override.yml", "docker-compose.override.yaml"}
 
-func (clientCompose) Validate(ctx context.Context, project, dir, composeName string, compose, env []byte) ([]string, error) {
+func (cc clientCompose) Validate(ctx context.Context, project, dir, composeName string, compose, env []byte) ([]string, error) {
 	if err := identifiers.ValidateDockerCompat(project); err != nil {
 		return nil, fmt.Errorf("%w: project name: %w", errdefs.ErrInvalidArgument, err)
+	}
+	vars, err := cc.c.composeVars(ctx, project)
+	if err != nil {
+		return nil, err
 	}
 	if composeName == "" || filepath.Base(composeName) != composeName {
 		return nil, fmt.Errorf("%w: compose file name %q", errdefs.ErrInvalidArgument, composeName)
@@ -306,6 +358,7 @@ func (clientCompose) Validate(ctx context.Context, project, dir, composeName str
 	}
 	opts, err := composecli.NewProjectOptions(paths,
 		composecli.WithOsEnv,
+		withVars(vars),
 		composecli.WithWorkingDirectory(dir),
 		envFiles,
 		composecli.WithDotEnv,

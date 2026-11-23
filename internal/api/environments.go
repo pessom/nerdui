@@ -26,6 +26,7 @@ import (
 	"github.com/pessom/nerdui/internal/runtime"
 	"github.com/pessom/nerdui/internal/scheduler"
 	"github.com/pessom/nerdui/internal/stacks"
+	"github.com/pessom/nerdui/internal/variables"
 	"github.com/pessom/nerdui/internal/webhooks"
 )
 
@@ -65,6 +66,8 @@ type Handler struct {
 	Backup *backup.Source
 	// Schedules are the scheduled jobs (#82); nil disables them.
 	Schedules *scheduler.Service
+	// Variables are the global and per-stack variables (#35); nil disables them.
+	Variables *variables.Service
 	Logger    *slog.Logger
 }
 
@@ -78,6 +81,7 @@ func (h *Handler) Routes(r chi.Router, g *authz.Guard) {
 	h.webhookRoutes(r, g)
 	h.backupRoutes(r, g)
 	h.scheduleRoutes(r, g)
+	h.variableRoutes(r, g)
 	r.Method(http.MethodGet, "/compose-schema", g.Protect(authz.StacksRead, h.composeSchema))
 	r.Route("/environments/{env}", func(r chi.Router) {
 		r.Use(h.resolveEnv)
@@ -103,6 +107,7 @@ func (h *Handler) Routes(r chi.Router, g *authz.Guard) {
 		r.Method(http.MethodGet, "/stacks/{name}/files/{file}", g.Protect(authz.StacksRead, h.getStackFile))
 		r.Method(http.MethodPut, "/stacks/{name}/files/{file}", g.Protect(authz.StacksWrite, h.putStackFile))
 		r.Method(http.MethodPost, "/stacks/{name}/validate", g.Protect(authz.StacksWrite, h.validateStack))
+		h.stackVariableRoutes(r, g)
 		r.Group(func(r chi.Router) {
 			r.Use(h.requireWritable)
 			h.runtimeRoutes(r, g)

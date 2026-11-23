@@ -29,14 +29,18 @@ import { StackActions } from "../../../../features/stacks/StackActions";
 import { StackFilePanel } from "../../../../features/stacks/StackFilePanel";
 import { StackLogsPanel } from "../../../../features/stacks/StackLogsPanel";
 import { StackMode, StackStatus } from "../../../../features/stacks/StackStatus";
+import { VariablesEditor } from "../../../../features/variables/VariablesEditor";
 
 const envRoute = getRouteApi("/_app/env/$env");
 
-type Tab = "services" | "logs" | "compose" | "env";
+type Tab = "services" | "logs" | "compose" | "env" | "variables";
 const isTab = (t: unknown): t is Tab =>
-  t === "services" || t === "logs" || t === "compose" || t === "env";
+  t === "services" || t === "logs" || t === "compose" || t === "env" || t === "variables";
 
-/** A stack: operations (#28), services and containers (#24), its compose and .env files (#26). */
+/**
+ * A stack: operations (#28), services and containers (#24), its compose and .env files (#26),
+ * its variables (#35).
+ */
 export const Route = createFileRoute("/_app/env/$env/stacks_/$name")({
   validateSearch: (search: Record<string, unknown>): { tab?: Tab } => ({
     tab: isTab(search.tab) && search.tab !== "services" ? search.tab : undefined,
@@ -150,7 +154,10 @@ function StackPage() {
           )}
           {(() => {
             const editable = stack.data.mode !== "unmanaged" && !!stack.data.composeFile;
-            const shown = !editable && (tab === "compose" || tab === "env") ? "services" : tab;
+            const shown =
+              !editable && (tab === "compose" || tab === "env" || tab === "variables")
+                ? "services"
+                : tab;
             const ids = stack.data.services
               .flatMap((s) => s.containers.map((c) => c.id))
               .sort()
@@ -170,6 +177,7 @@ function StackPage() {
                   <Tabs.Tab value="logs">Logs</Tabs.Tab>
                   {editable && <Tabs.Tab value="compose">{stack.data.composeFile}</Tabs.Tab>}
                   {editable && <Tabs.Tab value="env">.env</Tabs.Tab>}
+                  {editable && <Tabs.Tab value="variables">Variables</Tabs.Tab>}
                 </Tabs.List>
                 <Tabs.Panel value="services">
                   <MStack>{services(stack.data.services)}</MStack>
@@ -206,6 +214,18 @@ function StackPage() {
                       kind="env"
                       readOnly={readOnly}
                     />
+                  )}
+                </Tabs.Panel>
+                <Tabs.Panel value="variables">
+                  {shown === "variables" && (
+                    <MStack gap="xs">
+                      <Text size="sm" c="dimmed">
+                        Passed to <Code>nerdctl compose</Code> of this stack as environment
+                        variables: use them as <Code>{"${NAME}"}</Code>. They win over global
+                        variables and <Code>.env</Code>, and apply on the next deploy.
+                      </Text>
+                      <VariablesEditor scope={{ kind: "stack", env, name }} />
+                    </MStack>
                   )}
                 </Tabs.Panel>
               </Tabs>

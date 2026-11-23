@@ -27,6 +27,7 @@ import (
 	"github.com/pessom/nerdui/internal/scheduler"
 	"github.com/pessom/nerdui/internal/store"
 	"github.com/pessom/nerdui/internal/store/db"
+	"github.com/pessom/nerdui/internal/variables"
 )
 
 type fakeRuntime struct {
@@ -313,6 +314,7 @@ func TestRouteAuthorization(t *testing.T) {
 	cfg.Auth, cfg.Logger = lastAuth, slog.New(slog.DiscardHandler)
 	cfg.Backup = &backup.Source{}
 	cfg.Schedules = &scheduler.Service{}
+	cfg.Variables = &variables.Service{}
 	h := New(cfg)
 	routes, err := authz.Inspect(h.(chi.Routes), APIPrefix)
 	if err != nil {
@@ -421,6 +423,12 @@ func TestRouteAuthorization(t *testing.T) {
 		"DELETE /api/v1/schedules/{id}":                                         "settings:write",
 		"POST /api/v1/schedules/{id}/run":                                       "settings:write",
 		"GET /api/v1/schedules/{id}/runs":                                       "settings:read",
+		"GET /api/v1/variables":                                                 "settings:read",
+		"PUT /api/v1/variables/{var}":                                           "settings:write",
+		"DELETE /api/v1/variables/{var}":                                        "settings:write",
+		"GET /api/v1/environments/{env}/stacks/{name}/variables":                "stacks:read",
+		"PUT /api/v1/environments/{env}/stacks/{name}/variables/{var}":          "stacks:write",
+		"DELETE /api/v1/environments/{env}/stacks/{name}/variables/{var}":       "stacks:write",
 		"PUT /api/v1/webhooks/{id}":                                             "settings:write",
 		"DELETE /api/v1/webhooks/{id}":                                          "settings:write",
 		"POST /api/v1/webhooks/{id}/token":                                      "settings:write",

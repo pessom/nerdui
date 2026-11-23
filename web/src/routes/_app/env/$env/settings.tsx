@@ -11,6 +11,7 @@ import { NotificationsSettingsCard } from "../../../../features/settings/Notific
 import { ImageUpdatesSettingsCard } from "../../../../features/settings/ImageUpdatesSettingsCard";
 import { SecuritySettingsCard } from "../../../../features/settings/SecuritySettingsCard";
 import { BackupSettingsCard } from "../../../../features/settings/BackupSettingsCard";
+import { VariablesSettingsCard } from "../../../../features/settings/VariablesSettingsCard";
 import { PrometheusSettingsCard } from "../../../../features/settings/PrometheusSettingsCard";
 
 const envRoute = getRouteApi("/_app/env/$env");
@@ -31,6 +32,7 @@ function SettingsPage() {
       <PrometheusSettingsCard env={env} />
       <ImageUpdatesSettingsCard env={env} namespace={namespace} />
       <NotificationsSettingsCard />
+      <VariablesSettingsCard />
       <GitCredentialsSettingsCard />
       <WebhooksSettingsCard env={env} namespace={namespace} />
       <SecuritySettingsCard />

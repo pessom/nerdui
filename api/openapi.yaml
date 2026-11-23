@@ -975,6 +975,42 @@ paths:
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
+  /api/v1/variables:
+    get:
+      tags: [settings]
+      operationId: listGlobalVariables
+      summary: Global variables of all stacks
+      description: |
+        Requires `settings:read` (#35, ADR-0049). Global variables are passed to every stack's
+        `nerdctl compose`; a stack's own variable of the same name wins. Secret values are empty.
+      responses:
+        "200": { $ref: "#/components/responses/Variables" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+  /api/v1/variables/{var}:
+    parameters:
+      - $ref: "#/components/parameters/VariableName"
+    put:
+      tags: [settings]
+      operationId: putGlobalVariable
+      summary: Create or change a global variable
+      description: Requires `settings:write`.
+      requestBody: { $ref: "#/components/requestBodies/VariableInput" }
+      responses:
+        "200": { $ref: "#/components/responses/Variable" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [settings]
+      operationId: deleteGlobalVariable
+      summary: Delete a global variable
+      description: Requires `settings:write`.
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
   /api/v1/webhooks:
     get:
       tags: [webhooks]
@@ -2482,6 +2518,56 @@ paths:
         "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
         "415": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/stacks/{name}/variables:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - name: name
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      tags: [stacks]
+      operationId: listStackVariables
+      summary: Variables of a stack
+      description: |
+        Requires `stacks:read` (#35, ADR-0049). Passed to `nerdctl compose` as environment
+        variables: compose files interpolate them as `${NAME}`, and they win over `.env` and
+        global variables. Secret values are empty.
+      responses:
+        "200": { $ref: "#/components/responses/Variables" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/stacks/{name}/variables/{var}:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - name: name
+        in: path
+        required: true
+        schema: { type: string }
+      - $ref: "#/components/parameters/VariableName"
+    put:
+      tags: [stacks]
+      operationId: putStackVariable
+      summary: Create or change a variable of a stack
+      description: Requires `stacks:write`. Takes effect on the next deploy.
+      requestBody: { $ref: "#/components/requestBodies/VariableInput" }
+      responses:
+        "200": { $ref: "#/components/responses/Variable" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [stacks]
+      operationId: deleteStackVariable
+      summary: Delete a variable of a stack
+      description: Requires `stacks:write`.
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
   /api/v1/environments/{env}/stacks/{name}/validate:
     parameters:
       - $ref: "#/components/parameters/Env"
@@ -3624,6 +3710,19 @@ components:
             required: [password]
             properties:
               password: { type: string, description: The current password, to confirm }
+    VariableInput:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            properties:
+              value:
+                type: string
+                maxLength: 65536
+                description: Left out, the stored value is kept (required for a new variable and to make a secret visible)
+              secret: { type: boolean, description: Never return the value }
   securitySchemes:
     apiKey:
       type: http
@@ -3640,6 +3739,12 @@ components:
         Server-side session (ADR-0005). Unsafe requests (POST, PUT, PATCH, DELETE) must also
         send the session's CSRF token in the X-CSRF-Token header.
   parameters:
+    VariableName:
+      name: var
+      in: path
+      required: true
+      schema: { type: string, pattern: "^[A-Za-z_][A-Za-z0-9_]*$", maxLength: 128 }
+      description: Variable name
     JobId:
       name: id
       in: path
@@ -3688,6 +3793,20 @@ components:
             required: [backupCodes]
             properties:
               backupCodes: { type: array, items: { type: string } }
+    Variable:
+      description: The variable
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Variable" }
+    Variables:
+      description: Variables by name
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [variables]
+            properties:
+              variables: { type: array, items: { $ref: "#/components/schemas/Variable" } }
     Error:
       description: Error (ADR-0006)
       content:
@@ -3770,6 +3889,15 @@ components:
         lastRunAt: { type: string, format: date-time }
         lastStatus: { type: string, enum: ["", running, succeeded, failed, skipped] }
         lastMessage: { type: string }
+    Variable:
+      type: object
+      required: [name, value, secret, updatedAt]
+      properties:
+        name: { type: string }
+        value: { type: string, description: Empty for secrets }
+        secret: { type: boolean }
+        updatedBy: { type: string }
+        updatedAt: { type: string, format: date-time }
     ScheduleRun:
       type: object
       required: [id, trigger, startedAt, status]

@@ -207,6 +207,15 @@ type UserPreference struct {
 	UpdatedAt int64
 }
 
+type Variable struct {
+	Stack     string
+	Name      string
+	Value     string
+	Secret    int64
+	UpdatedBy string
+	UpdatedAt int64
+}
+
 type Webhook struct {
 	ID           int64
 	Name         string

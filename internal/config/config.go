@@ -86,6 +86,9 @@ type Config struct {
 	TrustedProxies []string
 	// BasePath serves nerdui under a path prefix such as /nerdui behind a reverse proxy (#222).
 	BasePath string
+	// SecretKeyFile holds the key that encrypts secrets in the database (#35, ADR-0049);
+	// default <DataDir>/secret.key, created on first start.
+	SecretKeyFile string
 }
 
 // Default returns the configuration with all default values.
@@ -113,6 +116,14 @@ func (c Config) EffectiveStacksDir() string {
 		return c.StacksDir
 	}
 	return filepath.Join(c.DataDir, "stacks")
+}
+
+// EffectiveSecretKeyFile returns SecretKeyFile or its default inside DataDir.
+func (c Config) EffectiveSecretKeyFile() string {
+	if c.SecretKeyFile != "" {
+		return c.SecretKeyFile
+	}
+	return filepath.Join(c.DataDir, "secret.key")
 }
 
 // SlogLevel returns the parsed log level. Call Validate first.

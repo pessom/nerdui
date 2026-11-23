@@ -151,7 +151,8 @@ func newRestoreCmd() *cobra.Command {
 		Use:   "restore <backup-file>",
 		Short: "Restore nerdui's database, stacks and Git stacks from a backup",
 		Long: "Restore a backup made under Settings → Backup (or a scheduled backup): the database\n" +
-			"with users, settings and credentials, the managed stacks and the Git stacks. Stack paths\n" +
+			"with users, settings and credentials, the key of stack variables, the managed stacks and\n" +
+			"the Git stacks. Stack paths\n" +
 			"move to this host's --data-dir and --stacks-dir. Stop nerdui first\n" +
 			"(systemctl stop nerdui). An existing database, stacks directory or Git directory is\n" +
 			"only replaced with --force; the previous ones are kept as <name>.before-restore-<time>.\n" +
@@ -173,7 +174,7 @@ func newRestoreCmd() *cobra.Command {
 			}
 			out := cmd.OutOrStdout()
 			m, err := backup.Restore(cmd.Context(), bufio.NewReader(f), password, backup.Target{
-				DataDir: cfg.DataDir, StacksDir: cfg.EffectiveStacksDir(), Force: force,
+				DataDir: cfg.DataDir, StacksDir: cfg.EffectiveStacksDir(), KeyFile: cfg.EffectiveSecretKeyFile(), Force: force,
 				Logf: func(format string, a ...any) { _, _ = fmt.Fprintf(out, format+"\n", a...) },
 			})
 			if err != nil {
@@ -186,6 +187,7 @@ func newRestoreCmd() *cobra.Command {
 	}
 	config.BindDataDirFlag(cmd.Flags(), &cfg)
 	cmd.Flags().StringVar(&cfg.StacksDir, "stacks-dir", cfg.StacksDir, "directory of managed stacks (default <data-dir>/stacks)")
+	config.BindSecretKeyFlag(cmd.Flags(), &cfg)
 	cmd.Flags().BoolVar(&fromStdin, "password-stdin", false, "read the backup password from the first line of stdin")
 	cmd.Flags().BoolVar(&force, "force", false, "replace an existing database, stacks and Git stacks")
 	return cmd

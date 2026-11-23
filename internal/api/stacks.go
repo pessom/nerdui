@@ -158,6 +158,7 @@ func (h *Handler) forgetStack(w http.ResponseWriter, r *http.Request) {
 		h.writeActionErr(w, r, err)
 		return
 	}
+	h.forgetVariables(r, name)
 	h.log().Info("stack registration removed", "environment", EnvFrom(r.Context()).ID, "stack", name)
 	w.WriteHeader(http.StatusNoContent)
 }
