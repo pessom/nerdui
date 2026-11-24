@@ -1,0 +1,8 @@
+{
+  "name": "Gitea",
+  "description": "Lightweight Git hosting with issues and pull requests (SQLite).",
+  "categories": [
+    "development"
+  ],
+  "documentation": "https://docs.gitea.com/installation/install-with-docker"
+}

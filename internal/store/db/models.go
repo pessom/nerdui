@@ -196,6 +196,17 @@ type Stack struct {
 	CreatedAt int64
 }
 
+type StackTemplate struct {
+	ID          int64
+	Name        string
+	Description string
+	Compose     string
+	Env         string
+	CreatedBy   string
+	CreatedAt   int64
+	UpdatedAt   int64
+}
+
 type User struct {
 	ID                 int64
 	Username           string

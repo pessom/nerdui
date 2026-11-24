@@ -19,7 +19,11 @@ import { useDisclosure } from "@mantine/hooks";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi, useNavigate } from "@tanstack/react-router";
-import { api, unwrapEmpty } from "../../../../api/client";
+import { useState } from "react";
+import { IconTemplate } from "@tabler/icons-react";
+import { api, unwrap, unwrapEmpty } from "../../../../api/client";
+import { TemplateDialog, type TemplateDraft } from "../../../../features/templates/TemplateDialog";
+import { exampleFromEnv } from "../../../../features/templates/templates";
 import { envStatusQuery, keys, stackQuery } from "../../../../api/queries";
 import { RouterAnchor } from "../../../../components/RouterAnchor";
 import { AdoptStackDialog } from "../../../../features/stacks/AdoptStackDialog";
@@ -60,6 +64,27 @@ function StackPage() {
   const [adopting, adoptDialog] = useDisclosure();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const [templateDraft, setTemplateDraft] = useState<TemplateDraft | null>(null);
+  // Save as template (#34): the compose file and the .env with secret-looking values emptied.
+  const saveTemplate = useMutation({
+    mutationFn: async () => {
+      const file = (kind: "compose" | "env") =>
+        unwrap(
+          api.GET("/api/v1/environments/{env}/stacks/{name}/files/{file}", {
+            params: { path: { env, name, file: kind } },
+          }),
+        );
+      const [compose, dotenv] = await Promise.all([file("compose"), file("env")]);
+      return { compose: compose.content, env: exampleFromEnv(dotenv.content) };
+    },
+    onSuccess: (f) => setTemplateDraft({ name, description: "", ...f }),
+    onError: (e) =>
+      notifications.show({
+        color: "red",
+        title: "Cannot read the stack files",
+        message: e.message,
+      }),
+  });
   const forget = useMutation({
     mutationFn: () =>
       unwrapEmpty(
@@ -92,13 +117,26 @@ function StackPage() {
           {stack.data && <StackStatus stack={stack.data} />}
           {stack.data && <StackMode mode={stack.data.mode} />}
         </Group>
-        {stack.data?.mode === "unmanaged" && <Button onClick={adoptDialog.open}>Adopt</Button>}
-        {stack.data?.mode === "external" && (
-          <Button variant="default" loading={forget.isPending} onClick={() => forget.mutate()}>
-            Forget
-          </Button>
-        )}
+        <Group gap="xs">
+          {stack.data?.mode === "unmanaged" && <Button onClick={adoptDialog.open}>Adopt</Button>}
+          {stack.data && stack.data.mode !== "unmanaged" && stack.data.composeFile && (
+            <Button
+              variant="default"
+              leftSection={<IconTemplate size={16} />}
+              loading={saveTemplate.isPending}
+              onClick={() => saveTemplate.mutate()}
+            >
+              Save as template
+            </Button>
+          )}
+          {stack.data?.mode === "external" && (
+            <Button variant="default" loading={forget.isPending} onClick={() => forget.mutate()}>
+              Forget
+            </Button>
+          )}
+        </Group>
       </Group>
+      <TemplateDialog draft={templateDraft} onClose={() => setTemplateDraft(null)} />
       <AdoptStackDialog
         env={env}
         namespace={namespace}

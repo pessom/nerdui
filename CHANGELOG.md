@@ -41,6 +41,10 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
   Backblaze B2…), backed up now from the volume's Backups dialog or by a "Backup of a volume"
   schedule that keeps the newest N, optionally stopping the containers that use the volume;
   restore replaces a volume's contents or creates a new volume (#59, ADR-0050).
+- Stack templates: a catalog of applications (PostgreSQL, MariaDB, Redis, WordPress, Gitea,
+  Vaultwarden, Grafana and more), registries by URL in Arcane's registry.json format, and
+  templates saved from your own stacks; deploying one fills its variables in a form, stores
+  secrets as encrypted variables of the new stack and starts it (#33, #34, ADR-0051).
 
 ### Changed
 

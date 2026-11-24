@@ -13,9 +13,9 @@ import {
   Title,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { IconBrandGit, IconFolderPlus, IconPlus } from "@tabler/icons-react";
+import { IconBrandGit, IconFolderPlus, IconPlus, IconTemplate } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, getRouteApi } from "@tanstack/react-router";
+import { createFileRoute, getRouteApi, useNavigate } from "@tanstack/react-router";
 import {
   containersQuery,
   envStatusQuery,
@@ -40,6 +40,7 @@ export const Route = createFileRoute("/_app/env/$env/stacks")({
 function StacksPage() {
   const { env } = Route.useParams();
   const { ns } = envRoute.useSearch();
+  const navigate = useNavigate();
   const status = useQuery(envStatusQuery(env));
   const namespace = ns ?? status.data?.defaultNamespace ?? "default";
   const list = useQuery(stacksQuery(env, namespace));
@@ -72,6 +73,15 @@ function StacksPage() {
             onClick={gitStack.open}
           >
             From Git
+          </Button>
+          <Button
+            variant="default"
+            leftSection={<IconTemplate size={16} />}
+            onClick={() =>
+              void navigate({ to: "/env/$env/templates", params: { env }, search: { ns } })
+            }
+          >
+            From template
           </Button>
           <Button leftSection={<IconPlus size={16} />} onClick={newStack.open}>
             New stack

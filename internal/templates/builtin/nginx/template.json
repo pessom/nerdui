@@ -1,0 +1,8 @@
+{
+  "name": "nginx static site",
+  "description": "Serves the files of a volume over HTTP.",
+  "categories": [
+    "web"
+  ],
+  "documentation": "https://hub.docker.com/_/nginx"
+}

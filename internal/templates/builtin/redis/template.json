@@ -1,0 +1,9 @@
+{
+  "name": "Redis",
+  "description": "In-memory key-value store with persistence.",
+  "categories": [
+    "database",
+    "cache"
+  ],
+  "documentation": "https://hub.docker.com/_/redis"
+}

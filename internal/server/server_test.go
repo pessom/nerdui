@@ -27,6 +27,7 @@ import (
 	"github.com/pessom/nerdui/internal/scheduler"
 	"github.com/pessom/nerdui/internal/store"
 	"github.com/pessom/nerdui/internal/store/db"
+	"github.com/pessom/nerdui/internal/templates"
 	"github.com/pessom/nerdui/internal/variables"
 	"github.com/pessom/nerdui/internal/volbackup"
 )
@@ -317,6 +318,7 @@ func TestRouteAuthorization(t *testing.T) {
 	cfg.Schedules = &scheduler.Service{}
 	cfg.Variables = &variables.Service{}
 	cfg.VolumeBackups = &volbackup.Service{}
+	cfg.Templates = &templates.Service{}
 	h := New(cfg)
 	routes, err := authz.Inspect(h.(chi.Routes), APIPrefix)
 	if err != nil {
@@ -425,6 +427,13 @@ func TestRouteAuthorization(t *testing.T) {
 		"DELETE /api/v1/schedules/{id}":                                         "settings:write",
 		"POST /api/v1/schedules/{id}/run":                                       "settings:write",
 		"GET /api/v1/schedules/{id}/runs":                                       "settings:read",
+		"GET /api/v1/templates":                                                 "stacks:read",
+		"GET /api/v1/templates/detail":                                          "stacks:read",
+		"POST /api/v1/templates":                                                "stacks:write",
+		"PUT /api/v1/templates/{id}":                                            "stacks:write",
+		"DELETE /api/v1/templates/{id}":                                         "stacks:write",
+		"GET /api/v1/template-registries":                                       "settings:read",
+		"PUT /api/v1/template-registries":                                       "settings:write",
 		"GET /api/v1/backup-targets":                                            "settings:read",
 		"POST /api/v1/backup-targets":                                           "settings:write",
 		"PUT /api/v1/backup-targets/{id}":                                       "settings:write",

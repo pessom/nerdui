@@ -35,6 +35,7 @@ import (
 	"github.com/pessom/nerdui/internal/runtime"
 	"github.com/pessom/nerdui/internal/scheduler"
 	"github.com/pessom/nerdui/internal/stacks"
+	"github.com/pessom/nerdui/internal/templates"
 	"github.com/pessom/nerdui/internal/tlsutil"
 	"github.com/pessom/nerdui/internal/variables"
 	"github.com/pessom/nerdui/internal/version"
@@ -52,6 +53,8 @@ type Config struct {
 	Variables *variables.Service
 	// VolumeBackups back up and restore volumes (#59); nil disables them.
 	VolumeBackups *volbackup.Service
+	// Templates are the stack templates (#33, #34); nil disables them.
+	Templates *templates.Service
 	// BasePath is the path prefix nerdui is served under, e.g. /nerdui, or "" (#222).
 	BasePath string
 	// Auth provides sessions and the authentication endpoints (required).
@@ -162,7 +165,7 @@ func New(cfg Config) http.Handler {
 				ImageUpdates: cfg.ImageUpdates, AutoUpdates: cfg.AutoUpdates, Logger: cfg.Logger,
 				Notifications: cfg.Notifications, Notifier: cfg.Notifier, Audit: auditLog,
 				Backup: cfg.Backup, Schedules: cfg.Schedules, Variables: cfg.Variables,
-				VolumeBackups: cfg.VolumeBackups,
+				VolumeBackups: cfg.VolumeBackups, Templates: cfg.Templates,
 			}).Routes(r, guard)
 		})
 	})

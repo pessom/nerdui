@@ -1,0 +1,6 @@
+services:
+  whoami:
+    image: traefik/whoami:${VERSION:-latest}
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8084}:80"

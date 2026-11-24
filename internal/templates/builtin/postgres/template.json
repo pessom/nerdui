@@ -1,0 +1,8 @@
+{
+  "name": "PostgreSQL",
+  "description": "Relational database server.",
+  "categories": [
+    "database"
+  ],
+  "documentation": "https://hub.docker.com/_/postgres"
+}

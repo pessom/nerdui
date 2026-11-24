@@ -36,6 +36,7 @@ import (
 	"github.com/pessom/nerdui/internal/server"
 	"github.com/pessom/nerdui/internal/stacks"
 	"github.com/pessom/nerdui/internal/store"
+	"github.com/pessom/nerdui/internal/templates"
 	"github.com/pessom/nerdui/internal/tlsutil"
 	"github.com/pessom/nerdui/internal/updates"
 	"github.com/pessom/nerdui/internal/variables"
@@ -244,6 +245,7 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 			Schedules:     schedules,
 			Variables:     stackVars,
 			VolumeBackups: volumeBackups,
+			Templates:     &templates.Service{Store: st.Write(), Registry: &templates.Registries{}},
 			Auth:          authSvc, Environments: envs, UI: web.Dist(), Jobs: jobManager, TrustedProxies: trusted,
 			ACME:         acmeCerts,
 			EventHistory: eventHistory, DisableExec: cfg.DisableExec, Settings: st.Write(),

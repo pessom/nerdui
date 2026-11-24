@@ -18,7 +18,10 @@ import (
 	"github.com/pessom/nerdui/internal/authz"
 	"github.com/pessom/nerdui/internal/environment"
 	"github.com/pessom/nerdui/internal/jobs"
+	"github.com/pessom/nerdui/internal/secretbox"
 	"github.com/pessom/nerdui/internal/stacks"
+	"github.com/pessom/nerdui/internal/store"
+	"github.com/pessom/nerdui/internal/variables"
 )
 
 func TestStackFilesAPI(t *testing.T) {
@@ -132,5 +135,60 @@ func TestComposeSchema(t *testing.T) {
 	}
 	if _, ok := schema.Properties["services"]; !ok || rec.Header().Get("Content-Type") != "application/schema+json" {
 		t.Errorf("schema %q %v", schema.ID, rec.Header())
+	}
+}
+
+// TestCreateStackFromTemplate creates a stack with .env and variables as a template deploy
+// does (#33), and leaves nothing behind when the content is invalid.
+func TestCreateStackFromTemplate(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	st, err := store.Open(ctx, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close() //nolint:errcheck // test
+	box, err := secretbox.LoadOrCreate(filepath.Join(t.TempDir(), secretbox.FileName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	vars := &variables.Service{Store: st.Write(), Box: box}
+	admin := func(*http.Request) (authz.Subject, bool) { return authz.Subject{Role: authz.RoleAdmin}, true }
+	r := chi.NewRouter()
+	r.Route("/api/v1", func(r chi.Router) {
+		h := &Handler{Envs: environment.NewRegistry(environment.Local(&fakeRuntime{}, "default")), Stacks: &stacks.Service{Dir: dir}, Variables: vars}
+		h.Routes(r, authz.NewGuard(authz.AdminOnly{}, admin, nil))
+	})
+	const base = "/api/v1/environments/local/stacks"
+	body := `{"name":"db","compose":"services:\n  db:\n    image: postgres:${TAG:-17}\n","env":"TAG=16\n",` +
+		`"variables":[{"name":"POSTGRES_PASSWORD","value":"pw","secret":true}]}`
+	if rec := send(t, r, http.MethodPost, base, body); rec.Code != http.StatusCreated {
+		t.Fatalf("create: %d %s", rec.Code, rec.Body)
+	}
+	if b, err := os.ReadFile(filepath.Join(dir, "db", ".env")); err != nil || string(b) != "TAG=16\n" {
+		t.Errorf(".env %q %v", b, err)
+	}
+	if got, err := vars.Values(ctx, "db"); err != nil || got["POSTGRES_PASSWORD"] != "pw" {
+		t.Errorf("variables %v %v", got, err)
+	}
+
+	// Invalid content: the directory, .env and variables are removed.
+	body = `{"name":"bad","compose":"broken","env":"A=1\n","variables":[{"name":"S","value":"v","secret":true}]}`
+	if rec := send(t, r, http.MethodPost, base, body); rec.Code != http.StatusBadRequest {
+		t.Errorf("invalid: %d %s", rec.Code, rec.Body)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "bad")); !os.IsNotExist(err) {
+		t.Errorf("left behind: %v", err)
+	}
+	if list, _ := vars.List(ctx, "bad"); len(list) != 0 {
+		t.Errorf("variables left: %v", list)
+	}
+	// A reserved variable name is refused before anything is created.
+	body = `{"name":"x","variables":[{"name":"PATH","value":"/"}]}`
+	if rec := send(t, r, http.MethodPost, base, body); rec.Code != http.StatusBadRequest {
+		t.Errorf("reserved: %d", rec.Code)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "x")); !os.IsNotExist(err) {
+		t.Errorf("created: %v", err)
 	}
 }

@@ -1,0 +1,14 @@
+services:
+  vaultwarden:
+    image: vaultwarden/server:${VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN}
+      SIGNUPS_ALLOWED: ${SIGNUPS_ALLOWED:-false}
+      ADMIN_TOKEN: ${ADMIN_TOKEN:-}
+    ports:
+      - "${PORT:-8082}:80"
+    volumes:
+      - data:/data
+volumes:
+  data:

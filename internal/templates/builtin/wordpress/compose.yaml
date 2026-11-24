@@ -1,0 +1,33 @@
+services:
+  wordpress:
+    image: wordpress:${VERSION:-6}-apache
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      WORDPRESS_DB_HOST: db
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
+      WORDPRESS_DB_NAME: wordpress
+    ports:
+      - "${PORT:-8083}:80"
+    volumes:
+      - wordpress:/var/www/html
+  db:
+    image: mariadb:11
+    restart: unless-stopped
+    environment:
+      MARIADB_DATABASE: wordpress
+      MARIADB_USER: wordpress
+      MARIADB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
+      MARIADB_RANDOM_ROOT_PASSWORD: "1"
+    volumes:
+      - db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      retries: 5
+volumes:
+  wordpress:
+  db:

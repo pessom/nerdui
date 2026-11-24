@@ -1,0 +1,9 @@
+{
+  "name": "Adminer",
+  "description": "Web UI for PostgreSQL, MySQL, MariaDB and SQLite databases.",
+  "categories": [
+    "database",
+    "tools"
+  ],
+  "documentation": "https://hub.docker.com/_/adminer"
+}

@@ -185,7 +185,7 @@ describe("Git stacks", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: "compose.yaml" }));
     expect(await screen.findByText("From the Git repository")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /save/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /review and save/i })).not.toBeInTheDocument();
 
     fireEvent.click(within(repo).getByRole("button", { name: "Remove" }));
     const remove = await screen.findByRole("dialog", { name: "Remove stack web" });

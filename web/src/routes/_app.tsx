@@ -12,6 +12,7 @@ import {
   IconPlug,
   IconSettings,
   IconStack2,
+  IconTemplate,
   IconBox,
   IconKey,
   IconLayoutDashboard,
@@ -129,6 +130,14 @@ function AppLayout() {
                 search={(prev: { ns?: string }) => ({ ns: prev.ns })}
                 label="Stacks"
                 leftSection={<IconStack2 size={18} stroke={1.5} />}
+                onClick={close}
+              />
+              <RouterNavLink
+                to="/env/$env/templates"
+                params={{ env }}
+                search={(prev: { ns?: string }) => ({ ns: prev.ns })}
+                label="Templates"
+                leftSection={<IconTemplate size={18} stroke={1.5} />}
                 onClick={close}
               />
               <RouterNavLink
