@@ -21,6 +21,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { api, unwrap } from "../../api/client";
 import { environmentsQuery } from "../../api/queries";
+import { backupTargetsQuery } from "../volumes/backups";
 import {
   describeCron,
   kindLabels,
@@ -78,6 +79,7 @@ export function ScheduleForm({
 }) {
   const queryClient = useQueryClient();
   const envs = useQuery(environmentsQuery);
+  const targets = useQuery({ ...backupTargetsQuery, enabled: opened });
   const [form, setForm] = useState<ScheduleInput>(() => initial(schedule));
   const set = (patch: Partial<ScheduleInput>) => setForm((f) => ({ ...f, ...patch }));
   const setOption = (patch: Partial<NonNullable<ScheduleInput["options"]>>) =>
@@ -188,6 +190,45 @@ export function ScheduleForm({
                 onChange={(e) => setOption({ buildCache: e.currentTarget.checked })}
               />
             </Stack>
+          )}
+          {kind === "volume.backup" && (
+            <>
+              <TextInput
+                label="Volume"
+                required
+                value={form.target}
+                onChange={(e) => set({ target: e.currentTarget.value })}
+              />
+              <SimpleGrid cols={2}>
+                <Select
+                  label="Backup target"
+                  required
+                  placeholder={
+                    targets.data?.targets.length === 0 ? "Add one under Settings" : undefined
+                  }
+                  data={(targets.data?.targets ?? []).map((t) => ({
+                    value: String(t.id),
+                    label: t.name,
+                  }))}
+                  value={o.targetId ? String(o.targetId) : null}
+                  onChange={(v) => setOption({ targetId: v ? Number(v) : undefined })}
+                />
+                <NumberInput
+                  label="Keep"
+                  description="Newest archives kept"
+                  min={1}
+                  max={1000}
+                  placeholder="7"
+                  value={o.keep ?? ""}
+                  onChange={(v) => setOption({ keep: v === "" ? undefined : Number(v) })}
+                />
+              </SimpleGrid>
+              <Checkbox
+                label="Stop containers using the volume meanwhile"
+                checked={!!o.stopContainers}
+                onChange={(e) => setOption({ stopContainers: e.currentTarget.checked })}
+              />
+            </>
           )}
           {kind === "backup" && (
             <>

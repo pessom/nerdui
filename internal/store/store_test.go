@@ -17,7 +17,7 @@ import (
 const now = int64(1_800_000_000)
 
 // latestVersion is the number of embedded migrations.
-const latestVersion = 16
+const latestVersion = 17
 
 func openTest(t *testing.T, dir string) *Store {
 	t.Helper()
@@ -304,5 +304,57 @@ func TestTx(t *testing.T) {
 	}
 	if v, _ := s.Read().GetSetting(ctx, "k"); v != "v" {
 		t.Errorf("committed value = %q", v)
+	}
+}
+
+// TestScheduleKindsMigration keeps schedules and their runs when migration 17 rebuilds the
+// tables for the volume.backup kind (#59).
+func TestScheduleKindsMigration(t *testing.T) {
+	dir := t.TempDir()
+	ctx := context.Background()
+	upTo16 := fstest.MapFS{}
+	entries, err := embedded.ReadDir("migrations")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		if e.Name() < "00017" {
+			b, err := embedded.ReadFile("migrations/" + e.Name())
+			if err != nil {
+				t.Fatal(err)
+			}
+			upTo16[e.Name()] = &fstest.MapFile{Data: b}
+		}
+	}
+	s, err := open(ctx, dir, upTo16)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, q := range []string{
+		"INSERT INTO schedules (id, name, kind, cron, created_at, updated_at) VALUES (7, 'nightly', 'prune', '@daily', 1, 1)",
+		"INSERT INTO schedule_runs (schedule_id, trigger, started_at, status) VALUES (7, 'manual', 2, 'succeeded')",
+	} {
+		if _, err := s.writer.ExecContext(ctx, q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_ = s.Close()
+
+	s = openTest(t, dir)
+	runs, err := s.Read().ListScheduleRuns(ctx, db.ListScheduleRunsParams{ScheduleID: 7, Limit: 10})
+	if err != nil || len(runs) != 1 {
+		t.Fatalf("runs = %v, %v", runs, err)
+	}
+	if _, err := s.Write().CreateSchedule(ctx, db.CreateScheduleParams{
+		Name: "vol", Kind: "volume.backup", Options: "{}", Cron: "@daily", Enabled: 1, Now: 3,
+	}); err != nil {
+		t.Errorf("volume.backup: %v", err)
+	}
+	// The runs still cascade with their schedule.
+	if _, err := s.Write().DeleteSchedule(ctx, 7); err != nil {
+		t.Fatal(err)
+	}
+	if runs, _ := s.Read().ListScheduleRuns(ctx, db.ListScheduleRunsParams{ScheduleID: 7, Limit: 10}); len(runs) != 0 {
+		t.Errorf("runs after delete: %v", runs)
 	}
 }

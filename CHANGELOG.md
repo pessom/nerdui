@@ -37,6 +37,10 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
   (`<data-dir>/secret.key`, `--secret-key-file`) and passed to `nerdctl compose` as
   environment variables, so compose files use them as `${NAME}`; they win over `.env`
   (#35, ADR-0049).
+- Volume backups: tar.gz archives of volumes in a host directory or an S3 bucket (AWS, MinIO,
+  Backblaze B2…), backed up now from the volume's Backups dialog or by a "Backup of a volume"
+  schedule that keeps the newest N, optionally stopping the containers that use the volume;
+  restore replaces a volume's contents or creates a new volume (#59, ADR-0050).
 
 ### Changed
 

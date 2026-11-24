@@ -12,6 +12,7 @@ import { ImageUpdatesSettingsCard } from "../../../../features/settings/ImageUpd
 import { SecuritySettingsCard } from "../../../../features/settings/SecuritySettingsCard";
 import { BackupSettingsCard } from "../../../../features/settings/BackupSettingsCard";
 import { VariablesSettingsCard } from "../../../../features/settings/VariablesSettingsCard";
+import { BackupTargetsSettingsCard } from "../../../../features/settings/BackupTargetsSettingsCard";
 import { PrometheusSettingsCard } from "../../../../features/settings/PrometheusSettingsCard";
 
 const envRoute = getRouteApi("/_app/env/$env");
@@ -37,6 +38,7 @@ function SettingsPage() {
       <WebhooksSettingsCard env={env} namespace={namespace} />
       <SecuritySettingsCard />
       <BackupSettingsCard />
+      <BackupTargetsSettingsCard />
     </Stack>
   );
 }

@@ -17,6 +17,7 @@ export const kindLabels: Record<ScheduleKind, string> = {
   "container.redeploy": "Redeploy container (pull image)",
   "container.restart": "Restart container",
   "image-updates.check": "Image update check",
+  "volume.backup": "Backup of a volume",
 };
 
 /** Kinds that run on a stack or container named in target. */
@@ -34,7 +35,7 @@ export function needsEnvironment(kind: ScheduleKind): boolean {
 
 /** Kinds that run in a namespace. */
 export function needsNamespace(kind: ScheduleKind): boolean {
-  return kind === "prune" || targetKinds.includes(kind);
+  return kind === "prune" || kind === "volume.backup" || targetKinds.includes(kind);
 }
 
 const presets: Record<string, string> = {
@@ -76,6 +77,8 @@ export function describeTask(s: Schedule): string {
       return `to ${s.options.directory ?? ""}, keep ${s.options.keep ?? 0}`;
     case "image-updates.check":
       return s.environment ?? "";
+    case "volume.backup":
+      return `${s.target ?? ""} in ${where}, keep ${s.options.keep ?? 0}${s.options.stopContainers ? ", containers stopped" : ""}`;
     default:
       return `${s.target ?? ""} in ${where}`;
   }

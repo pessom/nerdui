@@ -54,6 +54,16 @@ type AutoUpdate struct {
 	FinishedAt  int64
 }
 
+type BackupTarget struct {
+	ID        int64
+	Name      string
+	Kind      string
+	Options   string
+	Secret    string
+	CreatedAt int64
+	UpdatedAt int64
+}
+
 type Event struct {
 	ID          int64
 	Environment string

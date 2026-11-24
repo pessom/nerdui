@@ -22,6 +22,7 @@ import (
 	"github.com/pessom/nerdui/internal/runtime"
 	"github.com/pessom/nerdui/internal/store"
 	"github.com/pessom/nerdui/internal/store/db"
+	"github.com/pessom/nerdui/internal/volbackup"
 	"github.com/pessom/nerdui/internal/webhooks"
 )
 
@@ -202,6 +203,25 @@ func (s *Service) startJob(ctx context.Context, r db.Schedule, user string, wrap
 			out.SetResult("file", file)
 			_, _ = fmt.Fprintf(out, "Backup written to %s\r\n", file)
 			return nil
+		}))
+	case KindVolumeBackup:
+		env, ok := s.Environments.Get(r.Environment)
+		if !ok {
+			return jobs.Job{}, fmt.Errorf("%w: environment %q is gone", errdefs.ErrFailedPrecondition, r.Environment)
+		}
+		if s.Volumes == nil {
+			return jobs.Job{}, fmt.Errorf("%w: volume backups are not available", errdefs.ErrNotImplemented)
+		}
+		vb, rt, ns, volume, o := s.Volumes, env.Runtime, r.Namespace, r.Target, v.Options
+		spec.Kind, spec.Title = "volume.backup", "Back up volume "+volume+" ("+label+")"
+		spec.Resource = fmt.Sprintf("env/%s/ns/%s/volume/%s", env.ID, ns, volume)
+		spec.Action = string(authz.VolumesWrite)
+		return s.Jobs.Start(spec, wrap(func(ctx context.Context, out *jobs.Output) error {
+			key, err := vb.Backup(ctx, rt, o.TargetID, ns, volume, volbackup.Options{Keep: o.Keep, StopContainers: o.StopContainers}, out)
+			if key != "" {
+				out.SetResult("key", key)
+			}
+			return err
 		}))
 	case KindImageUpdates:
 		env, ok := s.Environments.Get(r.Environment)
