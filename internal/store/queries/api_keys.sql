@@ -2,8 +2,8 @@
 -- SPDX-License-Identifier: AGPL-3.0-only
 
 -- name: CreateAPIKey :one
-INSERT INTO api_keys (user_id, name, prefix, token_hash, read_only, created_at, expires_at)
-VALUES (@user_id, @name, @prefix, @token_hash, @read_only, @now, @expires_at)
+INSERT INTO api_keys (user_id, name, prefix, token_hash, read_only, permissions, created_at, expires_at)
+VALUES (@user_id, @name, @prefix, @token_hash, @read_only, @permissions, @now, @expires_at)
 RETURNING *;
 
 -- name: ListUserAPIKeys :many

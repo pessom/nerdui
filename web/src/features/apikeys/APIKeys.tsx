@@ -12,6 +12,7 @@ import {
   Group,
   Loader,
   Modal,
+  Radio,
   Select,
   Stack,
   Table,
@@ -26,6 +27,37 @@ import { api, unwrap, type components } from "../../api/client";
 import { Time } from "../../components/Time";
 
 export type APIKey = components["schemas"]["APIKey"];
+type Permission = components["schemas"]["Permission"];
+type Access = "read" | "chosen" | "full";
+
+/** Permissions a key can be limited to, by area (#80). */
+const permissionAreas: { area: string; permissions: Permission[] }[] = [
+  {
+    area: "Containers",
+    permissions: ["containers:read", "containers:operate", "containers:write", "containers:exec"],
+  },
+  { area: "Stacks", permissions: ["stacks:read", "stacks:deploy", "stacks:write"] },
+  { area: "Images", permissions: ["images:read", "images:write"] },
+  { area: "Volumes", permissions: ["volumes:read", "volumes:write"] },
+  { area: "Networks", permissions: ["networks:read", "networks:write"] },
+  { area: "Namespaces", permissions: ["namespaces:read", "namespaces:write"] },
+  { area: "System", permissions: ["system:read", "system:prune", "jobs:read"] },
+  { area: "Registries", permissions: ["registries:read", "registries:write"] },
+  { area: "Settings", permissions: ["settings:read", "settings:write", "audit:read"] },
+  { area: "Users", permissions: ["users:read", "users:write"] },
+];
+
+/** The access of a key in lists: read-only, full, or its permissions. */
+function accessBadge(k: APIKey) {
+  if (k.readOnly) return { color: "blue", label: "read-only", title: undefined };
+  if (k.permissions)
+    return {
+      color: "grape",
+      label: `${k.permissions.length} permission${k.permissions.length === 1 ? "" : "s"}`,
+      title: k.permissions.join(", "),
+    };
+  return { color: "orange", label: "full", title: undefined };
+}
 
 const expiries = [
   { value: "30", label: "30 days" },
@@ -94,6 +126,7 @@ export function APIKeyTable({ keys, onRevoke }: { keys: APIKey[]; onRevoke: (k: 
       <Table.Tbody>
         {keys.map((k) => {
           const expired = !!k.expiresAt && Date.parse(k.expiresAt) <= now;
+          const access = accessBadge(k);
           return (
             <Table.Tr key={k.id}>
               <Table.Td>
@@ -105,8 +138,8 @@ export function APIKeyTable({ keys, onRevoke }: { keys: APIKey[]; onRevoke: (k: 
                 <Code>{k.prefix}…</Code>
               </Table.Td>
               <Table.Td>
-                <Badge size="sm" variant="light" color={k.readOnly ? "blue" : "orange"}>
-                  {k.readOnly ? "read-only" : "full"}
+                <Badge size="sm" variant="light" color={access.color} title={access.title}>
+                  {access.label}
                 </Badge>
               </Table.Td>
               <Table.Td>
@@ -156,7 +189,8 @@ export function APIKeyTable({ keys, onRevoke }: { keys: APIKey[]; onRevoke: (k: 
 export function CreateAPIKeyModal({ opened, onClose }: { opened: boolean; onClose: () => void }) {
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
-  const [readOnly, setReadOnly] = useState(true);
+  const [access, setAccess] = useState<Access>("read");
+  const [permissions, setPermissions] = useState<Permission[]>([]);
   const [expiry, setExpiry] = useState("90");
   const create = useMutation({
     mutationFn: () =>
@@ -164,7 +198,8 @@ export function CreateAPIKeyModal({ opened, onClose }: { opened: boolean; onClos
         api.POST("/api/v1/auth/api-keys", {
           body: {
             name: name.trim(),
-            readOnly,
+            readOnly: access === "read",
+            permissions: access === "chosen" ? permissions : undefined,
             expiresAt:
               expiry === "never"
                 ? undefined
@@ -176,7 +211,8 @@ export function CreateAPIKeyModal({ opened, onClose }: { opened: boolean; onClos
   });
   const close = () => {
     setName("");
-    setReadOnly(true);
+    setAccess("read");
+    setPermissions([]);
     setExpiry("90");
     create.reset();
     onClose();
@@ -232,12 +268,51 @@ export function CreateAPIKeyModal({ opened, onClose }: { opened: boolean; onClos
               value={name}
               onChange={(e) => setName(e.currentTarget.value)}
             />
-            <Checkbox
-              label="Read-only"
-              description="Only reads: lists, inspect, logs, stats. Recommended for monitoring."
-              checked={readOnly}
-              onChange={(e) => setReadOnly(e.currentTarget.checked)}
-            />
+            <Radio.Group
+              label="Access"
+              value={access}
+              onChange={(v) => setAccess(v as Access)}
+            >
+              <Stack gap={6} mt={4}>
+                <Radio
+                  value="read"
+                  label="Read-only"
+                  description="Only reads: lists, inspect, logs, stats. Recommended for monitoring."
+                />
+                <Radio
+                  value="chosen"
+                  label="Chosen permissions"
+                  description="Only what you tick below, e.g. stacks:deploy for a CI pipeline."
+                />
+                <Radio value="full" label="Full access" description="Everything you can do." />
+              </Stack>
+            </Radio.Group>
+            {access === "chosen" && (
+              <Checkbox.Group
+                aria-label="Permissions"
+                value={permissions}
+                onChange={(v) => setPermissions(v as Permission[])}
+              >
+                <Table withRowBorders={false} verticalSpacing={4}>
+                  <Table.Tbody>
+                    {permissionAreas.map(({ area, permissions: list }) => (
+                      <Table.Tr key={area}>
+                        <Table.Td w={110}>
+                          <Text size="sm">{area}</Text>
+                        </Table.Td>
+                        <Table.Td>
+                          <Group gap="md">
+                            {list.map((p) => (
+                              <Checkbox key={p} value={p} label={p} size="xs" />
+                            ))}
+                          </Group>
+                        </Table.Td>
+                      </Table.Tr>
+                    ))}
+                  </Table.Tbody>
+                </Table>
+              </Checkbox.Group>
+            )}
             <Select
               label="Expires"
               data={expiries}
@@ -245,7 +320,7 @@ export function CreateAPIKeyModal({ opened, onClose }: { opened: boolean; onClos
               onChange={(v) => v && setExpiry(v)}
               allowDeselect={false}
             />
-            {!readOnly && (
+            {access === "full" && (
               <Alert color="orange">
                 A full key can do everything you can, including removing containers and volumes.
               </Alert>
@@ -259,7 +334,11 @@ export function CreateAPIKeyModal({ opened, onClose }: { opened: boolean; onClos
               <Button variant="default" onClick={close}>
                 Cancel
               </Button>
-              <Button type="submit" loading={create.isPending} disabled={!name.trim()}>
+              <Button
+                type="submit"
+                loading={create.isPending}
+                disabled={!name.trim() || (access === "chosen" && permissions.length === 0)}
+              >
                 Create
               </Button>
             </Group>

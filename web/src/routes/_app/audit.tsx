@@ -182,8 +182,14 @@ function AuditPage() {
                   <Table.Td>
                     {e.user || "—"}
                     {e.apiKey && (
-                      <Badge size="xs" variant="light" ml={4}>
-                        API key
+                      <Badge
+                        size="xs"
+                        variant="light"
+                        ml={4}
+                        title={e.apiKeyName}
+                        style={{ textTransform: "none" }}
+                      >
+                        {e.apiKeyName ? `key ${e.apiKeyName}` : "API key"}
                       </Badge>
                     )}
                   </Table.Td>

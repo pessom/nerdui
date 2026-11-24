@@ -48,7 +48,7 @@ describe("API keys", () => {
     fireEvent.click(screen.getByRole("button", { name: "Create API key" }));
     const dialog = await screen.findByRole("dialog", { name: "Create API key" });
     fireEvent.change(within(dialog).getByLabelText(/Name/), { target: { value: "ci" } });
-    fireEvent.click(within(dialog).getByLabelText(/Read-only/));
+    fireEvent.click(within(dialog).getByLabelText(/Full access/));
     expect(within(dialog).getByText(/can do everything you can/)).toBeInTheDocument();
     fireEvent.click(within(dialog).getByRole("button", { name: "Create" }));
     expect(await within(dialog).findByLabelText("New API key")).toHaveTextContent(
@@ -72,5 +72,38 @@ describe("API keys", () => {
     fireEvent.click(within(confirm).getByRole("button", { name: "Revoke" }));
     await waitFor(() => expect(calls.some((c) => c.method === "DELETE")).toBe(true));
     await waitFor(() => expect(screen.queryByText("home-assistant")).not.toBeInTheDocument());
+  });
+
+  it("creates a key limited to chosen permissions", async () => {
+    const { calls } = fakeApi({
+      ...signedIn,
+      "GET /api/v1/auth/api-keys": () =>
+        json(200, {
+          keys: [{ ...key, readOnly: false, permissions: ["stacks:deploy", "stacks:read"] }],
+        }),
+      "POST /api/v1/auth/api-keys": (c) =>
+        json(201, { ...key, ...(c.body as object), id: 9, key: "nerdui_secret" }),
+    });
+    renderApp("/api-keys");
+    const table = await screen.findByRole("table");
+    expect(within(table).getByText("2 permissions").closest("[title]")).toHaveAttribute(
+      "title",
+      "stacks:deploy, stacks:read",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Create API key" }));
+    const dialog = await screen.findByRole("dialog", { name: "Create API key" });
+    fireEvent.change(within(dialog).getByLabelText(/Name/), { target: { value: "ci" } });
+    fireEvent.click(within(dialog).getByLabelText(/Chosen permissions/));
+    const create = within(dialog).getByRole("button", { name: "Create" });
+    expect(create).toBeDisabled();
+    fireEvent.click(within(dialog).getByLabelText("stacks:deploy"));
+    fireEvent.click(within(dialog).getByLabelText("containers:read"));
+    fireEvent.click(create);
+    expect(await within(dialog).findByLabelText("New API key")).toBeInTheDocument();
+    expect(calls.find((c) => c.method === "POST")?.body).toMatchObject({
+      name: "ci",
+      readOnly: false,
+      permissions: ["stacks:deploy", "containers:read"],
+    });
   });
 });

@@ -93,6 +93,26 @@ type Subject struct {
 	// only perform read actions.
 	APIKey   bool
 	ReadOnly bool
+	// Permissions limits an API key to these actions (#80); nil allows everything its user
+	// may do. The user's own permissions apply as well.
+	Permissions []Action
+	// KeyName identifies the API key in the audit log: "<name> (<prefix>…)".
+	KeyName string
+}
+
+// KeyAllows reports why the subject's API key may not perform a, or nil. Password sessions
+// and unrestricted keys allow every action; the authorizer still decides for the user.
+func (s Subject) KeyAllows(a Action) error {
+	if !s.APIKey {
+		return nil
+	}
+	if s.ReadOnly && !a.Read() {
+		return fmt.Errorf("%w: a read-only API key may not %s", ErrForbidden, a)
+	}
+	if s.Permissions != nil && a != SessionSelf && !slices.Contains(s.Permissions, a) {
+		return fmt.Errorf("%w: this API key may not %s", ErrForbidden, a)
+	}
+	return nil
 }
 
 // Read reports whether an action only reads: "<area>:read", or the caller's own session.

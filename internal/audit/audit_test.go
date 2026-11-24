@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pessom/nerdui/internal/authz"
 	"github.com/pessom/nerdui/internal/store"
 )
 
@@ -66,7 +67,27 @@ func TestWriteCSVEscapesFormulas(t *testing.T) {
 		t.Fatal(err)
 	}
 	rows, err := csv.NewReader(&b).ReadAll()
-	if err != nil || len(rows) != 2 || rows[1][1] != "'=cmd|' /C calc'!A0" || rows[1][8] != "'-2+3" {
+	if err != nil || len(rows) != 2 || rows[1][1] != "'=cmd|' /C calc'!A0" || rows[1][9] != "'-2+3" {
 		t.Errorf("%q %v", rows, err)
+	}
+}
+
+// TestAPIKeyName records which API key made a request (#80); the search finds it.
+func TestAPIKeyName(t *testing.T) {
+	ctx := context.Background()
+	st, err := store.Open(ctx, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	rec := &Recorder{Store: st.Write()}
+	r := httptest.NewRequest(http.MethodPost, "/api/v1/environments/local/stacks/app/up", nil)
+	rec.Audit(r, authz.AuditRecord{
+		Subject: authz.Subject{Username: "admin", APIKey: true, KeyName: "ci (nerdui_abc123…)"},
+		Action:  authz.StacksDeploy, Status: http.StatusAccepted,
+	})
+	got, err := rec.List(ctx, Filter{Query: "nerdui_abc123"})
+	if err != nil || len(got) != 1 || !got[0].APIKey || got[0].APIKeyName != "ci (nerdui_abc123…)" {
+		t.Fatalf("%+v %v", got, err)
 	}
 }

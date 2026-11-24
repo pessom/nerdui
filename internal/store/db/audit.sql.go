@@ -11,16 +11,17 @@ import (
 
 const insertAudit = `-- name: InsertAudit :exec
 
-INSERT INTO audit_log (at, username, api_key, action, method, path, environment, namespace, object,
+INSERT INTO audit_log (at, username, api_key, api_key_name, action, method, path, environment, namespace, object,
                        status, result, message, job_id, client_ip, user_agent)
-VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9,
-        ?10, ?11, ?12, ?13, ?14, ?15)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10,
+        ?11, ?12, ?13, ?14, ?15, ?16)
 `
 
 type InsertAuditParams struct {
 	At          int64
 	Username    string
 	ApiKey      int64
+	ApiKeyName  string
 	Action      string
 	Method      string
 	Path        string
@@ -42,6 +43,7 @@ func (q *Queries) InsertAudit(ctx context.Context, arg InsertAuditParams) error 
 		arg.At,
 		arg.Username,
 		arg.ApiKey,
+		arg.ApiKeyName,
 		arg.Action,
 		arg.Method,
 		arg.Path,
@@ -59,13 +61,13 @@ func (q *Queries) InsertAudit(ctx context.Context, arg InsertAuditParams) error 
 }
 
 const listAudit = `-- name: ListAudit :many
-SELECT id, at, username, api_key, "action", method, path, environment, namespace, object, status, result, message, job_id, client_ip, user_agent FROM audit_log
+SELECT id, at, username, api_key, "action", method, path, environment, namespace, object, status, result, message, job_id, client_ip, user_agent, api_key_name FROM audit_log
 WHERE (CAST(?1 AS INTEGER) = 0 OR id < CAST(?1 AS INTEGER))
   AND (CAST(?2 AS INTEGER) = 0 OR at >= CAST(?2 AS INTEGER))
   AND (CAST(?3 AS INTEGER) = 0 OR at < CAST(?3 AS INTEGER))
   AND (CAST(?4 AS TEXT) = '' OR username = CAST(?4 AS TEXT))
   AND (CAST(?5 AS TEXT) = '' OR result = CAST(?5 AS TEXT))
-  AND (CAST(?6 AS TEXT) = '' OR instr(lower(path || ' ' || object || ' ' || action || ' ' || message || ' ' || username), lower(CAST(?6 AS TEXT))) > 0)
+  AND (CAST(?6 AS TEXT) = '' OR instr(lower(path || ' ' || object || ' ' || action || ' ' || message || ' ' || username || ' ' || api_key_name), lower(CAST(?6 AS TEXT))) > 0)
 ORDER BY id DESC
 LIMIT ?7
 `
@@ -115,6 +117,7 @@ func (q *Queries) ListAudit(ctx context.Context, arg ListAuditParams) ([]AuditLo
 			&i.JobID,
 			&i.ClientIp,
 			&i.UserAgent,
+			&i.ApiKeyName,
 		); err != nil {
 			return nil, err
 		}

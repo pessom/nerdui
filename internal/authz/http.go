@@ -91,7 +91,7 @@ func NewGuard(authorizer Authorizer, subject SubjectFunc, logger *slog.Logger) *
 // handlers that reveal extra data to authorized callers.
 func (g *Guard) Allowed(r *http.Request, action Action) bool {
 	s, ok := g.subject(r)
-	return ok && g.authorizer.Authorize(r.Context(), s, action, ResourceFromRequest(r)) == nil
+	return ok && s.KeyAllows(action) == nil && g.authorizer.Authorize(r.Context(), s, action, ResourceFromRequest(r)) == nil
 }
 
 // Protected is a handler with a declared action.
@@ -118,11 +118,17 @@ func (p *Protected) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	res := ResourceFromRequest(r)
-	if s.ReadOnly && !p.Action.Read() {
-		p.guard.logger.Warn("authorization denied: read-only API key",
-			"user", s.Username, "action", string(p.Action), "method", r.Method, "path", r.URL.Path)
+	if err := s.KeyAllows(p.Action); err != nil {
+		p.guard.logger.Warn("authorization denied: API key",
+			"user", s.Username, "key", s.KeyName, "action", string(p.Action), "method", r.Method, "path", r.URL.Path)
 		httpjson.WriteError(w, http.StatusForbidden, httpjson.CodeForbidden,
-			fmt.Sprintf("a read-only API key may not %s", p.Action))
+			strings.TrimPrefix(err.Error(), ErrForbidden.Error()+": "))
+		if p.guard.Auditor != nil {
+			p.guard.Auditor.Audit(r, AuditRecord{
+				Subject: s, Action: p.Action, Resource: res, Route: routePattern(r),
+				Status: http.StatusForbidden, Denied: true,
+			})
+		}
 		return
 	}
 	if err := p.guard.authorizer.Authorize(r.Context(), s, p.Action, res); err != nil {

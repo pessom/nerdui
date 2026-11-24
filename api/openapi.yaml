@@ -432,7 +432,9 @@ paths:
       summary: Create an API key
       description: |
         Requires a password session (#87, ADR-0028). The response contains the key; it is not
-        shown again. At most 50 keys per user.
+        shown again. At most 50 keys per user. `permissions` limits the key to chosen actions,
+        none of which may exceed the caller's (#80, ADR-0053); requests are checked against
+        both the key and its user.
       requestBody:
         required: true
         content:
@@ -445,6 +447,11 @@ paths:
                 name: { type: string, maxLength: 64 }
                 readOnly: { type: boolean }
                 expiresAt: { type: string, format: date-time }
+                permissions:
+                  type: array
+                  minItems: 1
+                  items: { $ref: "#/components/schemas/Permission" }
+                  description: Limit the key to these actions, each one the caller may perform (403 otherwise)
       responses:
         "201":
           description: Created
@@ -4416,6 +4423,7 @@ components:
         at: { type: string, format: date-time }
         user: { type: string }
         apiKey: { type: boolean, description: The request used an API key }
+        apiKeyName: { type: string, description: "Name and prefix of the API key: \"<name> (<prefix>…)\"" }
         action: { type: string, description: "Permission used, e.g. containers:write, or auth:login / auth:setup" }
         method: { type: string }
         path: { type: string, description: "Route pattern, e.g. /api/v1/environments/{env}/containers/{id}/recreate" }
@@ -5110,9 +5118,17 @@ components:
         name: { type: string }
         prefix: { type: string, description: The start of the key, to tell keys apart }
         readOnly: { type: boolean }
+        permissions:
+          type: array
+          items: { $ref: "#/components/schemas/Permission" }
+          description: The key may only perform these actions (#80); absent, everything its user may do
         createdAt: { type: string, format: date-time }
         expiresAt: { type: string, format: date-time }
         lastUsedAt: { type: string, format: date-time }
+    Permission:
+      type: string
+      description: An authorization action (ADR-0009)
+      enum: [jobs:read, containers:read, containers:operate, containers:write, containers:exec, images:read, images:write, volumes:read, volumes:write, networks:read, networks:write, stacks:read, stacks:write, stacks:deploy, namespaces:read, namespaces:write, system:read, system:prune, registries:read, registries:write, users:read, users:write, settings:read, settings:write, audit:read]
     GitCommit:
       type: object
       required: [hash, message, author, date]

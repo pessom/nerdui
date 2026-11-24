@@ -337,7 +337,9 @@ export interface paths {
         /**
          * Create an API key
          * @description Requires a password session (#87, ADR-0028). The response contains the key; it is not
-         *     shown again. At most 50 keys per user.
+         *     shown again. At most 50 keys per user. `permissions` limits the key to chosen actions,
+         *     none of which may exceed the caller's (#80, ADR-0053); requests are checked against
+         *     both the key and its user.
          */
         post: operations["createAPIKey"];
         delete?: never;
@@ -3449,6 +3451,8 @@ export interface components {
             user?: string;
             /** @description The request used an API key */
             apiKey?: boolean;
+            /** @description Name and prefix of the API key: "<name> (<prefix>…)" */
+            apiKeyName?: string;
             /** @description Permission used, e.g. containers:write, or auth:login / auth:setup */
             action: string;
             method?: string;
@@ -4209,6 +4213,8 @@ export interface components {
             /** @description The start of the key */
             prefix: string;
             readOnly: boolean;
+            /** @description The key may only perform these actions (#80); absent, everything its user may do */
+            permissions?: components["schemas"]["Permission"][];
             /** Format: date-time */
             createdAt: string;
             /** Format: date-time */
@@ -4216,6 +4222,11 @@ export interface components {
             /** Format: date-time */
             lastUsedAt?: string;
         };
+        /**
+         * @description An authorization action (ADR-0009)
+         * @enum {string}
+         */
+        Permission: "jobs:read" | "containers:read" | "containers:operate" | "containers:write" | "containers:exec" | "images:read" | "images:write" | "volumes:read" | "volumes:write" | "networks:read" | "networks:write" | "stacks:read" | "stacks:write" | "stacks:deploy" | "namespaces:read" | "namespaces:write" | "system:read" | "system:prune" | "registries:read" | "registries:write" | "users:read" | "users:write" | "settings:read" | "settings:write" | "audit:read";
         GitCommit: {
             hash: string;
             /** @description First line of the commit message */
@@ -5280,6 +5291,8 @@ export interface operations {
                     readOnly?: boolean;
                     /** Format: date-time */
                     expiresAt?: string;
+                    /** @description Limit the key to these actions, each one the caller may perform (403 otherwise) */
+                    permissions?: components["schemas"]["Permission"][];
                 };
             };
         };
