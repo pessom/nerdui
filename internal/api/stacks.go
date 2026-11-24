@@ -158,9 +158,82 @@ func (h *Handler) forgetStack(w http.ResponseWriter, r *http.Request) {
 		h.writeActionErr(w, r, err)
 		return
 	}
-	h.forgetVariables(r, name)
+	h.forgetVariables(r.Context(), name)
 	h.log().Info("stack registration removed", "environment", EnvFrom(r.Context()).ID, "stack", name)
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// deleteStack takes a managed stack down and removes its directory and variables, as a job
+// (#248, ADR-0052):
+//
+//	DELETE /api/v1/environments/{env}/stacks/{name}?namespace=&confirm=<name>&volumes=true
+//
+// volumes also removes the project's named volumes. Adopted and Git stacks have their own
+// removal (forget, DELETE …/git).
+func (h *Handler) deleteStack(w http.ResponseWriter, r *http.Request) {
+	ns, err := Namespace(r)
+	if err != nil {
+		httpjson.WriteErr(w, r, h.Logger, err)
+		return
+	}
+	if h.Stacks == nil {
+		httpjson.WriteErr(w, r, h.Logger, fmt.Errorf("%w: stacks are not available", errdefs.ErrNotImplemented))
+		return
+	}
+	name, q := chi.URLParam(r, "name"), r.URL.Query()
+	if q.Get("confirm") != name {
+		httpjson.WriteErr(w, r, h.Logger, fmt.Errorf("%w: deleting removes the stack's files; confirm with the stack name", errdefs.ErrInvalidArgument))
+		return
+	}
+	volumes := q.Get("volumes") == "true"
+	def, err := h.Stacks.Find(r.Context(), name)
+	if err != nil {
+		httpjson.WriteErr(w, r, h.Logger, err)
+		return
+	}
+	if def.Mode != stacks.ModeManaged {
+		httpjson.WriteErr(w, r, h.Logger, fmt.Errorf("%w: %q is not in the stacks directory; forget or remove it instead", errdefs.ErrFailedPrecondition, name))
+		return
+	}
+	env := EnvFrom(r.Context())
+	if err := h.stackBusy(env.ID, name); err != nil {
+		httpjson.WriteErr(w, r, h.Logger, err)
+		return
+	}
+	opts := runtime.ComposeOptions{RemoveOrphans: true, Volumes: volumes}
+	if _, err := runtime.ComposeArgs(name, def.Dir, runtime.ComposeDown, opts); err != nil {
+		httpjson.WriteErr(w, r, h.Logger, err)
+		return
+	}
+	user := principalName(r)
+	title := "Delete stack " + name
+	if volumes {
+		title += " with its volumes"
+	}
+	compose, svc := env.Runtime.Compose(), h.Stacks
+	job, err := h.Jobs.Start(jobs.Spec{
+		Kind: "stack.delete", Title: title, Environment: env.ID, Namespace: ns,
+		Resource: fmt.Sprintf("env/%s/ns/%s/stack/%s", env.ID, ns, name),
+		Action:   string(authz.StacksWrite), User: user,
+	}, func(ctx context.Context, out *jobs.Output) error {
+		if def.File != "" {
+			if err := compose.Run(ctx, ns, name, def.Dir, runtime.ComposeDown, opts, out); err != nil {
+				return fmt.Errorf("take the stack down: %w", err)
+			}
+		}
+		if err := svc.Remove(ctx, name); err != nil {
+			return err
+		}
+		h.forgetVariables(ctx, name)
+		fmt.Fprintf(out, "Removed %s\n", def.Dir)
+		return nil
+	})
+	if err != nil {
+		httpjson.WriteErr(w, r, h.Logger, err)
+		return
+	}
+	h.log().Info("stack deletion started", "environment", env.ID, "namespace", ns, "stack", name, "volumes", volumes, "user", user)
+	httpjson.Write(w, http.StatusAccepted, map[string]any{"job": job})
 }
 
 // StackOperationRequest modifies a stack operation. Confirm must repeat the stack name when

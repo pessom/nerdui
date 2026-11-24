@@ -4,6 +4,7 @@
 package api
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -102,11 +103,11 @@ func (h *Handler) deleteVariable(stack bool) http.HandlerFunc {
 
 // forgetVariables removes the variables of a stack nerdui no longer knows (#35), so a later
 // stack of the same name does not get them.
-func (h *Handler) forgetVariables(r *http.Request, stack string) {
+func (h *Handler) forgetVariables(ctx context.Context, stack string) {
 	if h.Variables == nil {
 		return
 	}
-	if err := h.Variables.DeleteStack(r.Context(), stack); err != nil {
+	if err := h.Variables.DeleteStack(ctx, stack); err != nil {
 		h.log().Warn("remove the variables of a forgotten stack", "stack", stack, "error", err)
 	}
 }

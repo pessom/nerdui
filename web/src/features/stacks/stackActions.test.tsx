@@ -144,4 +144,46 @@ describe("stack operations", () => {
       calls.find((c) => c.path === `${base}/app/services/web/restart`)?.query.get("namespace"),
     ).toBe("default");
   });
+
+  it("deletes a managed stack after typing its name", async () => {
+    const started: Job[] = [];
+    const { calls } = fakeApi({
+      ...signedIn,
+      [`GET ${base}/app`]: () => json(200, app),
+      [`GET ${base}`]: () => json(200, { namespace: "default", stacks: [] }),
+      "GET /api/v1/jobs": () => json(200, { jobs: started }),
+      [`DELETE ${base}/app`]: () => {
+        started.push({ ...job("j9", "Delete stack app with its volumes"), kind: "stack.delete" });
+        return json(202, { job: started[0] });
+      },
+    });
+    renderApp("/env/local/stacks/app");
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+    const dialog = await screen.findByRole("dialog", { name: "Delete stack app" });
+    const submit = within(dialog).getByRole("button", { name: "Delete stack" });
+    expect(submit).toBeDisabled();
+    fireEvent.click(within(dialog).getByLabelText(/remove the stack's volumes/));
+    fireEvent.change(within(dialog).getByLabelText("Type app to confirm"), {
+      target: { value: "app" },
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Delete stack and volumes" }));
+    const panel = await screen.findByRole("dialog", { name: "Jobs" });
+    expect(
+      await within(panel).findByRole("region", { name: "Delete stack app with its volumes" }),
+    ).toBeInTheDocument();
+    const del = calls.find((c) => c.method === "DELETE");
+    expect(del?.query.get("confirm")).toBe("app");
+    expect(del?.query.get("volumes")).toBe("true");
+    expect(del?.query.get("namespace")).toBe("default");
+  });
+
+  it("offers Delete only for stacks in the stacks directory", async () => {
+    fakeApi({
+      ...signedIn,
+      [`GET ${base}/app`]: () => json(200, { ...app, mode: "external" }),
+    });
+    renderApp("/env/local/stacks/app");
+    expect(await screen.findByRole("button", { name: "Forget" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+  });
 });

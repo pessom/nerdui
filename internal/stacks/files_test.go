@@ -110,3 +110,26 @@ func TestWithin(t *testing.T) {
 		}
 	}
 }
+
+func TestRemoveStack(t *testing.T) {
+	ctx := context.Background()
+	s := &Service{Dir: t.TempDir()}
+	if _, err := s.Create(ctx, "app", []byte("services: {}\n")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(s.Dir, "app", ".env"), []byte("A=1\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Remove(ctx, "app"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(s.Dir, "app")); !os.IsNotExist(err) {
+		t.Errorf("directory left: %v", err)
+	}
+	if err := s.Remove(ctx, "app"); !errdefs.IsNotFound(err) {
+		t.Errorf("missing stack: %v", err)
+	}
+	if err := s.Remove(ctx, "../etc"); !errdefs.IsNotFound(err) {
+		t.Errorf("traversal: %v", err)
+	}
+}

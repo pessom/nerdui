@@ -192,3 +192,66 @@ func TestCreateStackFromTemplate(t *testing.T) {
 		t.Errorf("created: %v", err)
 	}
 }
+
+// TestDeleteStack takes a managed stack down and removes its files and variables (#248).
+func TestDeleteStack(t *testing.T) {
+	ctx := context.Background()
+	dir := t.TempDir()
+	st, err := store.Open(ctx, t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close() //nolint:errcheck // test
+	box, err := secretbox.LoadOrCreate(filepath.Join(t.TempDir(), secretbox.FileName))
+	if err != nil {
+		t.Fatal(err)
+	}
+	vars := &variables.Service{Store: st.Write(), Box: box}
+	rt := writable()
+	m := jobs.NewManager()
+	t.Cleanup(m.Close)
+	admin := func(*http.Request) (authz.Subject, bool) { return authz.Subject{Role: authz.RoleAdmin}, true }
+	r := chi.NewRouter()
+	r.Route("/api/v1", func(r chi.Router) {
+		h := &Handler{Envs: environment.NewRegistry(environment.Local(rt, "default")), Jobs: m, Stacks: &stacks.Service{Dir: dir}, Variables: vars}
+		h.Routes(r, authz.NewGuard(authz.AdminOnly{}, admin, nil))
+	})
+	const base = "/api/v1/environments/local/stacks"
+	body := `{"name":"db","compose":"services:\n  db:\n    image: postgres\n","env":"A=1\n",` +
+		`"variables":[{"name":"POSTGRES_PASSWORD","value":"pw","secret":true}]}`
+	if rec := send(t, r, http.MethodPost, base, body); rec.Code != http.StatusCreated {
+		t.Fatalf("create: %d %s", rec.Code, rec.Body)
+	}
+
+	for path, code := range map[string]int{
+		base + "/db":                         http.StatusBadRequest, // not confirmed
+		base + "/db?confirm=other":           http.StatusBadRequest, // wrong confirmation
+		base + "/ghost?confirm=ghost":        http.StatusNotFound,
+		base + "/db?confirm=db&namespace=-x": http.StatusBadRequest, // bad namespace
+	} {
+		if rec := send(t, r, http.MethodDelete, path, ""); rec.Code != code {
+			t.Errorf("%s: %d %s", path, rec.Code, rec.Body)
+		}
+	}
+
+	rec := send(t, r, http.MethodDelete, base+"/db?confirm=db&volumes=true", "")
+	if rec.Code != http.StatusAccepted {
+		t.Fatalf("delete: %d %s", rec.Code, rec.Body)
+	}
+	j := waitJob(t, m, "stack.delete")
+	if j.Status != jobs.StatusSucceeded || j.Title != "Delete stack db with its volumes" || j.Action != string(authz.StacksWrite) {
+		t.Errorf("job %+v", j)
+	}
+	rt.mu.Lock()
+	runs, opts := rt.composeRuns, rt.composeOpts
+	rt.mu.Unlock()
+	if len(runs) != 1 || runs[0] != "down db "+filepath.Join(dir, "db") || !opts[0].Volumes || !opts[0].RemoveOrphans {
+		t.Errorf("compose %v %+v", runs, opts)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "db")); !os.IsNotExist(err) {
+		t.Errorf("directory left: %v", err)
+	}
+	if list, _ := vars.List(ctx, "db"); len(list) != 0 {
+		t.Errorf("variables left: %v", list)
+	}
+}

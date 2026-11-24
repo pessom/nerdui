@@ -457,6 +457,7 @@ func TestRouteAuthorization(t *testing.T) {
 		"GET /api/v1/git/known-hosts":                                           "settings:read",
 		"DELETE /api/v1/git/known-hosts":                                        "settings:write",
 		"GET /api/v1/environments/{env}/stacks/{name}":                          "stacks:read",
+		"DELETE /api/v1/environments/{env}/stacks/{name}":                       "stacks:write",
 		"POST /api/v1/environments/{env}/stacks/{name}/{op}":                    "stacks:deploy",
 		"GET /api/v1/environments/{env}/stacks/{name}/logs/stream":              "stacks:read",
 		"POST /api/v1/environments/{env}/stacks":                                "stacks:write",
