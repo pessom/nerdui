@@ -43,7 +43,7 @@ func TestPreferences(t *testing.T) {
 		}
 	}
 	// API keys may read but not change preferences.
-	_, token, _ := e.svc.CreateAPIKey(t.Context(), 1, "k", false, nil)
+	_, token, _ := e.svc.CreateAPIKey(t.Context(), 1, "k", KeyOptions{})
 	bare := newClientFor(t, c)
 	auth := map[string]string{"Authorization": "Bearer " + token}
 	if resp, _ := bare.do(http.MethodGet, "/api/v1/auth/preferences", "", auth); resp.StatusCode != http.StatusOK {

@@ -84,22 +84,24 @@ var _ authz.Auditor = (*Recorder)(nil)
 
 // Entry is one log entry. Keep in sync with api/openapi.yaml.
 type Entry struct {
-	ID          int64     `json:"id"`
-	At          time.Time `json:"at"`
-	User        string    `json:"user,omitempty"`
-	APIKey      bool      `json:"apiKey,omitempty"`
-	Action      string    `json:"action"`
-	Method      string    `json:"method,omitempty"`
-	Path        string    `json:"path,omitempty"`
-	Environment string    `json:"environment,omitempty"`
-	Namespace   string    `json:"namespace,omitempty"`
-	Object      string    `json:"object,omitempty"`
-	Status      int       `json:"status,omitempty"`
-	Result      string    `json:"result"`
-	Message     string    `json:"message,omitempty"`
-	JobID       string    `json:"jobId,omitempty"`
-	ClientIP    string    `json:"clientIp,omitempty"`
-	UserAgent   string    `json:"userAgent,omitempty"`
+	ID     int64     `json:"id"`
+	At     time.Time `json:"at"`
+	User   string    `json:"user,omitempty"`
+	APIKey bool      `json:"apiKey,omitempty"`
+	// APIKeyName is "<name> (<prefix>…)" of the key that made the request (#80).
+	APIKeyName  string `json:"apiKeyName,omitempty"`
+	Action      string `json:"action"`
+	Method      string `json:"method,omitempty"`
+	Path        string `json:"path,omitempty"`
+	Environment string `json:"environment,omitempty"`
+	Namespace   string `json:"namespace,omitempty"`
+	Object      string `json:"object,omitempty"`
+	Status      int    `json:"status,omitempty"`
+	Result      string `json:"result"`
+	Message     string `json:"message,omitempty"`
+	JobID       string `json:"jobId,omitempty"`
+	ClientIP    string `json:"clientIp,omitempty"`
+	UserAgent   string `json:"userAgent,omitempty"`
 }
 
 func (rec *Recorder) now() time.Time {
@@ -168,7 +170,8 @@ func fromResponse(b []byte) (msg, jobID string) {
 func (rec *Recorder) Audit(r *http.Request, a authz.AuditRecord) {
 	row := db.InsertAuditParams{
 		At: rec.now().Unix(), Username: a.Subject.Username, ApiKey: boolInt(a.Subject.APIKey),
-		Action: string(a.Action), Method: r.Method, Path: a.Route,
+		ApiKeyName: a.Subject.KeyName,
+		Action:     string(a.Action), Method: r.Method, Path: a.Route,
 		Environment: a.Resource.Environment, Namespace: a.Resource.Namespace, Object: object(r),
 		Status: int64(a.Status), ClientIp: ClientIP(r), UserAgent: clip(r.UserAgent(), maxUserAgent),
 	}
@@ -292,7 +295,7 @@ func (rec *Recorder) List(ctx context.Context, f Filter) ([]Entry, error) {
 	out := make([]Entry, 0, len(rows))
 	for _, r := range rows {
 		out = append(out, Entry{
-			ID: r.ID, At: time.Unix(r.At, 0).UTC(), User: r.Username, APIKey: r.ApiKey != 0,
+			ID: r.ID, At: time.Unix(r.At, 0).UTC(), User: r.Username, APIKey: r.ApiKey != 0, APIKeyName: r.ApiKeyName,
 			Action: r.Action, Method: r.Method, Path: r.Path, Environment: r.Environment,
 			Namespace: r.Namespace, Object: r.Object, Status: int(r.Status), Result: r.Result,
 			Message: r.Message, JobID: r.JobID, ClientIP: r.ClientIp, UserAgent: r.UserAgent,
@@ -312,11 +315,11 @@ func csvSafe(s string) string {
 // WriteCSV writes entries as CSV with a header row.
 func WriteCSV(w io.Writer, entries []Entry) error {
 	cw := csv.NewWriter(w)
-	_ = cw.Write([]string{"time", "user", "api_key", "action", "method", "path", "environment", "namespace",
+	_ = cw.Write([]string{"time", "user", "api_key", "api_key_name", "action", "method", "path", "environment", "namespace",
 		"object", "status", "result", "message", "job_id", "client_ip", "user_agent"})
 	for _, e := range entries {
 		_ = cw.Write([]string{
-			e.At.Format(time.RFC3339), csvSafe(e.User), strconv.FormatBool(e.APIKey), e.Action, e.Method, e.Path,
+			e.At.Format(time.RFC3339), csvSafe(e.User), strconv.FormatBool(e.APIKey), csvSafe(e.APIKeyName), e.Action, e.Method, e.Path,
 			csvSafe(e.Environment), csvSafe(e.Namespace), csvSafe(e.Object), strconv.Itoa(e.Status), e.Result,
 			csvSafe(e.Message), e.JobID, e.ClientIP, csvSafe(e.UserAgent),
 		})

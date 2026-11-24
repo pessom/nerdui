@@ -180,3 +180,24 @@ func TestActionRead(t *testing.T) {
 		}
 	}
 }
+
+func TestKeyAllows(t *testing.T) {
+	for _, tc := range []struct {
+		s    Subject
+		a    Action
+		want bool
+	}{
+		{Subject{}, ContainersWrite, true},                              // password session
+		{Subject{APIKey: true}, ContainersWrite, true},                  // unrestricted key
+		{Subject{APIKey: true, ReadOnly: true}, ContainersRead, true},   // read-only key reads
+		{Subject{APIKey: true, ReadOnly: true}, ContainersWrite, false}, // and only reads
+		{Subject{APIKey: true, Permissions: []Action{StacksDeploy}}, StacksDeploy, true},
+		{Subject{APIKey: true, Permissions: []Action{StacksDeploy}}, StacksRead, false},
+		{Subject{APIKey: true, Permissions: []Action{}}, SessionSelf, true}, // its own session
+		{Subject{APIKey: true, ReadOnly: true, Permissions: []Action{StacksDeploy}}, StacksDeploy, false},
+	} {
+		if err := tc.s.KeyAllows(tc.a); (err == nil) != tc.want || (err != nil && !errors.Is(err, ErrForbidden)) {
+			t.Errorf("%+v %s: %v", tc.s, tc.a, err)
+		}
+	}
+}

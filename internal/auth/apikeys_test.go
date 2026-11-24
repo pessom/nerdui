@@ -152,7 +152,7 @@ func TestAPIKeysOfOtherUsers(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	k, token, err := e.svc.CreateAPIKey(ctx, bob.ID, "bob's", false, nil)
+	k, token, err := e.svc.CreateAPIKey(ctx, bob.ID, "bob's", KeyOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -186,11 +186,91 @@ func TestAPIKeysOfOtherUsers(t *testing.T) {
 		t.Errorf("revoked: %v", err)
 	}
 	// Deleting a user deletes the keys.
-	_, token2, _ := e.svc.CreateAPIKey(ctx, bob.ID, "again", true, nil)
+	_, token2, _ := e.svc.CreateAPIKey(ctx, bob.ID, "again", KeyOptions{ReadOnly: true})
 	if err := e.svc.DeleteUser(ctx, admin.ID, bob.ID); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := e.svc.AuthenticateKey(ctx, token2); !errors.Is(err, ErrUnauthenticated) {
 		t.Errorf("deleted user's key: %v", err)
+	}
+}
+
+// denyAuthorizer is AdminOnly except for one action nobody may perform.
+type denyAuthorizer struct{ deny authz.Action }
+
+func (d denyAuthorizer) Authorize(ctx context.Context, s authz.Subject, a authz.Action, r authz.Resource) error {
+	if a == d.deny {
+		return authz.ErrForbidden
+	}
+	return authz.AdminOnly{}.Authorize(ctx, s, a, r)
+}
+
+// TestAPIKeyPermissions limits keys to chosen actions, never beyond their creator's (#80).
+func TestAPIKeyPermissions(t *testing.T) {
+	e := newEnv(t, true)
+	g := authz.NewGuard(denyAuthorizer{deny: authz.ImagesWrite}, SubjectFromRequest, nil)
+	var seen []authz.Subject
+	r := chi.NewRouter()
+	r.Route("/api/v1", func(r chi.Router) {
+		e.svc.Routes(r, g)
+		r.Group(func(r chi.Router) {
+			r.Use(e.svc.RequireSession, CSRF, PasswordChanged)
+			ok := func(w http.ResponseWriter, r *http.Request) {
+				s, _ := SubjectFromRequest(r)
+				seen = append(seen, s)
+				w.WriteHeader(http.StatusNoContent)
+			}
+			r.Method(http.MethodGet, "/things", g.Protect(authz.ContainersRead, ok))
+			r.Method(http.MethodPost, "/things", g.Protect(authz.ContainersWrite, ok))
+			r.Method(http.MethodPost, "/stacks", g.Protect(authz.StacksDeploy, ok))
+		})
+	})
+	srv := httptest.NewServer(r)
+	t.Cleanup(srv.Close)
+	jar, _ := cookiejar.New(nil)
+	c := &client{t: t, base: srv.URL, http: &http.Client{Jar: jar}}
+	e.setupAdmin(t)
+	loginAdmin(t, c)
+
+	resp, b := c.do(http.MethodPost, "/api/v1/auth/api-keys", `{"name":"deployer","permissions":["stacks:deploy","containers:read","stacks:deploy"]}`, nil)
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("create: %d %s", resp.StatusCode, b)
+	}
+	var k CreatedAPIKey
+	_ = json.Unmarshal([]byte(b), &k)
+	if strings.Join(k.Permissions, ",") != "containers:read,stacks:deploy" {
+		t.Errorf("permissions %v", k.Permissions)
+	}
+	for body, code := range map[string]int{
+		`{"name":"x","permissions":["images:write"]}`: http.StatusForbidden,  // the creator may not
+		`{"name":"x","permissions":["nope:do"]}`:      http.StatusBadRequest, // unknown
+		`{"name":"x","permissions":["session:self"]}`: http.StatusBadRequest, // implied
+		`{"name":"x","permissions":[]}`:               http.StatusBadRequest, // nothing
+	} {
+		if resp, b := c.do(http.MethodPost, "/api/v1/auth/api-keys", body, nil); resp.StatusCode != code {
+			t.Errorf("create %s: %d %s", body, resp.StatusCode, b)
+		}
+	}
+	if _, b := c.do(http.MethodGet, "/api/v1/auth/api-keys", "", nil); !strings.Contains(b, `"permissions":["containers:read","stacks:deploy"]`) {
+		t.Errorf("list %s", b)
+	}
+
+	bare := newClientFor(t, c)
+	auth := map[string]string{"Authorization": "Bearer " + k.Key}
+	for _, req := range []struct {
+		method, path string
+		code         int
+	}{
+		{http.MethodGet, "/api/v1/things", http.StatusNoContent},
+		{http.MethodPost, "/api/v1/stacks", http.StatusNoContent},
+		{http.MethodPost, "/api/v1/things", http.StatusForbidden},
+		{http.MethodGet, "/api/v1/auth/me", http.StatusOK}, // its own session needs no permission
+	} {
+		if resp, b := bare.do(req.method, req.path, "", auth); resp.StatusCode != req.code {
+			t.Errorf("%s %s: %d %s", req.method, req.path, resp.StatusCode, b)
+		}
+	}
+	if len(seen) == 0 || seen[0].KeyName != "deployer ("+k.Prefix+"…)" {
+		t.Errorf("subject %+v", seen)
 	}
 }

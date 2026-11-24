@@ -47,7 +47,8 @@ func SubjectFromRequest(r *http.Request) (authz.Subject, bool) {
 	}
 	s := authz.Subject{UserID: p.User.ID, Username: p.User.Username, Role: p.User.Role}
 	if p.APIKey != nil {
-		s.APIKey, s.ReadOnly = true, p.APIKey.ReadOnly
+		s.APIKey, s.ReadOnly, s.Permissions = true, p.APIKey.ReadOnly, p.APIKey.Permissions
+		s.KeyName = p.APIKey.Name + " (" + p.APIKey.Prefix + "…)"
 	}
 	return s, true
 }

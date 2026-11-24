@@ -23,19 +23,20 @@ func (q *Queries) CountUserAPIKeys(ctx context.Context, userID int64) (int64, er
 
 const createAPIKey = `-- name: CreateAPIKey :one
 
-INSERT INTO api_keys (user_id, name, prefix, token_hash, read_only, created_at, expires_at)
-VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)
-RETURNING id, user_id, name, prefix, token_hash, read_only, created_at, expires_at, last_used_at
+INSERT INTO api_keys (user_id, name, prefix, token_hash, read_only, permissions, created_at, expires_at)
+VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+RETURNING id, user_id, name, prefix, token_hash, read_only, created_at, expires_at, last_used_at, permissions
 `
 
 type CreateAPIKeyParams struct {
-	UserID    int64
-	Name      string
-	Prefix    string
-	TokenHash []byte
-	ReadOnly  int64
-	Now       int64
-	ExpiresAt sql.NullInt64
+	UserID      int64
+	Name        string
+	Prefix      string
+	TokenHash   []byte
+	ReadOnly    int64
+	Permissions sql.NullString
+	Now         int64
+	ExpiresAt   sql.NullInt64
 }
 
 // SPDX-FileCopyrightText: 2026 The nerdui Authors
@@ -47,6 +48,7 @@ func (q *Queries) CreateAPIKey(ctx context.Context, arg CreateAPIKeyParams) (Api
 		arg.Prefix,
 		arg.TokenHash,
 		arg.ReadOnly,
+		arg.Permissions,
 		arg.Now,
 		arg.ExpiresAt,
 	)
@@ -61,6 +63,7 @@ func (q *Queries) CreateAPIKey(ctx context.Context, arg CreateAPIKeyParams) (Api
 		&i.CreatedAt,
 		&i.ExpiresAt,
 		&i.LastUsedAt,
+		&i.Permissions,
 	)
 	return i, err
 }
@@ -83,7 +86,7 @@ func (q *Queries) DeleteUserAPIKey(ctx context.Context, arg DeleteUserAPIKeyPara
 }
 
 const getAPIKeyWithUser = `-- name: GetAPIKeyWithUser :one
-SELECT api_keys.id, api_keys.user_id, api_keys.name, api_keys.prefix, api_keys.token_hash, api_keys.read_only, api_keys.created_at, api_keys.expires_at, api_keys.last_used_at, users.id, users.username, users.password_hash, users.role, users.created_at, users.updated_at, users.disabled_at, users.must_change_password, users.last_login_at, users.mfa_secret, users.mfa_enabled, users.mfa_last_step
+SELECT api_keys.id, api_keys.user_id, api_keys.name, api_keys.prefix, api_keys.token_hash, api_keys.read_only, api_keys.created_at, api_keys.expires_at, api_keys.last_used_at, api_keys.permissions, users.id, users.username, users.password_hash, users.role, users.created_at, users.updated_at, users.disabled_at, users.must_change_password, users.last_login_at, users.mfa_secret, users.mfa_enabled, users.mfa_last_step
 FROM api_keys
 JOIN users ON users.id = api_keys.user_id
 WHERE api_keys.token_hash = ?
@@ -107,6 +110,7 @@ func (q *Queries) GetAPIKeyWithUser(ctx context.Context, tokenHash []byte) (GetA
 		&i.ApiKey.CreatedAt,
 		&i.ApiKey.ExpiresAt,
 		&i.ApiKey.LastUsedAt,
+		&i.ApiKey.Permissions,
 		&i.User.ID,
 		&i.User.Username,
 		&i.User.PasswordHash,
@@ -124,7 +128,7 @@ func (q *Queries) GetAPIKeyWithUser(ctx context.Context, tokenHash []byte) (GetA
 }
 
 const listUserAPIKeys = `-- name: ListUserAPIKeys :many
-SELECT id, user_id, name, prefix, token_hash, read_only, created_at, expires_at, last_used_at FROM api_keys WHERE user_id = ? ORDER BY created_at DESC, id DESC
+SELECT id, user_id, name, prefix, token_hash, read_only, created_at, expires_at, last_used_at, permissions FROM api_keys WHERE user_id = ? ORDER BY created_at DESC, id DESC
 `
 
 func (q *Queries) ListUserAPIKeys(ctx context.Context, userID int64) ([]ApiKey, error) {
@@ -146,6 +150,7 @@ func (q *Queries) ListUserAPIKeys(ctx context.Context, userID int64) ([]ApiKey, 
 			&i.CreatedAt,
 			&i.ExpiresAt,
 			&i.LastUsedAt,
+			&i.Permissions,
 		); err != nil {
 			return nil, err
 		}
