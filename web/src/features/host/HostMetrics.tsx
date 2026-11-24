@@ -61,7 +61,7 @@ function toColumns(data: Metrics | undefined) {
     disks: disks.map((path, i) => ({
       label: path,
       values: pts.map((p) => p.disks[path] ?? null),
-      color: diskColors[i % diskColors.length],
+      color: diskColors[i % diskColors.length] ?? "#fd7e14",
     })),
   };
 }
