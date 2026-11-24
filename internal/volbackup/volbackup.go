@@ -317,8 +317,21 @@ func (s *Service) Test(ctx context.Context, id int64) error {
 // dir is where the archives of a volume are kept in a target.
 func dir(namespace, volume string) string { return namespace + "/" + volume + "/" }
 
+var nameRe = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_.-]*$`)
+
+// validNames checks a namespace and a volume name, which become directories of archives.
+func validNames(namespace, volume string) error {
+	if len(namespace) > 255 || len(volume) > 255 || !nameRe.MatchString(namespace) || !nameRe.MatchString(volume) {
+		return bad("invalid namespace or volume name")
+	}
+	return nil
+}
+
 // List returns the archives of a volume in a target, newest first.
 func (s *Service) List(ctx context.Context, target int64, namespace, volume string) ([]Archive, error) {
+	if err := validNames(namespace, volume); err != nil {
+		return nil, err
+	}
 	st, err := s.storage(ctx, target)
 	if err != nil {
 		return nil, err
@@ -346,6 +359,9 @@ type Options struct {
 // Backup writes an archive of a volume to a target and removes the oldest beyond Keep. It
 // returns the archive's key.
 func (s *Service) Backup(ctx context.Context, rt runtime.Runtime, target int64, namespace, volume string, o Options, out io.Writer) (string, error) {
+	if err := validNames(namespace, volume); err != nil {
+		return "", err
+	}
 	st, err := s.storage(ctx, target)
 	if err != nil {
 		return "", err
@@ -404,6 +420,9 @@ func ValidKey(key string) error {
 // StopContainers is set.
 func (s *Service) Restore(ctx context.Context, rt runtime.Runtime, target int64, key, namespace, volume string, o Options, out io.Writer) error {
 	if err := ValidKey(key); err != nil {
+		return err
+	}
+	if err := validNames(namespace, volume); err != nil {
 		return err
 	}
 	st, err := s.storage(ctx, target)

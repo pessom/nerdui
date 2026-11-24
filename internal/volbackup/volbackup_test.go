@@ -252,3 +252,20 @@ func TestParseEndpoint(t *testing.T) {
 		}
 	}
 }
+
+func TestNamesStayInTarget(t *testing.T) {
+	ctx := context.Background()
+	s := newService(t)
+	tg, err := s.Create(ctx, TargetInput{Name: "local", Kind: KindLocal, Directory: t.TempDir()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, nv := range [][2]string{{"default", "../.."}, {"..", "x"}, {"default", "a/b"}, {"", "x"}} {
+		if _, err := s.List(ctx, tg.ID, nv[0], nv[1]); !errdefs.IsInvalidArgument(err) {
+			t.Errorf("%q: %v", nv, err)
+		}
+		if _, err := s.Backup(ctx, &fakeRT{}, tg.ID, nv[0], nv[1], Options{}, io.Discard); !errdefs.IsInvalidArgument(err) {
+			t.Errorf("backup %q: %v", nv, err)
+		}
+	}
+}

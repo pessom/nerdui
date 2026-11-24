@@ -12,7 +12,6 @@ import (
 	"net/url"
 	"os"
 	"path"
-	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -39,33 +38,48 @@ type storage interface {
 	remove(ctx context.Context, key string) error
 }
 
-// localStorage keeps archives in a host directory.
+// localStorage keeps archives in a host directory; keys cannot leave it (os.Root).
 type localStorage struct{ dir string }
 
-func (l localStorage) path(key string) string { return filepath.Join(l.dir, filepath.FromSlash(key)) }
+func (l localStorage) root() (*os.Root, error) {
+	if err := os.MkdirAll(l.dir, 0o700); err != nil {
+		return nil, err
+	}
+	return os.OpenRoot(l.dir)
+}
 
 func (l localStorage) put(_ context.Context, key string, r io.Reader) error {
-	file := l.path(key)
-	if err := os.MkdirAll(filepath.Dir(file), 0o700); err != nil {
-		return err
-	}
-	tmp, err := os.CreateTemp(filepath.Dir(file), ".part-*")
+	root, err := l.root()
 	if err != nil {
 		return err
 	}
-	defer os.Remove(tmp.Name()) //nolint:errcheck // renamed on success
-	if _, err := io.Copy(tmp, r); err != nil {
-		_ = tmp.Close()
+	defer root.Close() //nolint:errcheck // nothing to flush
+	if err := root.MkdirAll(path.Dir(key), 0o700); err != nil {
 		return err
 	}
-	if err := tmp.Close(); err != nil {
+	tmp := path.Join(path.Dir(key), fmt.Sprintf(".part-%d", time.Now().UnixNano()))
+	f, err := root.OpenFile(tmp, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
 		return err
 	}
-	return os.Rename(tmp.Name(), file)
+	defer root.Remove(tmp) //nolint:errcheck // renamed on success
+	if _, err := io.Copy(f, r); err != nil {
+		_ = f.Close()
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	return root.Rename(tmp, key)
 }
 
 func (l localStorage) list(_ context.Context, dir string) ([]Archive, error) {
-	entries, err := os.ReadDir(l.path(dir))
+	root, err := l.root()
+	if err != nil {
+		return nil, err
+	}
+	defer root.Close() //nolint:errcheck // read-only
+	entries, err := fs.ReadDir(root.FS(), path.Clean(dir))
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, nil
 	}
@@ -87,14 +101,26 @@ func (l localStorage) list(_ context.Context, dir string) ([]Archive, error) {
 }
 
 func (l localStorage) get(_ context.Context, key string) (io.ReadCloser, error) {
-	f, err := os.Open(l.path(key))
+	root, err := l.root()
+	if err != nil {
+		return nil, err
+	}
+	defer root.Close() //nolint:errcheck // the file stays open
+	f, err := root.Open(key)
 	if errors.Is(err, fs.ErrNotExist) {
 		return nil, fmt.Errorf("%w: backup %s not found", errdefs.ErrNotFound, key)
 	}
 	return f, err
 }
 
-func (l localStorage) remove(_ context.Context, key string) error { return os.Remove(l.path(key)) }
+func (l localStorage) remove(_ context.Context, key string) error {
+	root, err := l.root()
+	if err != nil {
+		return err
+	}
+	defer root.Close() //nolint:errcheck // nothing to flush
+	return root.Remove(key)
+}
 
 // s3Storage keeps archives in an S3 bucket under a prefix.
 type s3Storage struct {
