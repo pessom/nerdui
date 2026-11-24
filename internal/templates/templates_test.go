@@ -185,7 +185,8 @@ func TestCustomTemplates(t *testing.T) {
 	if _, err := s.Create(ctx, in, "admin"); !errdefs.IsAlreadyExists(err) {
 		t.Errorf("duplicate: %v", err)
 	}
-	for _, bad := range []Input{{Name: "", Compose: "x"}, {Name: "a"}, {Name: "a", Compose: strings.Repeat("x", MaxFile+1)}} {
+	for _, bad := range []Input{{Name: "", Compose: "x"}, {Name: "a"}, {Name: "a", Compose: strings.Repeat("x", MaxFile+1)},
+		{Name: "a", Compose: "not: [yaml"}, {Name: "a", Compose: "- a list\n"}, {Name: "a", Compose: "# only a comment\n"}} {
 		if _, err := s.Create(ctx, bad, ""); !errdefs.IsInvalidArgument(err) {
 			t.Errorf("%+v: %v", bad.Name, err)
 		}

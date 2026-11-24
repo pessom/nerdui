@@ -23,6 +23,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/containerd/errdefs"
+	"go.yaml.in/yaml/v3"
 
 	"github.com/pessom/nerdui/internal/store"
 	"github.com/pessom/nerdui/internal/store/db"
@@ -233,6 +234,15 @@ func (in *Input) validate() error {
 	}
 	if !utf8.ValidString(in.Compose) || !utf8.ValidString(in.Env) {
 		return bad("files must be UTF-8 text")
+	}
+	// The full check needs the values of the variables: it runs on deploy. Syntax errors are
+	// caught here, so a saved template does not fail only when it is used.
+	var doc map[string]any
+	if err := yaml.Unmarshal([]byte(in.Compose), &doc); err != nil {
+		return bad("the compose file is not valid YAML: %s", strings.TrimPrefix(err.Error(), "yaml: "))
+	}
+	if doc == nil {
+		return bad("the compose file is empty")
 	}
 	return nil
 }
