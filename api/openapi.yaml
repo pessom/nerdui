@@ -288,6 +288,43 @@ paths:
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
+  /api/v1/settings/host-alerts:
+    get:
+      tags: [settings]
+      operationId: getHostAlerts
+      summary: Alert thresholds of host usage
+      description: Requires `settings:read` (#64). Off by default.
+      responses:
+        "200":
+          description: Thresholds
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HostAlerts" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+    put:
+      tags: [settings]
+      operationId: putHostAlerts
+      summary: Set the alert thresholds of host usage
+      description: |
+        Requires `settings:write` (#64, ADR-0054). A `host.alert` notification is sent when a
+        usage stays at or above its percent for its minutes, and again when it falls 5 points
+        below.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/HostAlerts" }
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/HostAlerts" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "415": { $ref: "#/components/responses/Error" }
   /api/v1/settings/security:
     get:
       tags: [settings]
@@ -2940,6 +2977,40 @@ paths:
         "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
         "503": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/host/metrics:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+    get:
+      tags: [environments]
+      operationId: getHostMetrics
+      summary: CPU, memory, disk and network usage of the host
+      description: |
+        Requires `system:read` (#64, ADR-0054). nerdui samples the host it runs on every 15
+        seconds and keeps one day in memory; history longer than 360 points is averaged.
+        503 until the first sample.
+      parameters:
+        - name: range
+          in: query
+          schema: { type: string, enum: ["1h", "6h", "24h"], default: "1h" }
+      responses:
+        "200":
+          description: Current values and history
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [current, points, range, intervalSeconds]
+                properties:
+                  current: { $ref: "#/components/schemas/HostSample" }
+                  points: { type: array, items: { $ref: "#/components/schemas/HostPoint" } }
+                  range: { type: string }
+                  intervalSeconds: { type: integer }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
   /api/v1/environments/{env}/summary:
     parameters:
       - $ref: "#/components/parameters/Env"
@@ -4464,9 +4535,58 @@ components:
         jobId: { type: string }
         clientIp: { type: string }
         userAgent: { type: string }
+    HostDisk:
+      type: object
+      required: [path, paths, total, used]
+      properties:
+        path: { type: string }
+        paths: { type: array, items: { type: string }, description: Watched directories on this filesystem }
+        total: { type: integer, format: int64 }
+        used: { type: integer, format: int64 }
+    HostSample:
+      type: object
+      required: [time, cpu, cpus, load1, memoryUsed, memoryTotal, swapUsed, swapTotal, netRx, netTx, disks]
+      properties:
+        time: { type: string, format: date-time }
+        cpu: { type: number, description: Busy percent of all CPUs }
+        cpus: { type: integer }
+        load1: { type: number }
+        memoryUsed: { type: integer, format: int64, description: Memory not available to new programs }
+        memoryTotal: { type: integer, format: int64 }
+        swapUsed: { type: integer, format: int64 }
+        swapTotal: { type: integer, format: int64 }
+        netRx: { type: number, description: Bytes per second received by physical interfaces }
+        netTx: { type: number }
+        disks: { type: array, items: { $ref: "#/components/schemas/HostDisk" } }
+    HostPoint:
+      type: object
+      required: [t, cpu, memory, netRx, netTx, disks]
+      properties:
+        t: { type: integer, format: int64, description: Unix seconds }
+        cpu: { type: number }
+        memory: { type: number, description: Used percent }
+        netRx: { type: number }
+        netTx: { type: number }
+        disks: { type: object, additionalProperties: { type: number }, description: Used percent by filesystem path }
+    HostThreshold:
+      type: object
+      required: [enabled, percent, minutes]
+      additionalProperties: false
+      properties:
+        enabled: { type: boolean }
+        percent: { type: number, minimum: 1, maximum: 100 }
+        minutes: { type: integer, minimum: 0, maximum: 1440, description: How long the usage must stay above; 0 alerts at once }
+    HostAlerts:
+      type: object
+      required: [cpu, memory, disk]
+      additionalProperties: false
+      properties:
+        cpu: { $ref: "#/components/schemas/HostThreshold" }
+        memory: { $ref: "#/components/schemas/HostThreshold" }
+        disk: { $ref: "#/components/schemas/HostThreshold", description: Applies to each watched filesystem }
     NotificationKind:
       type: string
-      enum: [image.update, autoupdate.updated, autoupdate.failed, autoupdate.pending, container.died, container.oom, container.unhealthy, container.autoheal, job.failed, git.update]
+      enum: [image.update, autoupdate.updated, autoupdate.failed, autoupdate.pending, container.died, container.oom, container.unhealthy, container.autoheal, job.failed, git.update, host.alert]
     NotificationConfig:
       type: object
       description: |

@@ -20,6 +20,7 @@ import (
 	"github.com/pessom/nerdui/internal/backup"
 	"github.com/pessom/nerdui/internal/environment"
 	"github.com/pessom/nerdui/internal/gitstacks"
+	"github.com/pessom/nerdui/internal/hostmetrics"
 	"github.com/pessom/nerdui/internal/httpjson"
 	"github.com/pessom/nerdui/internal/jobs"
 	"github.com/pessom/nerdui/internal/notify"
@@ -74,7 +75,9 @@ type Handler struct {
 	VolumeBackups *volbackup.Service
 	// Templates are the stack templates (#33, #34); nil disables them.
 	Templates *templates.Service
-	Logger    *slog.Logger
+	// HostMetrics samples the host nerdui runs on (#64); nil disables host metrics.
+	HostMetrics *hostmetrics.Sampler
+	Logger      *slog.Logger
 }
 
 // Routes registers the environment endpoints under the API root.
@@ -90,10 +93,13 @@ func (h *Handler) Routes(r chi.Router, g *authz.Guard) {
 	h.variableRoutes(r, g)
 	h.backupTargetRoutes(r, g)
 	h.templateRoutes(r, g)
+	h.hostMetricRoutes(r, g)
 	r.Method(http.MethodGet, "/compose-schema", g.Protect(authz.StacksRead, h.composeSchema))
 	r.Route("/environments/{env}", func(r chi.Router) {
 		r.Use(h.resolveEnv)
 		// Settings live in nerdui's database and do not need a writable nerdctl.
+		// Host metrics come from /proc, not containerd (#64).
+		r.Method(http.MethodGet, "/host/metrics", g.Protect(authz.SystemRead, h.hostMetrics))
 		r.Method(http.MethodGet, "/settings/prometheus", g.Protect(authz.SettingsRead, h.getPrometheusSettings))
 		r.Method(http.MethodPut, "/settings/prometheus", g.Protect(authz.SettingsWrite, h.putPrometheusSettings))
 		r.Method(http.MethodDelete, "/settings/prometheus", g.Protect(authz.SettingsWrite, h.deletePrometheusSettings))
