@@ -848,6 +848,102 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stack templates
+         * @description Requires `stacks:read` (#33, #34, ADR-0051): the built-in catalog, saved templates and
+         *     those of the configured registries; registries that cannot be read are listed in
+         *     `errors`.
+         */
+        get: operations["listTemplates"];
+        put?: never;
+        /**
+         * Save a stack template
+         * @description Requires `stacks:write`.
+         */
+        post: operations["createTemplate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/templates/detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A template with its compose file and variables
+         * @description Requires `stacks:read`. Files of registry templates are fetched when linked.
+         */
+        get: operations["getTemplate"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/templates/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change a saved template
+         * @description Requires `stacks:write`.
+         */
+        put: operations["updateTemplate"];
+        post?: never;
+        /**
+         * Delete a saved template
+         * @description Requires `stacks:write`.
+         */
+        delete: operations["deleteTemplate"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/template-registries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * URLs of registry.json template catalogs
+         * @description Requires `settings:read`.
+         */
+        get: operations["getTemplateRegistries"];
+        /**
+         * Replace the template registries
+         * @description Requires `settings:write`. http(s) URLs, at most 20.
+         */
+        put: operations["putTemplateRegistries"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/webhooks": {
         parameters: {
             query?: never;
@@ -1650,8 +1746,9 @@ export interface paths {
         /**
          * Create a stack in the stacks directory
          * @description Requires `stacks:write` (#26). Creates `<stacks-dir>/<name>/compose.yaml` with `compose`
-         *     (a starter file when empty). Content that does not load is refused (400) and nothing is
-         *     left behind.
+         *     (a starter file when empty), optionally with an `.env` file and variables of the stack
+         *     (#35), as deploying a template does (#33). Content that does not load is refused (400)
+         *     and nothing is left behind.
          */
         post: operations["createStack"];
         delete?: never;
@@ -3101,6 +3198,29 @@ export interface components {
             /** @description Pull the image first (update) */
             pull?: boolean;
         };
+        TemplateSummary: {
+            /** @description builtin, custom or the URL of a registry */
+            source: string;
+            id: string;
+            name: string;
+            description?: string;
+            categories?: string[];
+            logo?: string;
+            documentation?: string;
+            /** Format: date-time */
+            updatedAt?: string;
+        };
+        Template: components["schemas"]["TemplateSummary"] & {
+            compose: string;
+            env: string;
+            variables: {
+                name: string;
+                default: string;
+                description?: string;
+                /** @description Guessed from the name */
+                secret: boolean;
+            }[];
+        };
         S3Options: {
             /** @description host[:port] (HTTPS) or an http(s):// URL */
             endpoint: string;
@@ -4534,6 +4654,26 @@ export interface components {
                 };
             };
         };
+        /** @description The template */
+        Template: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Template"];
+            };
+        };
+        /** @description Registry URLs */
+        TemplateRegistries: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": {
+                    urls: string[];
+                };
+            };
+        };
         /** @description The variable */
         Variable: {
             headers: {
@@ -4607,6 +4747,17 @@ export interface components {
                     value?: string;
                     /** @description Never return the value */
                     secret?: boolean;
+                };
+            };
+        };
+        TemplateInput: {
+            content: {
+                "application/json": {
+                    name: string;
+                    description?: string;
+                    compose: string;
+                    /** @description .env.example: KEY=default lines described by the comments above them */
+                    env?: string;
                 };
             };
         };
@@ -6004,6 +6155,147 @@ export interface operations {
             404: components["responses"]["Error"];
         };
     };
+    listTemplates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Templates */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        templates: components["schemas"]["TemplateSummary"][];
+                        errors: {
+                            source: string;
+                            error: string;
+                        }[];
+                    };
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
+    createTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["TemplateInput"];
+        responses: {
+            201: components["responses"]["Template"];
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    getTemplate: {
+        parameters: {
+            query: {
+                /** @description builtin, custom or a registry URL */
+                source: string;
+                id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["Template"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    updateTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["TemplateInput"];
+        responses: {
+            200: components["responses"]["Template"];
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    deleteTemplate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    getTemplateRegistries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["TemplateRegistries"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
+    putTemplateRegistries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    urls: string[];
+                };
+            };
+        };
+        responses: {
+            200: components["responses"]["TemplateRegistries"];
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
     listWebhooks: {
         parameters: {
             query?: never;
@@ -7251,6 +7543,14 @@ export interface operations {
                 "application/json": {
                     name: string;
                     compose?: string;
+                    /** @description Content of the stack's .env file */
+                    env?: string;
+                    /** @description Variables of the stack; secrets are encrypted and never returned */
+                    variables?: {
+                        name: string;
+                        value: string;
+                        secret?: boolean;
+                    }[];
                 };
             };
         };

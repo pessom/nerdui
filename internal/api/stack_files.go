@@ -21,6 +21,7 @@ import (
 	"github.com/pessom/nerdui/internal/environment"
 	"github.com/pessom/nerdui/internal/httpjson"
 	"github.com/pessom/nerdui/internal/stacks"
+	"github.com/pessom/nerdui/internal/variables"
 )
 
 // StackValidation is the result of checking compose and .env content (#26). Line is the line of
@@ -164,10 +165,11 @@ func (h *Handler) validateStack(w http.ResponseWriter, r *http.Request) {
 	httpjson.Write(w, http.StatusOK, h.validateContent(r.Context(), EnvFrom(r.Context()), def, compose, dotenv))
 }
 
-// createStack creates a stack in the stacks directory with a compose file (#26); invalid
-// content is refused and nothing is left behind:
+// createStack creates a stack in the stacks directory with a compose file (#26), optionally
+// with an .env file and variables of the stack (#35), as deploying a template does (#33);
+// invalid content is refused and nothing is left behind:
 //
-//	POST /api/v1/environments/{env}/stacks?namespace=  {"name", "compose"}
+//	POST /api/v1/environments/{env}/stacks?namespace=  {"name", "compose", "env", "variables"}
 func (h *Handler) createStack(w http.ResponseWriter, r *http.Request) {
 	ns, err := Namespace(r)
 	if err != nil {
@@ -179,8 +181,14 @@ func (h *Handler) createStack(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		Name    string `json:"name"`
-		Compose string `json:"compose"`
+		Name      string `json:"name"`
+		Compose   string `json:"compose"`
+		Env       string `json:"env"`
+		Variables []struct {
+			Name   string `json:"name"`
+			Value  string `json:"value"`
+			Secret bool   `json:"secret"`
+		} `json:"variables"`
 	}
 	if !httpjson.Decode(w, r, &req) {
 		return
@@ -188,18 +196,51 @@ func (h *Handler) createStack(w http.ResponseWriter, r *http.Request) {
 	if strings.TrimSpace(req.Compose) == "" {
 		req.Compose = stacks.DefaultCompose
 	}
+	if len(req.Variables) > 0 && h.Variables == nil {
+		httpjson.WriteErr(w, r, h.Logger, fmt.Errorf("%w: variables are not available", errdefs.ErrNotImplemented))
+		return
+	}
+	if len(req.Env) > stacks.MaxFileSize {
+		httpjson.WriteErr(w, r, h.Logger, fmt.Errorf("%w: .env is larger than %d KiB", errdefs.ErrInvalidArgument, stacks.MaxFileSize>>10))
+		return
+	}
+	for _, v := range req.Variables {
+		if err := variables.ValidateName(v.Name); err != nil {
+			httpjson.WriteErr(w, r, h.Logger, err)
+			return
+		}
+	}
 	env := EnvFrom(r.Context())
 	def, err := h.Stacks.Create(r.Context(), req.Name, []byte(req.Compose))
 	if err != nil {
 		h.writeActionErr(w, r, err)
 		return
 	}
-	if v := h.validateContent(r.Context(), env, def, nil, nil); !v.Valid {
+	fail := func(err error) {
+		if h.Variables != nil && len(req.Variables) > 0 {
+			_ = h.Variables.DeleteStack(context.WithoutCancel(r.Context()), def.Name)
+		}
 		_ = removeNewStack(def)
-		httpjson.WriteErr(w, r, h.Logger, fmt.Errorf("%w: %s", errdefs.ErrInvalidArgument, v.Error))
+		httpjson.WriteErr(w, r, h.Logger, err)
+	}
+	if req.Env != "" {
+		if _, err := stacks.WriteFile(def, stacks.FileEnv, []byte(req.Env), ""); err != nil {
+			fail(err)
+			return
+		}
+	}
+	for _, v := range req.Variables {
+		value := v.Value
+		if _, err := h.Variables.Put(r.Context(), def.Name, v.Name, variables.Input{Value: &value, Secret: v.Secret}, principalName(r)); err != nil {
+			fail(err)
+			return
+		}
+	}
+	if v := h.validateContent(r.Context(), env, def, nil, nil); !v.Valid {
+		fail(fmt.Errorf("%w: %s", errdefs.ErrInvalidArgument, v.Error))
 		return
 	}
-	h.log().Info("stack created", "environment", env.ID, "stack", def.Name, "path", def.Dir)
+	h.log().Info("stack created", "environment", env.ID, "stack", def.Name, "path", def.Dir, "variables", len(req.Variables))
 	list, err := h.stackList(r.Context(), env, ns)
 	if err == nil {
 		for _, s := range list {
@@ -212,10 +253,13 @@ func (h *Handler) createStack(w http.ResponseWriter, r *http.Request) {
 	httpjson.Write(w, http.StatusCreated, stacks.Summarize(def, nil, nil, nil))
 }
 
-// removeNewStack removes a stack directory created by this request: only its compose file.
+// removeNewStack removes a stack directory created by this request: its compose file and
+// .env.
 func removeNewStack(def stacks.Definition) error {
-	if err := os.Remove(filepath.Join(def.Dir, def.File)); err != nil && !errors.Is(err, os.ErrNotExist) {
-		return err
+	for _, f := range []string{def.File, ".env", ".env.bak"} {
+		if err := os.Remove(filepath.Join(def.Dir, f)); err != nil && !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
 	}
 	return os.Remove(def.Dir)
 }

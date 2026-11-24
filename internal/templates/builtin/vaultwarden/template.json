@@ -1,0 +1,8 @@
+{
+  "name": "Vaultwarden",
+  "description": "Bitwarden-compatible password manager server. Serve it over HTTPS.",
+  "categories": [
+    "security"
+  ],
+  "documentation": "https://github.com/dani-garcia/vaultwarden/wiki"
+}

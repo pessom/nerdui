@@ -1,0 +1,8 @@
+{
+  "name": "whoami",
+  "description": "Tiny HTTP server that echoes the request: a quick test of ports and proxies.",
+  "categories": [
+    "tools"
+  ],
+  "documentation": "https://github.com/traefik/whoami"
+}

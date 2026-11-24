@@ -26,6 +26,7 @@ import (
 	"github.com/pessom/nerdui/internal/runtime"
 	"github.com/pessom/nerdui/internal/scheduler"
 	"github.com/pessom/nerdui/internal/stacks"
+	"github.com/pessom/nerdui/internal/templates"
 	"github.com/pessom/nerdui/internal/variables"
 	"github.com/pessom/nerdui/internal/volbackup"
 	"github.com/pessom/nerdui/internal/webhooks"
@@ -71,7 +72,9 @@ type Handler struct {
 	Variables *variables.Service
 	// VolumeBackups back up and restore volumes (#59); nil disables them.
 	VolumeBackups *volbackup.Service
-	Logger        *slog.Logger
+	// Templates are the stack templates (#33, #34); nil disables them.
+	Templates *templates.Service
+	Logger    *slog.Logger
 }
 
 // Routes registers the environment endpoints under the API root.
@@ -86,6 +89,7 @@ func (h *Handler) Routes(r chi.Router, g *authz.Guard) {
 	h.scheduleRoutes(r, g)
 	h.variableRoutes(r, g)
 	h.backupTargetRoutes(r, g)
+	h.templateRoutes(r, g)
 	r.Method(http.MethodGet, "/compose-schema", g.Protect(authz.StacksRead, h.composeSchema))
 	r.Route("/environments/{env}", func(r chi.Router) {
 		r.Use(h.resolveEnv)

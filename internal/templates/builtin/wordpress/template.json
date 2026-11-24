@@ -1,0 +1,9 @@
+{
+  "name": "WordPress",
+  "description": "WordPress with a MariaDB database.",
+  "categories": [
+    "web",
+    "cms"
+  ],
+  "documentation": "https://hub.docker.com/_/wordpress"
+}

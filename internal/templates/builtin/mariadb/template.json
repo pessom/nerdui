@@ -1,0 +1,8 @@
+{
+  "name": "MariaDB",
+  "description": "MySQL-compatible database server.",
+  "categories": [
+    "database"
+  ],
+  "documentation": "https://hub.docker.com/_/mariadb"
+}

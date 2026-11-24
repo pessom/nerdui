@@ -1,0 +1,8 @@
+{
+  "name": "Grafana",
+  "description": "Dashboards for metrics, logs and traces.",
+  "categories": [
+    "monitoring"
+  ],
+  "documentation": "https://grafana.com/docs/grafana/latest/setup-grafana/installation/docker/"
+}

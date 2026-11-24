@@ -1106,6 +1106,118 @@ paths:
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
+  /api/v1/templates:
+    get:
+      tags: [stacks]
+      operationId: listTemplates
+      summary: Stack templates
+      description: |
+        Requires `stacks:read` (#33, #34, ADR-0051): the built-in catalog, saved templates and
+        those of the configured registries; registries that cannot be read are listed in
+        `errors`.
+      responses:
+        "200":
+          description: Templates
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [templates, errors]
+                properties:
+                  templates: { type: array, items: { $ref: "#/components/schemas/TemplateSummary" } }
+                  errors:
+                    type: array
+                    items:
+                      type: object
+                      required: [source, error]
+                      properties:
+                        source: { type: string }
+                        error: { type: string }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+    post:
+      tags: [stacks]
+      operationId: createTemplate
+      summary: Save a stack template
+      description: Requires `stacks:write`.
+      requestBody: { $ref: "#/components/requestBodies/TemplateInput" }
+      responses:
+        "201": { $ref: "#/components/responses/Template" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/v1/templates/detail:
+    get:
+      tags: [stacks]
+      operationId: getTemplate
+      summary: A template with its compose file and variables
+      description: Requires `stacks:read`. Files of registry templates are fetched when linked.
+      parameters:
+        - { name: source, in: query, required: true, schema: { type: string }, description: "builtin, custom or a registry URL" }
+        - { name: id, in: query, required: true, schema: { type: string } }
+      responses:
+        "200": { $ref: "#/components/responses/Template" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+  /api/v1/templates/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    put:
+      tags: [stacks]
+      operationId: updateTemplate
+      summary: Change a saved template
+      description: Requires `stacks:write`.
+      requestBody: { $ref: "#/components/requestBodies/TemplateInput" }
+      responses:
+        "200": { $ref: "#/components/responses/Template" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [stacks]
+      operationId: deleteTemplate
+      summary: Delete a saved template
+      description: Requires `stacks:write`.
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/v1/template-registries:
+    get:
+      tags: [settings]
+      operationId: getTemplateRegistries
+      summary: URLs of registry.json template catalogs
+      description: Requires `settings:read`.
+      responses:
+        "200": { $ref: "#/components/responses/TemplateRegistries" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+    put:
+      tags: [settings]
+      operationId: putTemplateRegistries
+      summary: Replace the template registries
+      description: Requires `settings:write`. http(s) URLs, at most 20.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [urls]
+              additionalProperties: false
+              properties:
+                urls: { type: array, items: { type: string } }
+      responses:
+        "200": { $ref: "#/components/responses/TemplateRegistries" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
   /api/v1/webhooks:
     get:
       tags: [webhooks]
@@ -2114,8 +2226,9 @@ paths:
       summary: Create a stack in the stacks directory
       description: |
         Requires `stacks:write` (#26). Creates `<stacks-dir>/<name>/compose.yaml` with `compose`
-        (a starter file when empty). Content that does not load is refused (400) and nothing is
-        left behind.
+        (a starter file when empty), optionally with an `.env` file and variables of the stack
+        (#35), as deploying a template does (#33). Content that does not load is refused (400)
+        and nothing is left behind.
       requestBody:
         required: true
         content:
@@ -2127,6 +2240,18 @@ paths:
               properties:
                 name: { type: string }
                 compose: { type: string }
+                env: { type: string, description: Content of the stack's .env file }
+                variables:
+                  type: array
+                  description: Variables of the stack; secrets are encrypted and never returned
+                  items:
+                    type: object
+                    required: [name, value]
+                    additionalProperties: false
+                    properties:
+                      name: { type: string }
+                      value: { type: string }
+                      secret: { type: boolean }
       responses:
         "201":
           description: The new stack
@@ -3903,6 +4028,19 @@ components:
                 maxLength: 65536
                 description: Left out, the stored value is kept (required for a new variable and to make a secret visible)
               secret: { type: boolean, description: Never return the value }
+    TemplateInput:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name, compose]
+            additionalProperties: false
+            properties:
+              name: { type: string, maxLength: 100 }
+              description: { type: string, maxLength: 1000 }
+              compose: { type: string }
+              env: { type: string, description: ".env.example: KEY=default lines described by the comments above them" }
   securitySchemes:
     apiKey:
       type: http
@@ -3973,6 +4111,20 @@ components:
             required: [backupCodes]
             properties:
               backupCodes: { type: array, items: { type: string } }
+    Template:
+      description: The template
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Template" }
+    TemplateRegistries:
+      description: Registry URLs
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [urls]
+            properties:
+              urls: { type: array, items: { type: string } }
     Variable:
       description: The variable
       content:
@@ -4019,6 +4171,36 @@ components:
         - type: object
           properties:
             pull: { type: boolean, description: Pull the image first (update) }
+    TemplateSummary:
+      type: object
+      required: [source, id, name]
+      properties:
+        source: { type: string, description: "builtin, custom or the URL of a registry" }
+        id: { type: string }
+        name: { type: string }
+        description: { type: string }
+        categories: { type: array, items: { type: string } }
+        logo: { type: string }
+        documentation: { type: string }
+        updatedAt: { type: string, format: date-time }
+    Template:
+      allOf:
+        - $ref: "#/components/schemas/TemplateSummary"
+        - type: object
+          required: [compose, env, variables]
+          properties:
+            compose: { type: string }
+            env: { type: string }
+            variables:
+              type: array
+              items:
+                type: object
+                required: [name, default, secret]
+                properties:
+                  name: { type: string }
+                  default: { type: string }
+                  description: { type: string }
+                  secret: { type: boolean, description: Guessed from the name }
     S3Options:
       type: object
       required: [endpoint, bucket, accessKey]
