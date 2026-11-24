@@ -20,3 +20,5 @@ web/dist/*
 # Local env
 .env
 .env.*
+# Examples of the built-in stack templates (#33)
+!internal/templates/builtin/*/.env.example
