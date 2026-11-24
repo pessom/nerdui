@@ -214,3 +214,23 @@ func (s *Service) Find(ctx context.Context, name string) (Definition, error) {
 	}
 	return Definition{}, fmt.Errorf("%w: stack %q has no known compose file; adopt it first", errdefs.ErrNotFound, name)
 }
+
+// Remove deletes the directory of a managed stack with all its files (#248). The caller takes
+// the stack's containers down first.
+func (s *Service) Remove(ctx context.Context, name string) error {
+	def, err := s.Find(ctx, name)
+	if err != nil {
+		return err
+	}
+	if def.Mode != ModeManaged {
+		return fmt.Errorf("%w: %q is not in the stacks directory; forget or remove it instead", errdefs.ErrFailedPrecondition, name)
+	}
+	dir, err := within(s.Dir, def.Name)
+	if err != nil {
+		return err
+	}
+	if err := os.RemoveAll(dir); err != nil {
+		return fmt.Errorf("remove %s: %w", dir, err)
+	}
+	return nil
+}
