@@ -60,4 +60,5 @@ We record significant architectural decisions as ADRs
 | 0049 | [Encrypted variables of stacks](0049-stack-variables.md) | Accepted |
 | 0050 | [Backups of volumes](0050-volume-backups.md) | Accepted |
 | 0051 | [Stack templates](0051-stack-templates.md) | Accepted |
+| 0052 | [Deleting stacks created in nerdui](0052-delete-managed-stacks.md) | Accepted |
 | 0053 | [API keys limited to chosen permissions](0053-api-key-permissions.md) | Accepted |

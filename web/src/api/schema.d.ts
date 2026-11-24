@@ -2245,7 +2245,14 @@ export interface paths {
         get: operations["getStack"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete a stack created in nerdui, as a job
+         * @description Requires `stacks:write` (#248, ADR-0052). Takes the stack down (`nerdctl compose down
+         *     --remove-orphans`, with `-v` when `volumes` is set), then removes its directory in the
+         *     stacks directory and its variables. Only stacks in the stacks directory: adopted stacks
+         *     are forgotten and Git stacks removed with their own operations (409).
+         */
+        delete: operations["deleteStack"];
         options?: never;
         head?: never;
         patch?: never;
@@ -8264,6 +8271,45 @@ export interface operations {
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
+        };
+    };
+    deleteStack: {
+        parameters: {
+            query: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+                /** @description The stack name */
+                confirm: string;
+                /** @description Also remove the project's named volumes */
+                volumes?: boolean;
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Job started */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        job: components["schemas"]["Job"];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            503: components["responses"]["Error"];
         };
     };
     getSummary: {

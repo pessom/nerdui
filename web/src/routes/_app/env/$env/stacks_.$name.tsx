@@ -20,13 +20,14 @@ import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { IconTemplate } from "@tabler/icons-react";
+import { IconTemplate, IconTrash } from "@tabler/icons-react";
 import { api, unwrap, unwrapEmpty } from "../../../../api/client";
 import { TemplateDialog, type TemplateDraft } from "../../../../features/templates/TemplateDialog";
 import { exampleFromEnv } from "../../../../features/templates/templates";
 import { envStatusQuery, keys, stackQuery } from "../../../../api/queries";
 import { RouterAnchor } from "../../../../components/RouterAnchor";
 import { AdoptStackDialog } from "../../../../features/stacks/AdoptStackDialog";
+import { DeleteStackDialog } from "../../../../features/stacks/DeleteStackDialog";
 import { GitStackPanel } from "../../../../features/stacks/GitStackPanel";
 import { ServiceActions } from "../../../../features/stacks/ServiceActions";
 import { StackActions } from "../../../../features/stacks/StackActions";
@@ -62,6 +63,7 @@ function StackPage() {
   const readOnly = !!nerdctl && !nerdctl.compatible && !nerdctl.checkSkipped;
   const stack = useQuery(stackQuery(env, namespace, name));
   const [adopting, adoptDialog] = useDisclosure();
+  const [deleting, deleteDialog] = useDisclosure();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [templateDraft, setTemplateDraft] = useState<TemplateDraft | null>(null);
@@ -134,9 +136,28 @@ function StackPage() {
               Forget
             </Button>
           )}
+          {stack.data?.mode === "managed" && (
+            <Button
+              variant="light"
+              color="red"
+              leftSection={<IconTrash size={16} />}
+              disabled={readOnly}
+              onClick={deleteDialog.open}
+            >
+              Delete
+            </Button>
+          )}
         </Group>
       </Group>
       <TemplateDialog draft={templateDraft} onClose={() => setTemplateDraft(null)} />
+      <DeleteStackDialog
+        env={env}
+        namespace={namespace}
+        name={name}
+        ns={ns}
+        opened={deleting}
+        onClose={deleteDialog.close}
+      />
       <AdoptStackDialog
         env={env}
         namespace={namespace}
