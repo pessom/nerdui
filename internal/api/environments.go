@@ -27,6 +27,7 @@ import (
 	"github.com/pessom/nerdui/internal/scheduler"
 	"github.com/pessom/nerdui/internal/stacks"
 	"github.com/pessom/nerdui/internal/variables"
+	"github.com/pessom/nerdui/internal/volbackup"
 	"github.com/pessom/nerdui/internal/webhooks"
 )
 
@@ -68,7 +69,9 @@ type Handler struct {
 	Schedules *scheduler.Service
 	// Variables are the global and per-stack variables (#35); nil disables them.
 	Variables *variables.Service
-	Logger    *slog.Logger
+	// VolumeBackups back up and restore volumes (#59); nil disables them.
+	VolumeBackups *volbackup.Service
+	Logger        *slog.Logger
 }
 
 // Routes registers the environment endpoints under the API root.
@@ -82,6 +85,7 @@ func (h *Handler) Routes(r chi.Router, g *authz.Guard) {
 	h.backupRoutes(r, g)
 	h.scheduleRoutes(r, g)
 	h.variableRoutes(r, g)
+	h.backupTargetRoutes(r, g)
 	r.Method(http.MethodGet, "/compose-schema", g.Protect(authz.StacksRead, h.composeSchema))
 	r.Route("/environments/{env}", func(r chi.Router) {
 		r.Use(h.resolveEnv)
@@ -166,6 +170,7 @@ func (h *Handler) runtimeRoutes(r chi.Router, g *authz.Guard) {
 	r.Method(http.MethodGet, "/volumes/{name}/files", g.Protect(authz.VolumesWrite, h.listVolumeFiles))
 	r.Method(http.MethodGet, "/volumes/{name}/files/preview", g.Protect(authz.VolumesWrite, h.previewVolumeFile))
 	r.Method(http.MethodGet, "/volumes/{name}/files/download", g.Protect(authz.VolumesWrite, h.downloadVolumeFile))
+	h.volumeBackupRoutes(r, g)
 	r.Method(http.MethodGet, "/registries", g.Protect(authz.RegistriesRead, h.listRegistries))
 	r.Method(http.MethodPost, "/registries", g.Protect(authz.RegistriesWrite, h.loginRegistry))
 	r.Method(http.MethodDelete, "/registries", g.Protect(authz.RegistriesWrite, h.logoutRegistry))

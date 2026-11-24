@@ -41,6 +41,7 @@ type fakeRuntime struct {
 	nsCalls    []string          // "create x" / "remove x"
 	remote     map[string]string // registry digests by reference
 	nsErr      error
+	restored   []string // "ns/volume:archive" of Volumes().Restore
 
 	mu           sync.Mutex
 	actions      []actionCall
@@ -381,6 +382,15 @@ func (fv fakeVolumes) Download(ns, _, target string) (runtime.VolumeDownload, er
 		Name: "app conf\".txt", Size: 10, Close: func() error { return nil },
 		Write: func(w io.Writer) error { _, err := io.WriteString(w, "listen 80\n"); return err },
 	}, nil
+}
+
+func (fv fakeVolumes) Restore(ns, name string, r io.Reader) error {
+	b, err := io.ReadAll(r)
+	if err != nil {
+		return err
+	}
+	fv.f.restored = append(fv.f.restored, ns+"/"+name+":"+string(b))
+	return nil
 }
 
 func (fv fakeVolumes) Remove(_ context.Context, _, name string) error {

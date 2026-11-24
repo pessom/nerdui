@@ -45,6 +45,13 @@ func TestRecorder(t *testing.T) {
 	src := newSource(0)
 	h := startHub(t, src)
 	sess := src.next(t)
+	// The hub must be connected before the recorder subscribes: a later "connected" is a
+	// change of state and would be recorded.
+	for deadline := time.Now().Add(5 * time.Second); !h.Connected(); time.Sleep(5 * time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Fatal("hub did not connect")
+		}
+	}
 
 	var mu sync.Mutex
 	alive := map[string]string{"default/c1": "web"}

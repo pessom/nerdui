@@ -28,6 +28,7 @@ import (
 	"github.com/pessom/nerdui/internal/store"
 	"github.com/pessom/nerdui/internal/store/db"
 	"github.com/pessom/nerdui/internal/variables"
+	"github.com/pessom/nerdui/internal/volbackup"
 )
 
 type fakeRuntime struct {
@@ -315,6 +316,7 @@ func TestRouteAuthorization(t *testing.T) {
 	cfg.Backup = &backup.Source{}
 	cfg.Schedules = &scheduler.Service{}
 	cfg.Variables = &variables.Service{}
+	cfg.VolumeBackups = &volbackup.Service{}
 	h := New(cfg)
 	routes, err := authz.Inspect(h.(chi.Routes), APIPrefix)
 	if err != nil {
@@ -423,6 +425,14 @@ func TestRouteAuthorization(t *testing.T) {
 		"DELETE /api/v1/schedules/{id}":                                         "settings:write",
 		"POST /api/v1/schedules/{id}/run":                                       "settings:write",
 		"GET /api/v1/schedules/{id}/runs":                                       "settings:read",
+		"GET /api/v1/backup-targets":                                            "settings:read",
+		"POST /api/v1/backup-targets":                                           "settings:write",
+		"PUT /api/v1/backup-targets/{id}":                                       "settings:write",
+		"DELETE /api/v1/backup-targets/{id}":                                    "settings:write",
+		"POST /api/v1/backup-targets/{id}/test":                                 "settings:write",
+		"GET /api/v1/environments/{env}/volumes/{name}/backups":                 "volumes:write",
+		"POST /api/v1/environments/{env}/volumes/{name}/backups":                "volumes:write",
+		"POST /api/v1/environments/{env}/volumes/{name}/restore":                "volumes:write",
 		"GET /api/v1/variables":                                                 "settings:read",
 		"PUT /api/v1/variables/{var}":                                           "settings:write",
 		"DELETE /api/v1/variables/{var}":                                        "settings:write",

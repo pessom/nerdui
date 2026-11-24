@@ -200,6 +200,15 @@ systemctl start nerdui
   kept as `<name>.before-restore-<time>`.
 - Without nerdui, `age -d backup.tar.gz.age | tar tz` lists the archive.
 
+## Volume backups
+
+Settings → Volume backup targets adds a directory on the host or an S3 bucket (for MinIO and
+other self-hosted servers, enable path-style addressing). The volumes page's Backups button
+backs a volume up now, lists its archives and restores one; a *Backup of a volume* schedule
+backs it up regularly and keeps the newest archives ([ADR-0050](adr/0050-volume-backups.md)).
+Archives are `<namespace>/<volume>/<volume>-<time>.tar.gz`, plain tar.gz files that `tar xzf`
+reads too. Choose *Stop containers* for databases, so their files are copied at rest.
+
 ## Stack variables and the secret key
 
 Variables of stacks (Settings → Global variables, a stack's Variables tab) are encrypted in the

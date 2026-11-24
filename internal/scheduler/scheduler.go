@@ -22,6 +22,7 @@ import (
 	"github.com/pessom/nerdui/internal/environment"
 	"github.com/pessom/nerdui/internal/jobs"
 	"github.com/pessom/nerdui/internal/store/db"
+	"github.com/pessom/nerdui/internal/volbackup"
 	"github.com/pessom/nerdui/internal/webhooks"
 )
 
@@ -34,10 +35,11 @@ const (
 	KindContainerRedeploy = "container.redeploy"
 	KindContainerRestart  = "container.restart"
 	KindImageUpdates      = "image-updates.check"
+	KindVolumeBackup      = "volume.backup"
 )
 
 // Kinds lists every kind.
-var Kinds = []string{KindPrune, KindBackup, KindStackRedeploy, KindStackRestart, KindContainerRedeploy, KindContainerRestart, KindImageUpdates}
+var Kinds = []string{KindPrune, KindBackup, KindStackRedeploy, KindStackRestart, KindContainerRedeploy, KindContainerRestart, KindImageUpdates, KindVolumeBackup}
 
 // Run statuses.
 const (
@@ -80,6 +82,10 @@ type Options struct {
 	// Backup: the directory on the host and how many archives to keep there.
 	Directory string `json:"directory,omitempty"`
 	Keep      int    `json:"keep,omitempty"`
+	// Volume backup (#59): the backup target, and whether containers using the volume are
+	// stopped while it is read. Keep is shared with backups.
+	TargetID       int64 `json:"targetId,omitempty"`
+	StopContainers bool  `json:"stopContainers,omitempty"`
 }
 
 // Schedule is a schedule without its secret. Keep in sync with api/openapi.yaml.
@@ -169,9 +175,10 @@ type Service struct {
 	Store        Store
 	Jobs         JobRunner
 	Environments Environments
-	Actions      ActionStarter  // nil: stack and container kinds fail
-	Backup       *backup.Source // nil: backups fail
-	CheckImages  ImageChecker   // nil: image checks fail
+	Actions      ActionStarter      // nil: stack and container kinds fail
+	Backup       *backup.Source     // nil: backups fail
+	Volumes      *volbackup.Service // nil: volume backups fail
+	CheckImages  ImageChecker       // nil: image checks fail
 	Logger       *slog.Logger
 	Location     *time.Location // of cron expressions; nil is the server's local zone
 	// Now, Every and Poll override the clock, the check interval and how often a followed job
@@ -259,7 +266,7 @@ func (s *Service) validate(in *Input, stored string) (secret string, err error) 
 	}
 	o := in.Options
 	switch in.Kind {
-	case KindPrune, KindStackRedeploy, KindStackRestart, KindContainerRedeploy, KindContainerRestart, KindImageUpdates:
+	case KindPrune, KindStackRedeploy, KindStackRestart, KindContainerRedeploy, KindContainerRestart, KindImageUpdates, KindVolumeBackup:
 		if _, ok := s.Environments.Get(in.Environment); !ok {
 			return "", bad("unknown environment %q", in.Environment)
 		}
@@ -284,6 +291,26 @@ func (s *Service) validate(in *Input, stored string) (secret string, err error) 
 		in.Target, in.Options = strings.TrimSpace(in.Target), Options{}
 	case KindImageUpdates:
 		in.Namespace, in.Target, in.Options = "", "", Options{}
+	case KindVolumeBackup:
+		if in.Namespace == "" || strings.TrimSpace(in.Target) == "" {
+			return "", bad("namespace and volume are required")
+		}
+		if o.TargetID <= 0 {
+			return "", bad("choose a backup target")
+		}
+		if s.Volumes != nil {
+			if _, err := s.Volumes.Target(context.Background(), o.TargetID); err != nil {
+				return "", err
+			}
+		}
+		if o.Keep == 0 {
+			o.Keep = volbackup.DefaultKeep
+		}
+		if o.Keep < 1 || o.Keep > volbackup.MaxKeep {
+			return "", bad("keep must be 1 to %d", volbackup.MaxKeep)
+		}
+		in.Target = strings.TrimSpace(in.Target)
+		in.Options = Options{TargetID: o.TargetID, Keep: o.Keep, StopContainers: o.StopContainers}
 	case KindBackup:
 		in.Target = ""
 		if o.Directory == "" {
@@ -412,4 +439,19 @@ func (s *Service) Runs(ctx context.Context, id int64) ([]Run, error) {
 		})
 	}
 	return out, nil
+}
+
+// TargetUsers names the schedules that write to a volume backup target.
+func (s *Service) TargetUsers(ctx context.Context, target int64) ([]string, error) {
+	rows, err := s.Store.ListSchedules(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var names []string
+	for _, r := range rows {
+		if r.Kind == KindVolumeBackup && s.view(r).Options.TargetID == target {
+			names = append(names, r.Name)
+		}
+	}
+	return names, nil
 }

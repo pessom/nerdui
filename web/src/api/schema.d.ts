@@ -776,6 +776,78 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/backup-targets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Targets of volume backups
+         * @description Requires `settings:read` (#59, ADR-0050). Secret keys are never returned.
+         */
+        get: operations["listBackupTargets"];
+        put?: never;
+        /**
+         * Add a backup target (host directory or S3 bucket)
+         * @description Requires `settings:write`.
+         */
+        post: operations["createBackupTarget"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/backup-targets/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change a backup target
+         * @description Requires `settings:write`. An empty `secretKey` keeps the stored one.
+         */
+        put: operations["updateBackupTarget"];
+        post?: never;
+        /**
+         * Delete a backup target; its archives stay
+         * @description Requires `settings:write`. Refused while schedules use it.
+         */
+        delete: operations["deleteBackupTarget"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/backup-targets/{id}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Write, list and delete a small object in a target
+         * @description Requires `settings:write`.
+         */
+        post: operations["testBackupTarget"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/webhooks": {
         parameters: {
             query?: never;
@@ -2332,6 +2404,66 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/environments/{env}/volumes/{name}/backups": {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * Archives of a volume in a backup target, newest first
+         * @description Requires `volumes:write` (#59, ADR-0050).
+         */
+        get: operations["listVolumeBackups"];
+        put?: never;
+        /**
+         * Back up a volume now
+         * @description Requires `volumes:write`. Writes a tar.gz of the volume to the target and keeps the
+         *     newest `keep` archives of the volume there.
+         */
+        post: operations["backUpVolume"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/environments/{env}/volumes/{name}/restore": {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Replace a volume's contents with an archive
+         * @description Requires `volumes:write`. The volume is created when missing. Running containers using
+         *     it are refused (the job fails) unless `stopContainers` is set.
+         */
+        post: operations["restoreVolume"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/environments/{env}/volumes/{name}/files/download": {
         parameters: {
             query?: {
@@ -2969,9 +3101,61 @@ export interface components {
             /** @description Pull the image first (update) */
             pull?: boolean;
         };
+        S3Options: {
+            /** @description host[:port] (HTTPS) or an http(s):// URL */
+            endpoint: string;
+            region?: string;
+            bucket: string;
+            prefix?: string;
+            accessKey: string;
+            /** @description Address the bucket as endpoint/bucket (MinIO) */
+            pathStyle?: boolean;
+        };
+        BackupTarget: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            /** @enum {string} */
+            kind: "local" | "s3";
+            directory?: string;
+            s3?: components["schemas"]["S3Options"];
+            hasSecret?: boolean;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            updatedAt: string;
+        };
+        BackupTargetInput: {
+            name: string;
+            /** @enum {string} */
+            kind: "local" | "s3";
+            /** @description local: an absolute directory on the host */
+            directory?: string;
+            s3?: components["schemas"]["S3Options"];
+            /** @description S3 secret key; empty keeps the stored one */
+            secretKey?: string;
+        };
+        VolumeBackup: {
+            /** @description <namespace>/<volume>/<volume>-<time>.tar.gz */
+            key: string;
+            /** Format: int64 */
+            size: number;
+            /** Format: date-time */
+            time: string;
+        };
+        VolumeBackupRequest: {
+            /** Format: int64 */
+            targetId: number;
+            /** @description restore: the archive */
+            key?: string;
+            /** @description backup: archives of the volume to keep (0: 7) */
+            keep?: number;
+            /** @description Stop running containers using the volume meanwhile and start them again */
+            stopContainers?: boolean;
+        };
         /** @enum {string} */
-        ScheduleKind: "prune" | "backup" | "stack.redeploy" | "stack.restart" | "container.redeploy" | "container.restart" | "image-updates.check";
-        /** @description prune: what to remove; backup: directory on the host (default <data-dir>/backups) and how many archives to keep (default 7) */
+        ScheduleKind: "prune" | "backup" | "stack.redeploy" | "stack.restart" | "container.redeploy" | "container.restart" | "image-updates.check" | "volume.backup";
+        /** @description prune: what to remove; backup: directory on the host (default <data-dir>/backups) and how many archives to keep (default 7); volume.backup: the backup target, how many archives to keep (default 7) and whether containers using the volume are stopped meanwhile */
         ScheduleOptions: {
             containers?: boolean;
             images?: boolean;
@@ -2980,6 +3164,9 @@ export interface components {
             buildCache?: boolean;
             directory?: string;
             keep?: number;
+            /** Format: int64 */
+            targetId?: number;
+            stopContainers?: boolean;
         };
         ScheduleInput: {
             name: string;
@@ -5682,6 +5869,141 @@ export interface operations {
             404: components["responses"]["Error"];
         };
     };
+    listBackupTargets: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Targets */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        targets: components["schemas"]["BackupTarget"][];
+                    };
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
+    createBackupTarget: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BackupTargetInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupTarget"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    updateBackupTarget: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BackupTargetInput"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BackupTarget"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    deleteBackupTarget: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    testBackupTarget: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        ok: boolean;
+                        error?: string;
+                    };
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
     listWebhooks: {
         parameters: {
             query?: never;
@@ -7992,6 +8314,116 @@ export interface operations {
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
+        };
+    };
+    listVolumeBackups: {
+        parameters: {
+            query: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+                target: number;
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Archives */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        backups: components["schemas"]["VolumeBackup"][];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    backUpVolume: {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VolumeBackupRequest"];
+            };
+        };
+        responses: {
+            /** @description Started */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        job: components["schemas"]["Job"];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    restoreVolume: {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VolumeBackupRequest"];
+            };
+        };
+        responses: {
+            /** @description Started */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        job: components["schemas"]["Job"];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
         };
     };
     downloadVolumeFile: {

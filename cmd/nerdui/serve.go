@@ -40,6 +40,7 @@ import (
 	"github.com/pessom/nerdui/internal/updates"
 	"github.com/pessom/nerdui/internal/variables"
 	"github.com/pessom/nerdui/internal/version"
+	"github.com/pessom/nerdui/internal/volbackup"
 	"github.com/pessom/nerdui/internal/webhooks"
 	"github.com/pessom/nerdui/web"
 )
@@ -208,10 +209,13 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 	backupSource := &backup.Source{
 		Store: st, DataDir: cfg.DataDir, StacksDir: cfg.EffectiveStacksDir(), KeyFile: cfg.EffectiveSecretKeyFile(),
 	}
+	volumeBackups := &volbackup.Service{Store: st.Write(), Box: box}
 	schedules := &scheduler.Service{
 		Store: st.Write(), Jobs: jobManager, Environments: envs, Actions: incoming, Backup: backupSource,
+		Volumes:     volumeBackups,
 		CheckImages: imageUpdates.CheckAndUpdate, Logger: logger,
 	}
+	volumeBackups.InUse = schedules.TargetUsers
 	imageUpdates.NextCheck = func(ctx context.Context, env string) *time.Time {
 		return schedules.NextOf(ctx, scheduler.KindImageUpdates, env)
 	}
@@ -235,11 +239,12 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 	}
 	srv := &http.Server{
 		Handler: server.New(server.Config{
-			BasePath:  basePath,
-			Backup:    backupSource,
-			Schedules: schedules,
-			Variables: stackVars,
-			Auth:      authSvc, Environments: envs, UI: web.Dist(), Jobs: jobManager, TrustedProxies: trusted,
+			BasePath:      basePath,
+			Backup:        backupSource,
+			Schedules:     schedules,
+			Variables:     stackVars,
+			VolumeBackups: volumeBackups,
+			Auth:          authSvc, Environments: envs, UI: web.Dist(), Jobs: jobManager, TrustedProxies: trusted,
 			ACME:         acmeCerts,
 			EventHistory: eventHistory, DisableExec: cfg.DisableExec, Settings: st.Write(),
 			Stacks:        stackService,

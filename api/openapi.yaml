@@ -1011,6 +1011,101 @@ paths:
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
+  /api/v1/backup-targets:
+    get:
+      tags: [settings]
+      operationId: listBackupTargets
+      summary: Targets of volume backups
+      description: Requires `settings:read` (#59, ADR-0050). Secret keys are never returned.
+      responses:
+        "200":
+          description: Targets
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [targets]
+                properties:
+                  targets: { type: array, items: { $ref: "#/components/schemas/BackupTarget" } }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+    post:
+      tags: [settings]
+      operationId: createBackupTarget
+      summary: Add a backup target (host directory or S3 bucket)
+      description: Requires `settings:write`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BackupTargetInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BackupTarget" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/v1/backup-targets/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+    put:
+      tags: [settings]
+      operationId: updateBackupTarget
+      summary: Change a backup target
+      description: Requires `settings:write`. An empty `secretKey` keeps the stored one.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BackupTargetInput" }
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BackupTarget" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [settings]
+      operationId: deleteBackupTarget
+      summary: Delete a backup target; its archives stay
+      description: Requires `settings:write`. Refused while schedules use it.
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/v1/backup-targets/{id}/test:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+    post:
+      tags: [settings]
+      operationId: testBackupTarget
+      summary: Write, list and delete a small object in a target
+      description: Requires `settings:write`.
+      responses:
+        "200":
+          description: Result
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok]
+                properties:
+                  ok: { type: boolean }
+                  error: { type: string }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
   /api/v1/webhooks:
     get:
       tags: [webhooks]
@@ -2968,6 +3063,91 @@ paths:
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/volumes/{name}/backups:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - { name: name, in: path, required: true, schema: { type: string } }
+      - $ref: "#/components/parameters/Namespace"
+    get:
+      tags: [volumes]
+      operationId: listVolumeBackups
+      summary: Archives of a volume in a backup target, newest first
+      description: Requires `volumes:write` (#59, ADR-0050).
+      parameters:
+        - { name: target, in: query, required: true, schema: { type: integer, format: int64 } }
+      responses:
+        "200":
+          description: Archives
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [backups]
+                properties:
+                  backups: { type: array, items: { $ref: "#/components/schemas/VolumeBackup" } }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+    post:
+      tags: [volumes]
+      operationId: backUpVolume
+      summary: Back up a volume now
+      description: |
+        Requires `volumes:write`. Writes a tar.gz of the volume to the target and keeps the
+        newest `keep` archives of the volume there.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VolumeBackupRequest" }
+      responses:
+        "202":
+          description: Started
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [job]
+                properties:
+                  job: { $ref: "#/components/schemas/Job" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/volumes/{name}/restore:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - { name: name, in: path, required: true, schema: { type: string } }
+      - $ref: "#/components/parameters/Namespace"
+    post:
+      tags: [volumes]
+      operationId: restoreVolume
+      summary: Replace a volume's contents with an archive
+      description: |
+        Requires `volumes:write`. The volume is created when missing. Running containers using
+        it are refused (the job fails) unless `stopContainers` is set.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/VolumeBackupRequest" }
+      responses:
+        "202":
+          description: Started
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [job]
+                properties:
+                  job: { $ref: "#/components/schemas/Job" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
   /api/v1/environments/{env}/volumes/{name}/files/download:
     parameters:
       - $ref: "#/components/parameters/Env"
@@ -3839,13 +4019,62 @@ components:
         - type: object
           properties:
             pull: { type: boolean, description: Pull the image first (update) }
+    S3Options:
+      type: object
+      required: [endpoint, bucket, accessKey]
+      additionalProperties: false
+      properties:
+        endpoint: { type: string, description: "host[:port] (HTTPS) or an http(s):// URL" }
+        region: { type: string }
+        bucket: { type: string }
+        prefix: { type: string }
+        accessKey: { type: string }
+        pathStyle: { type: boolean, description: "Address the bucket as endpoint/bucket (MinIO)" }
+    BackupTarget:
+      type: object
+      required: [id, name, kind, createdAt, updatedAt]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        kind: { type: string, enum: [local, s3] }
+        directory: { type: string }
+        s3: { $ref: "#/components/schemas/S3Options" }
+        hasSecret: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    BackupTargetInput:
+      type: object
+      required: [name, kind]
+      additionalProperties: false
+      properties:
+        name: { type: string, maxLength: 100 }
+        kind: { type: string, enum: [local, s3] }
+        directory: { type: string, description: "local: an absolute directory on the host" }
+        s3: { $ref: "#/components/schemas/S3Options" }
+        secretKey: { type: string, description: "S3 secret key; empty keeps the stored one" }
+    VolumeBackup:
+      type: object
+      required: [key, size, time]
+      properties:
+        key: { type: string, description: "<namespace>/<volume>/<volume>-<time>.tar.gz" }
+        size: { type: integer, format: int64 }
+        time: { type: string, format: date-time }
+    VolumeBackupRequest:
+      type: object
+      required: [targetId]
+      additionalProperties: false
+      properties:
+        targetId: { type: integer, format: int64 }
+        key: { type: string, description: "restore: the archive" }
+        keep: { type: integer, minimum: 0, maximum: 1000, description: "backup: archives of the volume to keep (0: 7)" }
+        stopContainers: { type: boolean, description: "Stop running containers using the volume meanwhile and start them again" }
     ScheduleKind:
       type: string
-      enum: [prune, backup, stack.redeploy, stack.restart, container.redeploy, container.restart, image-updates.check]
+      enum: [prune, backup, stack.redeploy, stack.restart, container.redeploy, container.restart, image-updates.check, volume.backup]
     ScheduleOptions:
       type: object
       additionalProperties: false
-      description: "prune: what to remove; backup: directory on the host (default <data-dir>/backups) and how many archives to keep (default 7)"
+      description: "prune: what to remove; backup: directory on the host (default <data-dir>/backups) and how many archives to keep (default 7); volume.backup: the backup target, how many archives to keep (default 7) and whether containers using the volume are stopped meanwhile"
       properties:
         containers: { type: boolean }
         images: { type: boolean }
@@ -3854,6 +4083,8 @@ components:
         buildCache: { type: boolean }
         directory: { type: string }
         keep: { type: integer, minimum: 0, maximum: 1000 }
+        targetId: { type: integer, format: int64 }
+        stopContainers: { type: boolean }
     ScheduleInput:
       type: object
       required: [name, kind, cron, enabled]

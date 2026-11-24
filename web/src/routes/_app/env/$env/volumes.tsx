@@ -15,7 +15,7 @@ import {
   Tooltip,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { IconFolderOpen, IconPlus, IconRuler, IconTrash } from "@tabler/icons-react";
+import { IconArchive, IconFolderOpen, IconPlus, IconRuler, IconTrash } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi } from "@tanstack/react-router";
 import { useState } from "react";
@@ -24,6 +24,7 @@ import { RouterAnchor } from "../../../../components/RouterAnchor";
 import { formatBytes } from "../../../../features/system/info";
 import { CreateVolumeDialog, RemoveVolumeDialog } from "../../../../features/volumes/VolumeDialogs";
 import { VolumeBrowser } from "../../../../features/volumes/VolumeBrowser";
+import { VolumeBackupsDialog } from "../../../../features/volumes/VolumeBackupsDialog";
 import { Time } from "../../../../components/Time";
 
 const envRoute = getRouteApi("/_app/env/$env");
@@ -45,6 +46,7 @@ function VolumesPage() {
   const [creating, { open, close }] = useDisclosure();
   const [removing, setRemoving] = useState<Volume>();
   const [browsing, setBrowsing] = useState<string>();
+  const [backingUp, setBackingUp] = useState<string>();
   const nerdctl = status.data?.runtime?.nerdctl;
   const readOnly = !!nerdctl && !nerdctl.compatible && !nerdctl.checkSkipped;
 
@@ -172,6 +174,16 @@ function VolumesPage() {
                           <IconFolderOpen size={16} />
                         </ActionIcon>
                       </Tooltip>
+                      <Tooltip label="Backups">
+                        <ActionIcon
+                          variant="subtle"
+                          color="gray"
+                          aria-label={`Backups of ${v.name}`}
+                          onClick={() => setBackingUp(v.name)}
+                        >
+                          <IconArchive size={16} />
+                        </ActionIcon>
+                      </Tooltip>
                       <Tooltip
                         label={
                           used
@@ -205,6 +217,13 @@ function VolumesPage() {
         namespace={namespace}
         volume={browsing}
         onClose={() => setBrowsing(undefined)}
+      />
+      <VolumeBackupsDialog
+        env={env}
+        namespace={namespace}
+        volume={backingUp}
+        readOnly={readOnly}
+        onClose={() => setBackingUp(undefined)}
       />
       <RemoveVolumeDialog
         env={env}

@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -39,6 +40,8 @@ type Volumes interface {
 	ListFiles(namespace, name, dir string) ([]VolumeEntry, bool, error)
 	PreviewFile(namespace, name, file string) (VolumeFile, error)
 	Download(namespace, name, target string) (VolumeDownload, error)
+	// Restore replaces the contents of a volume with an archive of Download("/") (#59).
+	Restore(namespace, name string, r io.Reader) error
 }
 
 // Volume is a named volume. Keep in sync with api/openapi.yaml.

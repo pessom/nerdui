@@ -58,3 +58,4 @@ We record significant architectural decisions as ADRs
 | 0047 | [Backups of nerdui's own data](0047-application-backup.md) | Accepted |
 | 0048 | [Scheduled jobs](0048-scheduler.md) | Accepted |
 | 0049 | [Encrypted variables of stacks](0049-stack-variables.md) | Accepted |
+| 0050 | [Backups of volumes](0050-volume-backups.md) | Accepted |
