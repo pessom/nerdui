@@ -268,11 +268,7 @@ export function CreateAPIKeyModal({ opened, onClose }: { opened: boolean; onClos
               value={name}
               onChange={(e) => setName(e.currentTarget.value)}
             />
-            <Radio.Group
-              label="Access"
-              value={access}
-              onChange={(v) => setAccess(v as Access)}
-            >
+            <Radio.Group label="Access" value={access} onChange={(v) => setAccess(v as Access)}>
               <Stack gap={6} mt={4}>
                 <Radio
                   value="read"
