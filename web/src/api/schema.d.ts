@@ -2114,6 +2114,73 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/environments/{env}/stacks/{name}/tree": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * List the files of a stack's directory
+         * @description Requires `stacks:read` (#27, ADR-0055). Directories first, then files, by name; `.git`,
+         *     symbolic links and special files are left out, and the list stops at 2000 entries
+         *     (`truncated`). The files of a Git stack are read-only.
+         */
+        get: operations["getStackTree"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/environments/{env}/stacks/{name}/tree/file": {
+        parameters: {
+            query: {
+                /** @description Path relative to the stack's directory, with slashes */
+                path: string;
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * Read a file of a stack's directory
+         * @description Requires `stacks:read` (#27). A missing file is returned with `exists` false; binary
+         *     files and files over 1 MiB have no content. Paths cannot leave the directory.
+         */
+        get: operations["getStackPath"];
+        /**
+         * Create or replace a text file of a stack's directory
+         * @description Requires `stacks:write` (#27). `version` is the version that was read, empty for a new
+         *     file (409 if it exists, or if it changed on disk). Parent directories are created. The
+         *     compose file and `.env` must keep the project loading (400) and keep a `.bak`; other
+         *     files are saved, then the project is checked with them (`validation`). The files of a
+         *     Git stack cannot be changed (409).
+         */
+        put: operations["putStackPath"];
+        post?: never;
+        /**
+         * Delete a file or an empty directory of a stack's directory
+         * @description Requires `stacks:write` (#27). `version` is the version of the file that was read (409
+         *     if it changed). The compose file cannot be deleted, nor the files of a Git stack (409).
+         */
+        delete: operations["deleteStackPath"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/environments/{env}/stacks/{name}/variables": {
         parameters: {
             query?: never;
@@ -4539,6 +4606,40 @@ export interface components {
             /** @description SHA-256 of the content; empty when the file does not exist */
             version: string;
             exists: boolean;
+        };
+        StackValidation: {
+            valid: boolean;
+            error?: string;
+            /** @description Line of the error in the compose file */
+            line?: number;
+            services: string[];
+        };
+        StackTree: {
+            entries: {
+                /** @description Relative to the stack's directory */
+                path: string;
+                dir: boolean;
+                /** Format: int64 */
+                size: number;
+                /** @description The compose file */
+                protected?: boolean;
+            }[];
+            truncated: boolean;
+            /** @description The files of a Git stack come from its repository */
+            readOnly: boolean;
+        };
+        StackPathFile: {
+            path: string;
+            content: string;
+            /** @description SHA-256 of the content; empty when the file does not exist */
+            version: string;
+            exists: boolean;
+            /** Format: int64 */
+            size: number;
+            /** @description Not text; not shown or edited */
+            binary?: boolean;
+            /** @description Larger than 1 MiB; not shown or edited */
+            tooBig?: boolean;
         };
         Stack: {
             name: string;
@@ -8236,6 +8337,138 @@ export interface operations {
             415: components["responses"]["Error"];
         };
     };
+    getStackTree: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tree */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StackTree"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    getStackPath: {
+        parameters: {
+            query: {
+                /** @description Path relative to the stack's directory, with slashes */
+                path: string;
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description File */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StackPathFile"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    putStackPath: {
+        parameters: {
+            query: {
+                /** @description Path relative to the stack's directory, with slashes */
+                path: string;
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    content: string;
+                    version: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        file: components["schemas"]["StackPathFile"];
+                        validation: components["schemas"]["StackValidation"];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            415: components["responses"]["Error"];
+        };
+    };
+    deleteStackPath: {
+        parameters: {
+            query: {
+                /** @description Path relative to the stack's directory, with slashes */
+                path: string;
+                version?: string;
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
     listStackVariables: {
         parameters: {
             query?: never;
@@ -8330,13 +8563,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        valid: boolean;
-                        error?: string;
-                        /** @description Line of the error in the compose file */
-                        line?: number;
-                        services: string[];
-                    };
+                    "application/json": components["schemas"]["StackValidation"];
                 };
             };
             401: components["responses"]["Error"];

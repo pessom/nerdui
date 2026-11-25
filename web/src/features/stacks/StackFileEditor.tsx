@@ -64,7 +64,7 @@ export interface EditorError {
 }
 
 /**
- * Editor of a stack's compose or .env file (#26, CodeMirror 6): YAML highlighting, completion
+ * Editor of a stack's compose, .env or other file (#26, #27, CodeMirror 6): YAML highlighting, completion
  * from the Compose schema, the server's validation error at its line, search and folding.
  * Loaded lazily with the file tabs.
  */
@@ -79,7 +79,8 @@ export default function StackFileEditor({
 }: {
   value: string;
   onChange: (value: string) => void;
-  kind: "compose" | "env";
+  /** compose: YAML with Compose completion; yaml: YAML; env and text: plain. */
+  kind: "compose" | "env" | "yaml" | "text";
   schema?: Schema;
   error?: EditorError;
   label: string;
@@ -99,7 +100,7 @@ export default function StackFileEditor({
 
   useEffect(() => {
     if (!host.current) return;
-    const lang: Extension[] = kind === "compose" ? [yaml(), foldGutter()] : [];
+    const lang: Extension[] = kind === "compose" || kind === "yaml" ? [yaml(), foldGutter()] : [];
     const v = new EditorView({
       parent: host.current,
       state: EditorState.create({

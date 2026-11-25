@@ -2782,6 +2782,113 @@ paths:
         "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
         "415": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/stacks/{name}/tree:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - name: name
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      tags: [stacks]
+      operationId: getStackTree
+      summary: List the files of a stack's directory
+      description: |
+        Requires `stacks:read` (#27, ADR-0055). Directories first, then files, by name; `.git`,
+        symbolic links and special files are left out, and the list stops at 2000 entries
+        (`truncated`). The files of a Git stack are read-only.
+      responses:
+        "200":
+          description: Tree
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StackTree" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/stacks/{name}/tree/file:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - name: name
+        in: path
+        required: true
+        schema: { type: string }
+      - name: path
+        in: query
+        required: true
+        description: Path relative to the stack's directory, with slashes
+        schema: { type: string }
+    get:
+      tags: [stacks]
+      operationId: getStackPath
+      summary: Read a file of a stack's directory
+      description: |
+        Requires `stacks:read` (#27). A missing file is returned with `exists` false; binary
+        files and files over 1 MiB have no content. Paths cannot leave the directory.
+      responses:
+        "200":
+          description: File
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/StackPathFile" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+    put:
+      tags: [stacks]
+      operationId: putStackPath
+      summary: Create or replace a text file of a stack's directory
+      description: |
+        Requires `stacks:write` (#27). `version` is the version that was read, empty for a new
+        file (409 if it exists, or if it changed on disk). Parent directories are created. The
+        compose file and `.env` must keep the project loading (400) and keep a `.bak`; other
+        files are saved, then the project is checked with them (`validation`). The files of a
+        Git stack cannot be changed (409).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [content, version]
+              additionalProperties: false
+              properties:
+                content: { type: string }
+                version: { type: string }
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [file, validation]
+                properties:
+                  file: { $ref: "#/components/schemas/StackPathFile" }
+                  validation: { $ref: "#/components/schemas/StackValidation" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "415": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [stacks]
+      operationId: deleteStackPath
+      summary: Delete a file or an empty directory of a stack's directory
+      description: |
+        Requires `stacks:write` (#27). `version` is the version of the file that was read (409
+        if it changed). The compose file cannot be deleted, nor the files of a Git stack (409).
+      parameters:
+        - { name: version, in: query, schema: { type: string } }
+      responses:
+        "204": { description: Deleted }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
   /api/v1/environments/{env}/stacks/{name}/variables:
     parameters:
       - $ref: "#/components/parameters/Env"
@@ -2861,14 +2968,7 @@ paths:
           description: Result
           content:
             application/json:
-              schema:
-                type: object
-                required: [valid, services]
-                properties:
-                  valid: { type: boolean }
-                  error: { type: string }
-                  line: { type: integer, description: Line of the error in the compose file, when known }
-                  services: { type: array, items: { type: string } }
+              schema: { $ref: "#/components/schemas/StackValidation" }
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
@@ -5422,6 +5522,41 @@ components:
         content: { type: string }
         version: { type: string, description: SHA-256 of the content; empty when the file does not exist }
         exists: { type: boolean }
+    StackValidation:
+      type: object
+      required: [valid, services]
+      properties:
+        valid: { type: boolean }
+        error: { type: string }
+        line: { type: integer, description: Line of the error in the compose file, when known }
+        services: { type: array, items: { type: string } }
+    StackTree:
+      type: object
+      required: [entries, truncated, readOnly]
+      properties:
+        entries:
+          type: array
+          items:
+            type: object
+            required: [path, dir, size]
+            properties:
+              path: { type: string, description: Relative to the stack's directory, with slashes }
+              dir: { type: boolean }
+              size: { type: integer, format: int64 }
+              protected: { type: boolean, description: The compose file, which cannot be deleted }
+        truncated: { type: boolean }
+        readOnly: { type: boolean, description: The files of a Git stack come from its repository }
+    StackPathFile:
+      type: object
+      required: [path, content, version, exists, size]
+      properties:
+        path: { type: string }
+        content: { type: string }
+        version: { type: string, description: SHA-256 of the content; empty when the file does not exist }
+        exists: { type: boolean }
+        size: { type: integer, format: int64 }
+        binary: { type: boolean, description: Not text; not shown or edited }
+        tooBig: { type: boolean, description: Larger than 1 MiB; not shown or edited }
     Stack:
       type: object
       required: [name, mode, status, services, containers, running]

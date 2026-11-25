@@ -32,19 +32,25 @@ import { GitStackPanel } from "../../../../features/stacks/GitStackPanel";
 import { ServiceActions } from "../../../../features/stacks/ServiceActions";
 import { StackActions } from "../../../../features/stacks/StackActions";
 import { StackFilePanel } from "../../../../features/stacks/StackFilePanel";
+import { StackFilesPanel } from "../../../../features/stacks/StackFilesPanel";
 import { StackLogsPanel } from "../../../../features/stacks/StackLogsPanel";
 import { StackMode, StackStatus } from "../../../../features/stacks/StackStatus";
 import { VariablesEditor } from "../../../../features/variables/VariablesEditor";
 
 const envRoute = getRouteApi("/_app/env/$env");
 
-type Tab = "services" | "logs" | "compose" | "env" | "variables";
+type Tab = "services" | "logs" | "compose" | "env" | "files" | "variables";
 const isTab = (t: unknown): t is Tab =>
-  t === "services" || t === "logs" || t === "compose" || t === "env" || t === "variables";
+  t === "services" ||
+  t === "logs" ||
+  t === "compose" ||
+  t === "env" ||
+  t === "files" ||
+  t === "variables";
 
 /**
  * A stack: operations (#28), services and containers (#24), its compose and .env files (#26),
- * its variables (#35).
+ * the other files of its directory (#27), its variables (#35).
  */
 export const Route = createFileRoute("/_app/env/$env/stacks_/$name")({
   validateSearch: (search: Record<string, unknown>): { tab?: Tab } => ({
@@ -214,7 +220,8 @@ function StackPage() {
           {(() => {
             const editable = stack.data.mode !== "unmanaged" && !!stack.data.composeFile;
             const shown =
-              !editable && (tab === "compose" || tab === "env" || tab === "variables")
+              !editable &&
+              (tab === "compose" || tab === "env" || tab === "files" || tab === "variables")
                 ? "services"
                 : tab;
             const ids = stack.data.services
@@ -236,6 +243,7 @@ function StackPage() {
                   <Tabs.Tab value="logs">Logs</Tabs.Tab>
                   {editable && <Tabs.Tab value="compose">{stack.data.composeFile}</Tabs.Tab>}
                   {editable && <Tabs.Tab value="env">.env</Tabs.Tab>}
+                  {editable && <Tabs.Tab value="files">Files</Tabs.Tab>}
                   {editable && <Tabs.Tab value="variables">Variables</Tabs.Tab>}
                 </Tabs.List>
                 <Tabs.Panel value="services">
@@ -272,6 +280,18 @@ function StackPage() {
                       name={name}
                       kind="env"
                       readOnly={readOnly}
+                    />
+                  )}
+                </Tabs.Panel>
+                <Tabs.Panel value="files">
+                  {shown === "files" && (
+                    <StackFilesPanel
+                      env={env}
+                      name={name}
+                      composeFile={stack.data.composeFile}
+                      onOpenTab={(t) =>
+                        void navigate({ to: ".", search: (s) => ({ ...s, tab: t }) })
+                      }
                     />
                   )}
                 </Tabs.Panel>
