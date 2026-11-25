@@ -63,3 +63,4 @@ We record significant architectural decisions as ADRs
 | 0052 | [Deleting stacks created in nerdui](0052-delete-managed-stacks.md) | Accepted |
 | 0053 | [API keys limited to chosen permissions](0053-api-key-permissions.md) | Accepted |
 | 0054 | [Host metrics and alert thresholds](0054-host-metrics.md) | Accepted |
+| 0055 | [Editing all files of a stack's directory](0055-stack-files.md) | Accepted |

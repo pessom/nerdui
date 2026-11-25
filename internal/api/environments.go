@@ -121,6 +121,10 @@ func (h *Handler) Routes(r chi.Router, g *authz.Guard) {
 		r.Method(http.MethodGet, "/stacks/{name}/files/{file}", g.Protect(authz.StacksRead, h.getStackFile))
 		r.Method(http.MethodPut, "/stacks/{name}/files/{file}", g.Protect(authz.StacksWrite, h.putStackFile))
 		r.Method(http.MethodPost, "/stacks/{name}/validate", g.Protect(authz.StacksWrite, h.validateStack))
+		r.Method(http.MethodGet, "/stacks/{name}/tree", g.Protect(authz.StacksRead, h.getStackTree))
+		r.Method(http.MethodGet, "/stacks/{name}/tree/file", g.Protect(authz.StacksRead, h.getStackPath))
+		r.Method(http.MethodPut, "/stacks/{name}/tree/file", g.Protect(authz.StacksWrite, h.putStackPath))
+		r.Method(http.MethodDelete, "/stacks/{name}/tree/file", g.Protect(authz.StacksWrite, h.deleteStackPath))
 		h.stackVariableRoutes(r, g)
 		r.Group(func(r chi.Router) {
 			r.Use(h.requireWritable)
