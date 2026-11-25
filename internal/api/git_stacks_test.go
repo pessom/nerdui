@@ -170,3 +170,55 @@ func TestGitStacksAPI(t *testing.T) {
 }
 
 func jsonInt(n int64) string { b, _ := json.Marshal(n); return string(b) }
+
+// TestDeleteGitStack deletes a Git stack like a managed one: the job takes it down, then
+// removes its clone and registration (#248).
+func TestDeleteGitStack(t *testing.T) {
+	src, commit := gitSource(t)
+	commit("compose.yaml", "services: {web: {image: nginx}}\n", "first")
+	st, err := store.Open(context.Background(), t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = st.Close() })
+	gitDir := filepath.Join(t.TempDir(), "git")
+	stackSvc := &stacks.Service{Dir: t.TempDir(), Registry: st.Read(), Git: st.Read(), GitDir: gitDir}
+	rt := writable()
+	m := jobs.NewManager()
+	t.Cleanup(m.Close)
+	admin := func(*http.Request) (authz.Subject, bool) { return authz.Subject{Role: authz.RoleAdmin}, true }
+	r := chi.NewRouter()
+	r.Route("/api/v1", func(r chi.Router) {
+		h := &Handler{
+			Envs: environment.NewRegistry(environment.Local(rt, "default")), Jobs: m, Stacks: stackSvc,
+			GitStacks: &gitstacks.Service{Dir: gitDir, Store: st.Write(), Stacks: stackSvc, AllowFile: true},
+		}
+		h.Routes(r, authz.NewGuard(authz.AdminOnly{}, admin, nil))
+	})
+	const base = "/api/v1/environments/local/stacks"
+	if rec := send(t, r, http.MethodPost, base+"/git", `{"name":"web","url":"file://`+src+`"}`); rec.Code != http.StatusAccepted {
+		t.Fatalf("create: %d %s", rec.Code, rec.Body)
+	}
+	if j := waitJob(t, m, "stack.git-clone"); j.Status != jobs.StatusSucceeded {
+		t.Fatalf("create job %+v", j)
+	}
+
+	if rec := send(t, r, http.MethodDelete, base+"/web?confirm=web", ""); rec.Code != http.StatusAccepted {
+		t.Fatalf("delete: %d %s", rec.Code, rec.Body)
+	}
+	if j := waitJob(t, m, "stack.delete"); j.Status != jobs.StatusSucceeded {
+		t.Fatalf("delete job %+v", j)
+	}
+	rt.mu.Lock()
+	runs := rt.composeRuns
+	rt.mu.Unlock()
+	if len(runs) != 1 || runs[0] != "down web "+filepath.Join(gitDir, "web") {
+		t.Errorf("compose %v", runs)
+	}
+	if _, err := os.Stat(filepath.Join(gitDir, "web")); !os.IsNotExist(err) {
+		t.Error("clone left behind")
+	}
+	if rec := send(t, r, http.MethodGet, base+"/web", ""); rec.Code != http.StatusNotFound {
+		t.Errorf("stack still listed: %d %s", rec.Code, rec.Body)
+	}
+}

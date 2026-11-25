@@ -136,7 +136,7 @@ function StackPage() {
               Forget
             </Button>
           )}
-          {stack.data?.mode === "managed" && (
+          {(stack.data?.mode === "managed" || stack.data?.mode === "git") && (
             <Button
               variant="light"
               color="red"
@@ -155,6 +155,7 @@ function StackPage() {
         namespace={namespace}
         name={name}
         ns={ns}
+        git={stack.data?.mode === "git"}
         opened={deleting}
         onClose={deleteDialog.close}
       />
@@ -188,7 +189,6 @@ function StackPage() {
               namespace={namespace}
               name={name}
               git={stack.data.git}
-              containers={stack.data.containers}
               readOnly={readOnly}
             />
           )}

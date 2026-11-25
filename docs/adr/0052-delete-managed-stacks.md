@@ -25,7 +25,12 @@ removal (#37). Removing a directory by hand left the stack's variables and secre
 - The stack name must be repeated as confirmation; removing volumes is a separate choice.
 - A failed down stops the job before anything is deleted, so the stack can be fixed and
   deleted again.
-- Only stacks in the stacks directory; adopted and Git stacks keep their own removal (409).
+- Stacks in the stacks directory and Git stacks. For a Git stack the job removes the clone,
+  its `.env` and the Git settings with the webhook; the repository is not touched. The stack
+  page shows Delete for both, and the old Git-only removal (`DELETE …/git`, which refuses a
+  stack with containers) stays in the API but not in the UI. Adopted stacks are forgotten
+  instead (409).
+- Down takes a stop icon, not a trash can: it removes containers but no files.
 - It needs `stacks:write` and a writable runtime, and waits for other jobs of the stack (409).
 
 ## Consequences

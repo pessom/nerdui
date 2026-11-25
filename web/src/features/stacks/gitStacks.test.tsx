@@ -139,7 +139,7 @@ describe("Git stacks", () => {
     });
   });
 
-  it("shows the commit, pulls and removes a Git stack; its compose file is read-only", async () => {
+  it("shows the commit, pulls and deletes a Git stack; its compose file is read-only", async () => {
     const started: Job[] = [];
     const { calls } = fakeApi({
       ...signedIn,
@@ -158,7 +158,10 @@ describe("Git stacks", () => {
         started.push(job("j1", "stack.git-pull", "Pull stack web"));
         return json(202, { job: started[0] });
       },
-      [`DELETE ${base}/web/git`]: () => new Response(null, { status: 204 }),
+      [`DELETE ${base}/web`]: () => {
+        started.push(job("j2", "stack.delete", "Delete stack web"));
+        return json(202, { job: started[1] });
+      },
     });
     renderApp("/env/local/stacks/web");
 
@@ -187,9 +190,11 @@ describe("Git stacks", () => {
     expect(await screen.findByText("From the Git repository")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /review and save/i })).not.toBeInTheDocument();
 
-    fireEvent.click(within(repo).getByRole("button", { name: "Remove" }));
-    const remove = await screen.findByRole("dialog", { name: "Remove stack web" });
-    const confirm = within(remove).getByRole("button", { name: "Remove" });
+    expect(within(repo).queryByRole("button", { name: "Remove" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    const remove = await screen.findByRole("dialog", { name: "Delete stack web" });
+    expect(within(remove).getByText(/repository is not touched/)).toBeInTheDocument();
+    const confirm = within(remove).getByRole("button", { name: "Delete stack" });
     expect(confirm).toBeDisabled();
     fireEvent.change(within(remove).getByLabelText("Type web to confirm"), {
       target: { value: "web" },
@@ -197,9 +202,7 @@ describe("Git stacks", () => {
     fireEvent.click(confirm);
     await waitFor(() =>
       expect(
-        calls
-          .find((c) => c.method === "DELETE" && c.path === `${base}/web/git`)
-          ?.query.get("confirm"),
+        calls.find((c) => c.method === "DELETE" && c.path === `${base}/web`)?.query.get("confirm"),
       ).toBe("web"),
     );
     expect(await screen.findByRole("heading", { name: "Stacks" })).toBeInTheDocument();

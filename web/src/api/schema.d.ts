@@ -2274,9 +2274,9 @@ export interface paths {
         /**
          * Delete a stack created in nerdui, as a job
          * @description Requires `stacks:write` (#248, ADR-0052). Takes the stack down (`nerdctl compose down
-         *     --remove-orphans`, with `-v` when `volumes` is set), then removes its directory in the
-         *     stacks directory and its variables. Only stacks in the stacks directory: adopted stacks
-         *     are forgotten and Git stacks removed with their own operations (409).
+         *     --remove-orphans`, with `-v` when `volumes` is set), then removes its files and
+         *     variables: the directory of a stack in the stacks directory, or the clone and Git
+         *     settings of a Git stack. Adopted stacks are forgotten instead (409).
          */
         delete: operations["deleteStack"];
         options?: never;

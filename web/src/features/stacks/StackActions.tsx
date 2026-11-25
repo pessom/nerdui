@@ -16,13 +16,13 @@ import {
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import {
+  IconArrowBarToDown,
   IconChevronDown,
   IconDownload,
   IconPlayerPlay,
   IconPlayerStop,
   IconRefresh,
   IconRocket,
-  IconTrash,
 } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -156,7 +156,7 @@ export function StackActions({
       <Button
         variant="light"
         color="red"
-        leftSection={<IconTrash size={16} />}
+        leftSection={<IconArrowBarToDown size={16} />}
         disabled={readOnly}
         onClick={() => setDownOpen(true)}
       >
