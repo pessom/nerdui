@@ -2,8 +2,8 @@
 -- SPDX-License-Identifier: AGPL-3.0-only
 
 -- name: CreateSession :exec
-INSERT INTO sessions (token_hash, user_id, csrf_token, created_at, last_seen_at, expires_at, client_ip, user_agent)
-VALUES (@token_hash, @user_id, @csrf_token, @now, @now, @expires_at, @client_ip, @user_agent);
+INSERT INTO sessions (token_hash, user_id, csrf_token, created_at, last_seen_at, expires_at, client_ip, user_agent, method)
+VALUES (@token_hash, @user_id, @csrf_token, @now, @now, @expires_at, @client_ip, @user_agent, @method);
 
 -- name: GetSession :one
 SELECT * FROM sessions WHERE token_hash = ?;

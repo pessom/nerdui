@@ -10,6 +10,7 @@ import { GitCredentialsSettingsCard } from "../../../../features/settings/GitCre
 import { NotificationsSettingsCard } from "../../../../features/settings/NotificationsSettingsCard";
 import { ImageUpdatesSettingsCard } from "../../../../features/settings/ImageUpdatesSettingsCard";
 import { SecuritySettingsCard } from "../../../../features/settings/SecuritySettingsCard";
+import { OIDCSettingsCard } from "../../../../features/settings/OIDCSettingsCard";
 import { BackupSettingsCard } from "../../../../features/settings/BackupSettingsCard";
 import { VariablesSettingsCard } from "../../../../features/settings/VariablesSettingsCard";
 import { BackupTargetsSettingsCard } from "../../../../features/settings/BackupTargetsSettingsCard";
@@ -39,6 +40,7 @@ function SettingsPage() {
       <GitCredentialsSettingsCard />
       <WebhooksSettingsCard env={env} namespace={namespace} />
       <SecuritySettingsCard />
+      <OIDCSettingsCard />
       <BackupSettingsCard />
       <BackupTargetsSettingsCard />
     </Stack>

@@ -213,6 +213,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/settings/oidc": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Single sign-on settings
+         * @description Requires `settings:read` (#76). The client secret is never returned.
+         */
+        get: operations["getOIDCSettings"];
+        /**
+         * Set the single sign-on settings
+         * @description Requires `settings:write` (#76). When enabled, the issuer's discovery document must be
+         *     reachable (400 otherwise). `clientSecret` replaces the stored secret, `""` removes it,
+         *     and leaving it out keeps it; it is stored encrypted.
+         */
+        put: operations["putOIDCSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{id}/oidc": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Unlink a user from their account at the single sign-on provider
+         * @description Requires `users:write` (#76). The next sign-in through the provider links again.
+         */
+        delete: operations["unlinkUserOIDC"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/settings/host-alerts": {
         parameters: {
             query?: never;
@@ -258,6 +306,73 @@ export interface paths {
          *     two-factor endpoints. API keys are not affected.
          */
         put: operations["putSecuritySettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/oidc": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Whether single sign-on is enabled
+         * @description #76, ADR-0056. For the sign-in page.
+         */
+        get: operations["getOIDCStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/oidc/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Sign in with the single sign-on provider
+         * @description #76, ADR-0056. A browser navigation, not an API call: redirects to the provider with
+         *     PKCE, a state kept in a cookie and a nonce. When it cannot start, answers with a page
+         *     that goes to the sign-in page with `sso_error`.
+         */
+        get: operations["startOIDCLogin"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/oidc/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Return from the single sign-on provider
+         * @description #76, ADR-0056. Checks the state, exchanges the code and verifies the ID token. A user
+         *     linked to the provider's account signs in; otherwise the account with the username
+         *     claim as username is linked; otherwise, when `group` is set and the user is a member, an
+         *     account is created. With `group` set, it is required in every case. Answers with a page
+         *     that goes on to the web UI (the session cookie is SameSite=Strict), or to the sign-in
+         *     page with `sso_error`.
+         */
+        get: operations["finishOIDCLogin"];
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -3892,6 +4007,8 @@ export interface components {
         User: {
             /** @description Signs in with a second factor (#75) */
             mfaEnabled: boolean;
+            /** @description Linked to an account at the single sign-on provider (#76) */
+            sso: boolean;
             /** Format: int64 */
             id: number;
             username: string;
@@ -3902,6 +4019,33 @@ export interface components {
              *     `password_change_required` until `POST /auth/password` succeeds.
              */
             mustChangePassword: boolean;
+        };
+        OIDCStatus: {
+            enabled: boolean;
+            buttonLabel: string;
+        };
+        OIDCSettings: {
+            enabled?: boolean;
+            /** @description Issuer URL, e.g. https://keycloak.example.com/realms/main */
+            issuer?: string;
+            clientId?: string;
+            /** @description Replaces the stored secret; "" removes it */
+            clientSecret?: string;
+            readonly hasClientSecret?: boolean;
+            /** @description Besides openid; default profile, email (and groups with group) */
+            scopes?: string[] | null;
+            /** @description Default preferred_username */
+            usernameClaim?: string;
+            /** @description Default groups */
+            groupsClaim?: string;
+            /** @description Required to sign in; its members without an account get one. Empty: only existing accounts */
+            group?: string;
+            /** @description Default "Sign in with SSO" */
+            buttonLabel?: string;
+            /** @description Overrides the callback URL derived from the request */
+            redirectUrl?: string;
+            /** @description The callback URL to register at the provider */
+            readonly callbackUrl?: string;
         };
         UserDetail: components["schemas"]["User"] & {
             disabled: boolean;
@@ -5302,6 +5446,80 @@ export interface operations {
             409: components["responses"]["Error"];
         };
     };
+    getOIDCSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Settings */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OIDCSettings"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
+    putOIDCSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OIDCSettings"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OIDCSettings"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
+    unlinkUserOIDC: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The user */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserDetail"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
     getHostAlerts: {
         parameters: {
             query?: never;
@@ -5399,6 +5617,75 @@ export interface operations {
             400: components["responses"]["Error"];
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
+        };
+    };
+    getOIDCStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OIDCStatus"];
+                };
+            };
+        };
+    };
+    startOIDCLogin: {
+        parameters: {
+            query?: {
+                /** @description Path of the web UI to open after signing in */
+                redirect?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page that goes back to the sign-in page with the reason */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description To the provider */
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    finishOIDCLogin: {
+        parameters: {
+            query?: {
+                code?: string;
+                state?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page that goes on to the web UI or back to the sign-in page */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     getMe: {

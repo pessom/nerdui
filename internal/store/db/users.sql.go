@@ -36,7 +36,7 @@ const createUser = `-- name: CreateUser :one
 
 INSERT INTO users (username, password_hash, role, must_change_password, created_at, updated_at)
 VALUES (?1, ?2, ?3, ?4, ?5, ?5)
-RETURNING id, username, password_hash, role, created_at, updated_at, disabled_at, must_change_password, last_login_at, mfa_secret, mfa_enabled, mfa_last_step
+RETURNING id, username, password_hash, role, created_at, updated_at, disabled_at, must_change_password, last_login_at, mfa_secret, mfa_enabled, mfa_last_step, oidc_identity
 `
 
 type CreateUserParams struct {
@@ -71,6 +71,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.MfaSecret,
 		&i.MfaEnabled,
 		&i.MfaLastStep,
+		&i.OidcIdentity,
 	)
 	return i, err
 }
@@ -88,7 +89,7 @@ func (q *Queries) DeleteUser(ctx context.Context, id int64) (int64, error) {
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, username, password_hash, role, created_at, updated_at, disabled_at, must_change_password, last_login_at, mfa_secret, mfa_enabled, mfa_last_step FROM users WHERE id = ?
+SELECT id, username, password_hash, role, created_at, updated_at, disabled_at, must_change_password, last_login_at, mfa_secret, mfa_enabled, mfa_last_step, oidc_identity FROM users WHERE id = ?
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id int64) (User, error) {
@@ -107,12 +108,38 @@ func (q *Queries) GetUserByID(ctx context.Context, id int64) (User, error) {
 		&i.MfaSecret,
 		&i.MfaEnabled,
 		&i.MfaLastStep,
+		&i.OidcIdentity,
+	)
+	return i, err
+}
+
+const getUserByOIDCIdentity = `-- name: GetUserByOIDCIdentity :one
+SELECT id, username, password_hash, role, created_at, updated_at, disabled_at, must_change_password, last_login_at, mfa_secret, mfa_enabled, mfa_last_step, oidc_identity FROM users WHERE oidc_identity = ?
+`
+
+func (q *Queries) GetUserByOIDCIdentity(ctx context.Context, oidcIdentity sql.NullString) (User, error) {
+	row := q.db.QueryRowContext(ctx, getUserByOIDCIdentity, oidcIdentity)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.PasswordHash,
+		&i.Role,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.DisabledAt,
+		&i.MustChangePassword,
+		&i.LastLoginAt,
+		&i.MfaSecret,
+		&i.MfaEnabled,
+		&i.MfaLastStep,
+		&i.OidcIdentity,
 	)
 	return i, err
 }
 
 const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT id, username, password_hash, role, created_at, updated_at, disabled_at, must_change_password, last_login_at, mfa_secret, mfa_enabled, mfa_last_step FROM users WHERE username = ?
+SELECT id, username, password_hash, role, created_at, updated_at, disabled_at, must_change_password, last_login_at, mfa_secret, mfa_enabled, mfa_last_step, oidc_identity FROM users WHERE username = ?
 `
 
 func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User, error) {
@@ -131,12 +158,13 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 		&i.MfaSecret,
 		&i.MfaEnabled,
 		&i.MfaLastStep,
+		&i.OidcIdentity,
 	)
 	return i, err
 }
 
 const listUsers = `-- name: ListUsers :many
-SELECT id, username, password_hash, role, created_at, updated_at, disabled_at, must_change_password, last_login_at, mfa_secret, mfa_enabled, mfa_last_step FROM users ORDER BY username
+SELECT id, username, password_hash, role, created_at, updated_at, disabled_at, must_change_password, last_login_at, mfa_secret, mfa_enabled, mfa_last_step, oidc_identity FROM users ORDER BY username
 `
 
 func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
@@ -161,6 +189,7 @@ func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 			&i.MfaSecret,
 			&i.MfaEnabled,
 			&i.MfaLastStep,
+			&i.OidcIdentity,
 		); err != nil {
 			return nil, err
 		}
@@ -204,6 +233,24 @@ type SetUserLastLoginParams struct {
 
 func (q *Queries) SetUserLastLogin(ctx context.Context, arg SetUserLastLoginParams) (int64, error) {
 	result, err := q.db.ExecContext(ctx, setUserLastLogin, arg.Now, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const setUserOIDCIdentity = `-- name: SetUserOIDCIdentity :execrows
+UPDATE users SET oidc_identity = ?1, updated_at = ?2 WHERE id = ?3
+`
+
+type SetUserOIDCIdentityParams struct {
+	OidcIdentity sql.NullString
+	Now          int64
+	ID           int64
+}
+
+func (q *Queries) SetUserOIDCIdentity(ctx context.Context, arg SetUserOIDCIdentityParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, setUserOIDCIdentity, arg.OidcIdentity, arg.Now, arg.ID)
 	if err != nil {
 		return 0, err
 	}

@@ -23,6 +23,7 @@ import {
   IconDots,
   IconApi,
   IconKey,
+  IconLinkOff,
   IconPlayerPlay,
   IconPlayerStop,
   IconPlus,
@@ -43,7 +44,10 @@ export const Route = createFileRoute("/_app/users")({
   component: UsersPage,
 });
 
-type Pending = { kind: "disable" | "enable" | "delete" | "reset2fa"; user: UserDetail };
+type Pending = {
+  kind: "disable" | "enable" | "delete" | "reset2fa" | "unlinkSso";
+  user: UserDetail;
+};
 
 function UsersPage() {
   const { session } = Route.useRouteContext();
@@ -60,6 +64,7 @@ function UsersPage() {
       if (kind === "delete") await unwrapEmpty(api.DELETE("/api/v1/users/{id}", path));
       else if (kind === "reset2fa")
         await unwrapEmpty(api.POST("/api/v1/users/{id}/mfa/reset", path));
+      else if (kind === "unlinkSso") await unwrap(api.DELETE("/api/v1/users/{id}/oidc", path));
       else
         await unwrap(
           api.PATCH("/api/v1/users/{id}", { ...path, body: { disabled: kind === "disable" } }),
@@ -157,12 +162,14 @@ const pastTense = {
   enable: "enabled",
   delete: "deleted",
   reset2fa: "can sign in with the password alone",
+  unlinkSso: "is unlinked from the single sign-on provider",
 };
 const actionLabel = {
   disable: "Disable",
   enable: "Enable",
   delete: "Delete",
   reset2fa: "Reset two-factor for",
+  unlinkSso: "Unlink single sign-on of",
 };
 const confirmText = {
   reset2fa:
@@ -170,6 +177,8 @@ const confirmText = {
   disable: "The user is signed out everywhere and cannot sign in until enabled again.",
   enable: "The user can sign in again with their current password.",
   delete: "The account and its sessions are removed. This cannot be undone.",
+  unlinkSso:
+    "The link to the account at the single sign-on provider is removed. The next sign-in through the provider links the account with this username again.",
 };
 
 function UserRow({
@@ -207,6 +216,11 @@ function UserRow({
           {u.mfaEnabled && (
             <Badge size="sm" variant="light" color="blue">
               2FA
+            </Badge>
+          )}
+          {u.sso && (
+            <Badge size="sm" variant="light" color="grape">
+              SSO
             </Badge>
           )}
           {u.mustChangePassword && (
@@ -260,6 +274,14 @@ function UserRow({
                   onClick={() => onAction("reset2fa")}
                 >
                   Reset two-factor
+                </Menu.Item>
+              )}
+              {u.sso && (
+                <Menu.Item
+                  leftSection={<IconLinkOff size={16} />}
+                  onClick={() => onAction("unlinkSso")}
+                >
+                  Unlink single sign-on
                 </Menu.Item>
               )}
               {u.disabled ? (

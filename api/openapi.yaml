@@ -288,6 +288,59 @@ paths:
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
+  /api/v1/settings/oidc:
+    get:
+      tags: [settings]
+      operationId: getOIDCSettings
+      summary: Single sign-on settings
+      description: Requires `settings:read` (#76). The client secret is never returned.
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OIDCSettings" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+    put:
+      tags: [settings]
+      operationId: putOIDCSettings
+      summary: Set the single sign-on settings
+      description: |
+        Requires `settings:write` (#76). When enabled, the issuer's discovery document must be
+        reachable (400 otherwise). `clientSecret` replaces the stored secret, `""` removes it,
+        and leaving it out keeps it; it is stored encrypted.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OIDCSettings" }
+      responses:
+        "200":
+          description: Saved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OIDCSettings" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+  /api/v1/users/{id}/oidc:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+    delete:
+      tags: [users]
+      operationId: unlinkUserOIDC
+      summary: Unlink a user from their account at the single sign-on provider
+      description: Requires `users:write` (#76). The next sign-in through the provider links again.
+      responses:
+        "200":
+          description: The user
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserDetail" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
   /api/v1/settings/host-alerts:
     get:
       tags: [settings]
@@ -361,6 +414,52 @@ paths:
         "400": { $ref: "#/components/responses/Error" }
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
+  /api/v1/auth/oidc:
+    get:
+      tags: [auth]
+      operationId: getOIDCStatus
+      summary: Whether single sign-on is enabled
+      description: "#76, ADR-0056. For the sign-in page."
+      security: []
+      responses:
+        "200":
+          description: Status
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OIDCStatus" }
+  /api/v1/auth/oidc/login:
+    get:
+      tags: [auth]
+      operationId: startOIDCLogin
+      summary: Sign in with the single sign-on provider
+      description: |
+        #76, ADR-0056. A browser navigation, not an API call: redirects to the provider with
+        PKCE, a state kept in a cookie and a nonce. When it cannot start, answers with a page
+        that goes to the sign-in page with `sso_error`.
+      security: []
+      parameters:
+        - { name: redirect, in: query, schema: { type: string }, description: Path of the web UI to open after signing in }
+      responses:
+        "302": { description: To the provider }
+        "200": { description: A page that goes back to the sign-in page with the reason }
+  /api/v1/auth/oidc/callback:
+    get:
+      tags: [auth]
+      operationId: finishOIDCLogin
+      summary: Return from the single sign-on provider
+      description: |
+        #76, ADR-0056. Checks the state, exchanges the code and verifies the ID token. A user
+        linked to the provider's account signs in; otherwise the account with the username
+        claim as username is linked; otherwise, when `group` is set and the user is a member, an
+        account is created. With `group` set, it is required in every case. Answers with a page
+        that goes on to the web UI (the session cookie is SameSite=Strict), or to the sign-in
+        page with `sso_error`.
+      security: []
+      parameters:
+        - { name: code, in: query, schema: { type: string } }
+        - { name: state, in: query, schema: { type: string } }
+      responses:
+        "200": { description: A page that goes on to the web UI or back to the sign-in page }
   /api/v1/auth/me:
     get:
       tags: [auth]
@@ -4906,9 +5005,10 @@ components:
         ts: { type: string, format: date-time }
     User:
       type: object
-      required: [id, username, role, mustChangePassword, mfaEnabled]
+      required: [id, username, role, mustChangePassword, mfaEnabled, sso]
       properties:
         mfaEnabled: { type: boolean, description: Signs in with a second factor (#75) }
+        sso: { type: boolean, description: Linked to an account at the single sign-on provider (#76) }
         id: { type: integer, format: int64 }
         username: { type: string }
         role: { type: string, enum: [admin] }
@@ -4917,6 +5017,27 @@ components:
           description: |
             A temporary password is pending: every other endpoint answers 403
             `password_change_required` until `POST /auth/password` succeeds.
+    OIDCStatus:
+      type: object
+      required: [enabled, buttonLabel]
+      properties:
+        enabled: { type: boolean }
+        buttonLabel: { type: string }
+    OIDCSettings:
+      type: object
+      properties:
+        enabled: { type: boolean }
+        issuer: { type: string, description: "Issuer URL, e.g. https://keycloak.example.com/realms/main" }
+        clientId: { type: string }
+        clientSecret: { type: string, writeOnly: true, description: Replaces the stored secret; "" removes it }
+        hasClientSecret: { type: boolean, readOnly: true }
+        scopes: { type: [array, "null"], items: { type: string }, description: "Besides openid; default profile, email (and groups with group)" }
+        usernameClaim: { type: string, description: Default preferred_username }
+        groupsClaim: { type: string, description: Default groups }
+        group: { type: string, description: "Required to sign in; its members without an account get one. Empty: only existing accounts" }
+        buttonLabel: { type: string, description: Default "Sign in with SSO" }
+        redirectUrl: { type: string, description: Overrides the callback URL derived from the request }
+        callbackUrl: { type: string, readOnly: true, description: The callback URL to register at the provider }
     UserDetail:
       allOf:
         - $ref: "#/components/schemas/User"
