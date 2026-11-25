@@ -7,6 +7,13 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 
 ## [Unreleased]
 
+## [0.2.0-alpha.2] - 2026-11-25
+
+Second preview of 0.2: container health and auto-heal, schedules, encrypted stack variables,
+volume and nerdui backups, stack templates, a file editor for stacks, stack deletion, host
+metrics with alerts, API keys limited to chosen permissions, image archives, a volume browser
+and sub-path deployment.
+
 ### Added
 
 - Container health: the container page shows the healthcheck, its status, failing streak and
@@ -45,12 +52,25 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
   Vaultwarden, Grafana and more), registries by URL in Arcane's registry.json format, and
   templates saved from your own stacks; deploying one fills its variables in a form, stores
   secrets as encrypted variables of the new stack and starts it (#33, #34, ADR-0051).
+- Deleting stacks: Delete on a stack created in nerdui (in the stacks directory or from Git)
+  takes it down, optionally with its volumes, and removes its files, Git settings and
+  variables; the stack name confirms (#248, ADR-0052).
+- API keys limited to chosen permissions, besides read-only and full access; a key cannot
+  create keys, and the audit log names the key that acted (#80, ADR-0053).
+- Host metrics: the overview shows CPU, memory, swap, load, network and disk usage of the host
+  with charts of the last 1, 6 or 24 hours; thresholds for CPU, memory and disks send a
+  `host.alert` notification, and another when the value is back below (#64, ADR-0054).
+- Files tab on the stack page: the tree of the stack's directory with an editor, to create,
+  edit and delete override files, configs and other files; paths cannot leave the directory,
+  the compose file cannot be deleted, and Git stacks are read-only (#27, ADR-0055).
 
 ### Changed
 
 - Image update checks run from a schedule under Schedules: the interval set in Settings → Image
   updates becomes that schedule at the first start. The API endpoints
   `GET/PUT /environments/{env}/settings/image-updates` are removed.
+- Down on the stack page has a stop icon: it removes containers, not files. Git stacks are
+  deleted with Delete; the Remove button of the Git panel is gone (the API endpoint stays).
 
 ### Fixed
 
@@ -58,6 +78,14 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
   a "container exited" notification.
 - Editing a container, automatic updates and webhooks that recreate it keep a healthcheck set
   with `--health-cmd`; before, the new container had none (#237).
+- Saving a stack template checks that its compose file is valid YAML.
+
+### Upgrade notes
+
+- Database migrations 15 (schedules), 16 (stack variables), 17 (volume backups), 18 (stack
+  templates) and 19 (API key permissions, key names in the audit log) are applied on start.
+- Variables and secrets are encrypted with `<data-dir>/secret.key`, created on first start:
+  keep it with the database; nerdui's own backups include it (docs/deployment.md).
 
 ## [0.2.0-alpha.1] - 2026-11-22
 
@@ -433,7 +461,8 @@ First preview release: manage containers on one Linux host with containerd and n
 - Every user is an administrator; roles are planned (#78).
 - The container image is experimental (#145); install the binary with systemd.
 
-[Unreleased]: https://github.com/pessom/nerdui/compare/v0.2.0-alpha.1...HEAD
+[Unreleased]: https://github.com/pessom/nerdui/compare/v0.2.0-alpha.2...HEAD
+[0.2.0-alpha.2]: https://github.com/pessom/nerdui/compare/v0.2.0-alpha.1...v0.2.0-alpha.2
 [0.2.0-alpha.1]: https://github.com/pessom/nerdui/compare/v0.1.1...v0.2.0-alpha.1
 [0.1.1]: https://github.com/pessom/nerdui/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/pessom/nerdui/compare/v0.1.0-rc.1...v0.1.0
