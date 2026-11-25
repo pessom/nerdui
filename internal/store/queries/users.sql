@@ -34,3 +34,9 @@ UPDATE users SET last_login_at = @now WHERE id = @id;
 
 -- name: DeleteUser :execrows
 DELETE FROM users WHERE id = ?;
+
+-- name: GetUserByOIDCIdentity :one
+SELECT * FROM users WHERE oidc_identity = ?;
+
+-- name: SetUserOIDCIdentity :execrows
+UPDATE users SET oidc_identity = @oidc_identity, updated_at = @now WHERE id = @id;

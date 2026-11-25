@@ -114,9 +114,19 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 		logger.Info("trusting X-Forwarded-* headers", "proxies", cfg.TrustedProxies)
 	}
 
+	// Stack variables (#35) and the single sign-on client secret (#76) are encrypted with a key
+	// file next to the database.
+	box, err := secretbox.LoadOrCreate(cfg.EffectiveSecretKeyFile())
+	if err != nil {
+		_ = ln.Close()
+		return err
+	}
 	// The audit log (#79) records requests through the authorization guard and logins.
 	auditLog := &audit.Recorder{Store: st.Write(), Retention: cfg.AuditRetention, Logger: logger}
-	authSvc, err := auth.New(ctx, st, auth.Options{SecureCookie: cfg.TLS, CookiePath: basePath, Logger: logger, Audit: auditLog})
+	authSvc, err := auth.New(ctx, st, auth.Options{
+		SecureCookie: cfg.TLS, CookiePath: basePath, Logger: logger, Audit: auditLog, Box: box,
+		HTTPClient: &http.Client{Timeout: 30 * time.Second},
+	})
 	if err != nil {
 		_ = ln.Close()
 		return fmt.Errorf("init authentication: %w", err)
@@ -130,12 +140,6 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 		logger.Warn("cannot read nerdctl config, using nerdctl defaults", "path", ncfgPath, "error", err)
 	}
 	logger.Info("nerdctl config", "path", ncfgPath, "data_root", ncfg.DataRoot)
-	// Stack variables (#35) are encrypted with a key file next to the database.
-	box, err := secretbox.LoadOrCreate(cfg.EffectiveSecretKeyFile())
-	if err != nil {
-		_ = ln.Close()
-		return err
-	}
 	stackVars := &variables.Service{Store: st.Write(), Box: box}
 	rt := runtime.New(cfg.ContainerdAddress, cfg.Namespace,
 		runtime.WithNerdctl(cfg.NerdctlPath, cfg.SkipNerdctlVersionCheck),

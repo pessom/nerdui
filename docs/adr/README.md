@@ -64,3 +64,4 @@ We record significant architectural decisions as ADRs
 | 0053 | [API keys limited to chosen permissions](0053-api-key-permissions.md) | Accepted |
 | 0054 | [Host metrics and alert thresholds](0054-host-metrics.md) | Accepted |
 | 0055 | [Editing all files of a stack's directory](0055-stack-files.md) | Accepted |
+| 0056 | [Sign-in with an OpenID Connect provider](0056-oidc-sign-in.md) | Accepted |

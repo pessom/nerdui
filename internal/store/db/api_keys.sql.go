@@ -86,7 +86,7 @@ func (q *Queries) DeleteUserAPIKey(ctx context.Context, arg DeleteUserAPIKeyPara
 }
 
 const getAPIKeyWithUser = `-- name: GetAPIKeyWithUser :one
-SELECT api_keys.id, api_keys.user_id, api_keys.name, api_keys.prefix, api_keys.token_hash, api_keys.read_only, api_keys.created_at, api_keys.expires_at, api_keys.last_used_at, api_keys.permissions, users.id, users.username, users.password_hash, users.role, users.created_at, users.updated_at, users.disabled_at, users.must_change_password, users.last_login_at, users.mfa_secret, users.mfa_enabled, users.mfa_last_step
+SELECT api_keys.id, api_keys.user_id, api_keys.name, api_keys.prefix, api_keys.token_hash, api_keys.read_only, api_keys.created_at, api_keys.expires_at, api_keys.last_used_at, api_keys.permissions, users.id, users.username, users.password_hash, users.role, users.created_at, users.updated_at, users.disabled_at, users.must_change_password, users.last_login_at, users.mfa_secret, users.mfa_enabled, users.mfa_last_step, users.oidc_identity
 FROM api_keys
 JOIN users ON users.id = api_keys.user_id
 WHERE api_keys.token_hash = ?
@@ -123,6 +123,7 @@ func (q *Queries) GetAPIKeyWithUser(ctx context.Context, tokenHash []byte) (GetA
 		&i.User.MfaSecret,
 		&i.User.MfaEnabled,
 		&i.User.MfaLastStep,
+		&i.User.OidcIdentity,
 	)
 	return i, err
 }

@@ -183,6 +183,7 @@ type Session struct {
 	ExpiresAt  int64
 	ClientIp   string
 	UserAgent  string
+	Method     string
 }
 
 type Setting struct {
@@ -222,6 +223,7 @@ type User struct {
 	MfaSecret          string
 	MfaEnabled         int64
 	MfaLastStep        int64
+	OidcIdentity       sql.NullString
 }
 
 type UserPreference struct {

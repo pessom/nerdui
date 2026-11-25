@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/pessom/nerdui/internal/authz"
+	"github.com/pessom/nerdui/internal/secretbox"
 	"github.com/pessom/nerdui/internal/store"
 	"github.com/pessom/nerdui/internal/store/db"
 )
@@ -68,6 +69,8 @@ type User struct {
 	MustChangePassword bool `json:"mustChangePassword"`
 	// MFAEnabled: the user signs in with a second factor (#75).
 	MFAEnabled bool `json:"mfaEnabled"`
+	// SSO: the user is linked to an account at the single sign-on provider (#76).
+	SSO bool `json:"sso"`
 }
 
 // Principal is the authenticated caller attached to a request context.
@@ -78,6 +81,8 @@ type Principal struct {
 	tokenHash []byte
 	// APIKey is set when the request authenticated with an API key instead of a session.
 	APIKey *KeyRef
+	// Method is how the session signed in: MethodPassword or MethodOIDC.
+	Method string
 }
 
 // Issued is a newly created session; Token goes into the cookie and is never stored.
@@ -110,6 +115,10 @@ type Options struct {
 	Argon2          Argon2Params
 	Now             func() time.Time
 	Logger          *slog.Logger
+	// Box encrypts the client secret of the single sign-on provider (#76).
+	Box *secretbox.Box
+	// HTTPClient talks to the single sign-on provider; nil: http.DefaultClient.
+	HTTPClient *http.Client
 }
 
 // Service is the authentication service.
@@ -127,6 +136,9 @@ type Service struct {
 	// Two-factor authentication (#75).
 	mfa        mfaState
 	challenges challenges
+
+	// Single sign-on (#76).
+	oidc oidcState
 }
 
 // New creates the service. When the database has no users, it generates a one-time setup
@@ -223,7 +235,7 @@ func (s *Service) Setup(ctx context.Context, token, username, password string, c
 	s.limiter.Reset(key)
 	s.opts.Logger.Info("setup completed: admin account created", "username", u.Username)
 
-	issued, err := s.createSession(ctx, u.ID, c)
+	issued, err := s.createSession(ctx, u.ID, MethodPassword, c)
 	return toUser(u), issued, err
 }
 
@@ -287,7 +299,7 @@ func (s *Service) finishLogin(ctx context.Context, u db.User, c Client) (User, I
 	_, _ = s.store.Write().SetUserLastLogin(ctx, db.SetUserLastLoginParams{
 		ID: u.ID, Now: sql.NullInt64{Int64: s.opts.Now().Unix(), Valid: true},
 	})
-	issued, err := s.createSession(ctx, u.ID, c)
+	issued, err := s.createSession(ctx, u.ID, MethodPassword, c)
 	return toUser(u), issued, err
 }
 
@@ -314,11 +326,18 @@ func (s *Service) Authenticate(ctx context.Context, token string) (Principal, er
 	if now.Sub(time.Unix(sess.LastSeenAt, 0)) >= touchInterval {
 		_, _ = s.store.Write().TouchSession(ctx, db.TouchSessionParams{TokenHash: h, Now: now.Unix()})
 	}
+	u := toUser(row.User)
+	if sess.Method == MethodOIDC {
+		// The provider signed the user in: a pending change of the local password does not
+		// block single sign-on sessions (#76).
+		u.MustChangePassword = false
+	}
 	return Principal{
-		User:      toUser(row.User),
+		User:      u,
 		CSRFToken: sess.CsrfToken,
 		ExpiresAt: time.Unix(sess.ExpiresAt, 0),
 		tokenHash: h,
+		Method:    sess.Method,
 	}, nil
 }
 
@@ -354,7 +373,7 @@ func (s *Service) cleanup(ctx context.Context) {
 	}
 }
 
-func (s *Service) createSession(ctx context.Context, userID int64, c Client) (Issued, error) {
+func (s *Service) createSession(ctx context.Context, userID int64, method string, c Client) (Issued, error) {
 	now := s.opts.Now()
 	token := randomToken(32)
 	csrf := randomToken(32)
@@ -362,7 +381,7 @@ func (s *Service) createSession(ctx context.Context, userID int64, c Client) (Is
 	err := s.store.Write().CreateSession(ctx, db.CreateSessionParams{
 		TokenHash: hashToken(token), UserID: userID, CsrfToken: csrf,
 		Now: now.Unix(), ExpiresAt: expires.Unix(),
-		ClientIp: c.IP, UserAgent: truncate(c.UserAgent, 512),
+		ClientIp: c.IP, UserAgent: truncate(c.UserAgent, 512), Method: method,
 	})
 	if err != nil {
 		return Issued{}, fmt.Errorf("create session: %w", err)
@@ -405,9 +424,13 @@ func ResetPassword(ctx context.Context, st *store.Store, username, password stri
 func toUser(u db.User) User {
 	return User{
 		ID: u.ID, Username: u.Username, Role: u.Role, MustChangePassword: u.MustChangePassword != 0,
-		MFAEnabled: u.MfaEnabled != 0,
+		MFAEnabled: u.MfaEnabled != 0, SSO: u.OidcIdentity.Valid,
 	}
 }
+
+func nullString(v string) sql.NullString { return sql.NullString{String: v, Valid: v != ""} }
+
+func nullInt(v int64) sql.NullInt64 { return sql.NullInt64{Int64: v, Valid: true} }
 
 func randomToken(n int) string {
 	b := make([]byte, n)

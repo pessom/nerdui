@@ -1,19 +1,22 @@
 // SPDX-FileCopyrightText: 2026 The nerdui Authors
 // SPDX-License-Identifier: AGPL-3.0-only
 
-import { Alert, Button, PasswordInput, Stack, TextInput } from "@mantine/core";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Alert, Button, Divider, PasswordInput, Stack, TextInput } from "@mantine/core";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { ApiError, api, setCsrfToken, unwrap } from "../api/client";
 import { keys, setupQuery } from "../api/queries";
 import type { components } from "../api/schema";
 import { AuthCard } from "../components/AuthCard";
+import { withBase } from "../lib/base";
 import { safeRedirect } from "../lib/redirect";
 
 export const Route = createFileRoute("/login")({
-  validateSearch: (search: Record<string, unknown>): { redirect?: string } => ({
+  validateSearch: (search: Record<string, unknown>): { redirect?: string; sso_error?: string } => ({
     redirect: typeof search.redirect === "string" ? search.redirect : undefined,
+    // Set by the single sign-on callback when signing in failed (#76).
+    sso_error: typeof search.sso_error === "string" ? search.sso_error : undefined,
   }),
   beforeLoad: async ({ context }) => {
     const setup = await context.queryClient.fetchQuery(setupQuery).catch(() => null);
@@ -23,7 +26,12 @@ export const Route = createFileRoute("/login")({
 });
 
 function LoginPage() {
-  const { redirect: target } = Route.useSearch();
+  const { redirect: target, sso_error: ssoError } = Route.useSearch();
+  const sso = useQuery({
+    queryKey: ["auth", "oidc"],
+    queryFn: () => unwrap(api.GET("/api/v1/auth/oidc")),
+    retry: false,
+  });
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [username, setUsername] = useState("");
@@ -119,12 +127,31 @@ function LoginPage() {
     <AuthCard title="Sign in to nerdui">
       <form onSubmit={onSubmit}>
         <Stack>
+          {ssoError && !login.error && (
+            <Alert color="red" title="Single sign-on failed">
+              {ssoError}
+            </Alert>
+          )}
+          {sso.data?.enabled && (
+            <>
+              <Button
+                component="a"
+                variant="default"
+                href={withBase(
+                  `/api/v1/auth/oidc/login?redirect=${encodeURIComponent(safeRedirect(target))}`,
+                )}
+              >
+                {sso.data.buttonLabel}
+              </Button>
+              <Divider label="or with a password" labelPosition="center" />
+            </>
+          )}
           {login.error && <Alert color="red">{errorText(login.error)}</Alert>}
           <TextInput
             label="Username"
             autoComplete="username"
             required
-            autoFocus
+            autoFocus={!sso.data?.enabled}
             value={username}
             onChange={(e) => setUsername(e.currentTarget.value)}
           />

@@ -30,10 +30,11 @@ type SecuritySettings struct {
 }
 
 // MFAEnrolled blocks sessions without two-factor authentication while it is required. API keys
-// are not affected: they are a separate credential.
+// are not affected: they are a separate credential; nor are single sign-on sessions, whose
+// provider checks the second factor (#76).
 func (s *Service) MFAEnrolled(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if p, ok := PrincipalFrom(r.Context()); ok && p.APIKey == nil && !p.User.MFAEnabled && s.RequireMFA(r.Context()) {
+		if p, ok := PrincipalFrom(r.Context()); ok && p.APIKey == nil && p.Method != MethodOIDC && !p.User.MFAEnabled && s.RequireMFA(r.Context()) {
 			httpjson.WriteError(w, http.StatusForbidden, CodeMFASetupRequired, ErrMFASetupRequired.Error())
 			return
 		}

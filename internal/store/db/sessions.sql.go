@@ -11,8 +11,8 @@ import (
 
 const createSession = `-- name: CreateSession :exec
 
-INSERT INTO sessions (token_hash, user_id, csrf_token, created_at, last_seen_at, expires_at, client_ip, user_agent)
-VALUES (?1, ?2, ?3, ?4, ?4, ?5, ?6, ?7)
+INSERT INTO sessions (token_hash, user_id, csrf_token, created_at, last_seen_at, expires_at, client_ip, user_agent, method)
+VALUES (?1, ?2, ?3, ?4, ?4, ?5, ?6, ?7, ?8)
 `
 
 type CreateSessionParams struct {
@@ -23,6 +23,7 @@ type CreateSessionParams struct {
 	ExpiresAt int64
 	ClientIp  string
 	UserAgent string
+	Method    string
 }
 
 // SPDX-FileCopyrightText: 2026 The nerdui Authors
@@ -36,6 +37,7 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) er
 		arg.ExpiresAt,
 		arg.ClientIp,
 		arg.UserAgent,
+		arg.Method,
 	)
 	return err
 }
@@ -99,7 +101,7 @@ func (q *Queries) DeleteUserSessions(ctx context.Context, userID int64) (int64, 
 }
 
 const getSession = `-- name: GetSession :one
-SELECT token_hash, user_id, csrf_token, created_at, last_seen_at, expires_at, client_ip, user_agent FROM sessions WHERE token_hash = ?
+SELECT token_hash, user_id, csrf_token, created_at, last_seen_at, expires_at, client_ip, user_agent, method FROM sessions WHERE token_hash = ?
 `
 
 func (q *Queries) GetSession(ctx context.Context, tokenHash []byte) (Session, error) {
@@ -114,12 +116,13 @@ func (q *Queries) GetSession(ctx context.Context, tokenHash []byte) (Session, er
 		&i.ExpiresAt,
 		&i.ClientIp,
 		&i.UserAgent,
+		&i.Method,
 	)
 	return i, err
 }
 
 const getSessionWithUser = `-- name: GetSessionWithUser :one
-SELECT sessions.token_hash, sessions.user_id, sessions.csrf_token, sessions.created_at, sessions.last_seen_at, sessions.expires_at, sessions.client_ip, sessions.user_agent, users.id, users.username, users.password_hash, users.role, users.created_at, users.updated_at, users.disabled_at, users.must_change_password, users.last_login_at, users.mfa_secret, users.mfa_enabled, users.mfa_last_step
+SELECT sessions.token_hash, sessions.user_id, sessions.csrf_token, sessions.created_at, sessions.last_seen_at, sessions.expires_at, sessions.client_ip, sessions.user_agent, sessions.method, users.id, users.username, users.password_hash, users.role, users.created_at, users.updated_at, users.disabled_at, users.must_change_password, users.last_login_at, users.mfa_secret, users.mfa_enabled, users.mfa_last_step, users.oidc_identity
 FROM sessions
 JOIN users ON users.id = sessions.user_id
 WHERE sessions.token_hash = ?
@@ -142,6 +145,7 @@ func (q *Queries) GetSessionWithUser(ctx context.Context, tokenHash []byte) (Get
 		&i.Session.ExpiresAt,
 		&i.Session.ClientIp,
 		&i.Session.UserAgent,
+		&i.Session.Method,
 		&i.User.ID,
 		&i.User.Username,
 		&i.User.PasswordHash,
@@ -154,6 +158,7 @@ func (q *Queries) GetSessionWithUser(ctx context.Context, tokenHash []byte) (Get
 		&i.User.MfaSecret,
 		&i.User.MfaEnabled,
 		&i.User.MfaLastStep,
+		&i.User.OidcIdentity,
 	)
 	return i, err
 }

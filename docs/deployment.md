@@ -170,6 +170,8 @@ nerdui serves **HTTPS on port 9443** by default ([ADR-0005](adr/0005-authenticat
   it for every user under Settings → Sign-in security, and reset it for a user on the Users page.
   If the only administrator lost both the phone and the backup codes, run
   `nerdui admin reset-mfa <user>` on the host; it also revokes that user's sessions.
+- **Single sign-on.** Sign in with an OpenID Connect provider besides passwords: see
+  [docs/sso.md](sso.md).
 - **Audit log.** Changes, terminal sessions, denied requests and sign-ins are recorded with the
   user and client address (Audit log page); kept for `--audit-retention` (default `2160h`, `0`
   keeps everything).

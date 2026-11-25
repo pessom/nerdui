@@ -181,6 +181,7 @@ func (s *Service) Routes(r chi.Router, g *authz.Guard) {
 	r.Method(http.MethodPost, "/setup", authz.Public(s.handleSetup))
 	r.Method(http.MethodPost, "/auth/login", authz.Public(s.handleLogin))
 	r.Method(http.MethodPost, "/auth/login/mfa", authz.Public(s.handleLoginMFA))
+	s.oidcPublicRoutes(r)
 	r.Group(func(r chi.Router) {
 		r.Use(s.RequireSession, CSRF)
 		r.Method(http.MethodGet, "/auth/me", g.Protect(authz.SessionSelf, s.handleMe))
@@ -193,6 +194,7 @@ func (s *Service) Routes(r chi.Router, g *authz.Guard) {
 		r.Group(func(r chi.Router) {
 			r.Use(PasswordChanged, s.MFAEnrolled)
 			s.mfaAdminRoutes(r, g)
+			s.oidcAdminRoutes(r, g)
 			s.userRoutes(r, g)
 			s.apiKeyRoutes(r, g)
 			s.preferenceRoutes(r, g)
@@ -212,8 +214,15 @@ type SessionResponse struct {
 func (s *Service) sessionResponse(r *http.Request, u User, csrf string, expires time.Time) SessionResponse {
 	return SessionResponse{
 		User: u, CSRFToken: csrf, ExpiresAt: expires,
-		MFASetupRequired: !u.MFAEnabled && s.RequireMFA(r.Context()),
+		MFASetupRequired: !u.MFAEnabled && !viaSSO(r) && s.RequireMFA(r.Context()),
 	}
+}
+
+// viaSSO reports whether the request's session signed in through the single sign-on
+// provider, which is responsible for the second factor then (#76).
+func viaSSO(r *http.Request) bool {
+	p, ok := PrincipalFrom(r.Context())
+	return ok && p.APIKey == nil && p.Method == MethodOIDC
 }
 
 func (s *Service) handleSetupStatus(w http.ResponseWriter, _ *http.Request) {

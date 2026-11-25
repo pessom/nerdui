@@ -13,6 +13,7 @@ const admin: UserDetail = {
   role: "admin",
   mustChangePassword: false,
   mfaEnabled: false,
+  sso: false,
   disabled: false,
   createdAt: "2027-01-01T00:00:00Z",
   lastLoginAt: "2027-01-02T00:00:00Z",
@@ -23,6 +24,7 @@ const bob: UserDetail = {
   role: "admin",
   mustChangePassword: true,
   mfaEnabled: true,
+  sso: false,
   disabled: false,
   createdAt: "2027-01-03T00:00:00Z",
 };
