@@ -163,13 +163,13 @@ func (h *Handler) forgetStack(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// deleteStack takes a managed stack down and removes its directory and variables, as a job
-// (#248, ADR-0052):
+// deleteStack takes a stack created in nerdui down and removes its files and variables, as a
+// job (#248, ADR-0052): the directory of a managed stack, or the clone and registration of a Git
+// stack.
 //
 //	DELETE /api/v1/environments/{env}/stacks/{name}?namespace=&confirm=<name>&volumes=true
 //
-// volumes also removes the project's named volumes. Adopted and Git stacks have their own
-// removal (forget, DELETE …/git).
+// volumes also removes the project's named volumes. Adopted stacks are forgotten instead.
 func (h *Handler) deleteStack(w http.ResponseWriter, r *http.Request) {
 	ns, err := Namespace(r)
 	if err != nil {
@@ -191,8 +191,15 @@ func (h *Handler) deleteStack(w http.ResponseWriter, r *http.Request) {
 		httpjson.WriteErr(w, r, h.Logger, err)
 		return
 	}
-	if def.Mode != stacks.ModeManaged {
-		httpjson.WriteErr(w, r, h.Logger, fmt.Errorf("%w: %q is not in the stacks directory; forget or remove it instead", errdefs.ErrFailedPrecondition, name))
+	// Stacks created in nerdui: from the stacks directory, or cloned from Git (#248).
+	var remove func(ctx context.Context, name string) error
+	switch {
+	case def.Mode == stacks.ModeManaged:
+		remove = h.Stacks.Remove
+	case def.Mode == stacks.ModeGit && h.GitStacks != nil:
+		remove = h.GitStacks.Remove
+	default:
+		httpjson.WriteErr(w, r, h.Logger, fmt.Errorf("%w: %q was not created in nerdui; forget it instead", errdefs.ErrFailedPrecondition, name))
 		return
 	}
 	env := EnvFrom(r.Context())
@@ -210,7 +217,7 @@ func (h *Handler) deleteStack(w http.ResponseWriter, r *http.Request) {
 	if volumes {
 		title += " with its volumes"
 	}
-	compose, svc := env.Runtime.Compose(), h.Stacks
+	compose := env.Runtime.Compose()
 	job, err := h.Jobs.Start(jobs.Spec{
 		Kind: "stack.delete", Title: title, Environment: env.ID, Namespace: ns,
 		Resource: fmt.Sprintf("env/%s/ns/%s/stack/%s", env.ID, ns, name),
@@ -221,7 +228,7 @@ func (h *Handler) deleteStack(w http.ResponseWriter, r *http.Request) {
 				return fmt.Errorf("take the stack down: %w", err)
 			}
 		}
-		if err := svc.Remove(ctx, name); err != nil {
+		if err := remove(ctx, name); err != nil {
 			return err
 		}
 		h.forgetVariables(ctx, name)

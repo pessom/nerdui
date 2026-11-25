@@ -11,13 +11,15 @@ import { useJobsPanel } from "../jobs/JobsContext";
 
 /**
  * Deletes a stack created in nerdui (#248): a job takes it down, optionally with its volumes,
- * then removes its directory and its variables. The stack name confirms.
+ * then removes its directory (the clone of a Git stack) and its variables. The stack name
+ * confirms.
  */
 export function DeleteStackDialog({
   env,
   namespace,
   name,
   ns,
+  git = false,
   opened,
   onClose,
 }: {
@@ -26,6 +28,8 @@ export function DeleteStackDialog({
   name: string;
   /** The namespace in the URL, kept when going back to the list. */
   ns?: string;
+  /** A Git stack: its clone is deleted, the repository is not touched. */
+  git?: boolean;
   opened: boolean;
   onClose: () => void;
 }) {
@@ -61,8 +65,18 @@ export function DeleteStackDialog({
     <Modal opened={opened} onClose={close} title={`Delete stack ${name}`}>
       <Stack gap="sm">
         <Text size="sm">
-          Takes <Code>{name}</Code> down, then deletes its directory with the compose file and{" "}
-          <Code>.env</Code>, and its variables and secrets. This cannot be undone.
+          {git ? (
+            <>
+              Takes <Code>{name}</Code> down, then deletes its clone with the local{" "}
+              <Code>.env</Code>, its Git settings and webhook, and its variables and secrets. The
+              repository is not touched.
+            </>
+          ) : (
+            <>
+              Takes <Code>{name}</Code> down, then deletes its directory with the compose file and{" "}
+              <Code>.env</Code>, and its variables and secrets. This cannot be undone.
+            </>
+          )}
         </Text>
         <Checkbox
           color="red"
