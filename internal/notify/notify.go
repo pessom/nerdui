@@ -35,6 +35,7 @@ const (
 	KindContainerAutoHeal  = "container.autoheal"  // nerdui restarted an unhealthy container, or gave up (#22)
 	KindJobFailed          = "job.failed"          // a background operation failed
 	KindGitUpdate          = "git.update"          // a Git stack has a new commit or was updated from it (#38, #39)
+	KindHostAlert          = "host.alert"          // host CPU, memory or disk crossed a threshold, or recovered (#64)
 	KindTest               = "test"                // sent by "Send test"; every channel receives it
 )
 
@@ -42,6 +43,7 @@ const (
 var Kinds = []string{
 	KindImageUpdate, KindAutoUpdateDone, KindAutoUpdateFailed, KindAutoUpdatePending,
 	KindContainerDied, KindContainerOOM, KindContainerUnhealthy, KindContainerAutoHeal, KindJobFailed, KindGitUpdate,
+	KindHostAlert,
 }
 
 // Severities.

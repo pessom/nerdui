@@ -213,6 +213,32 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/settings/host-alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Alert thresholds of host usage
+         * @description Requires `settings:read` (#64). Off by default.
+         */
+        get: operations["getHostAlerts"];
+        /**
+         * Set the alert thresholds of host usage
+         * @description Requires `settings:write` (#64, ADR-0054). A `host.alert` notification is sent when a
+         *     usage stays at or above its percent for its minutes, and again when it falls 5 points
+         *     below.
+         */
+        put: operations["putHostAlerts"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/settings/security": {
         parameters: {
             query?: never;
@@ -2258,6 +2284,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/environments/{env}/host/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        /**
+         * CPU, memory, disk and network usage of the host
+         * @description Requires `system:read` (#64, ADR-0054). nerdui samples the host it runs on every 15
+         *     seconds and keeps one day in memory; history longer than 360 points is averaged.
+         *     503 until the first sample.
+         */
+        get: operations["getHostMetrics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/environments/{env}/summary": {
         parameters: {
             query?: never;
@@ -3478,8 +3529,68 @@ export interface components {
             clientIp?: string;
             userAgent?: string;
         };
+        HostDisk: {
+            path: string;
+            /** @description Watched directories on this filesystem */
+            paths: string[];
+            /** Format: int64 */
+            total: number;
+            /** Format: int64 */
+            used: number;
+        };
+        HostSample: {
+            /** Format: date-time */
+            time: string;
+            /** @description Busy percent of all CPUs */
+            cpu: number;
+            cpus: number;
+            load1: number;
+            /**
+             * Format: int64
+             * @description Memory not available to new programs
+             */
+            memoryUsed: number;
+            /** Format: int64 */
+            memoryTotal: number;
+            /** Format: int64 */
+            swapUsed: number;
+            /** Format: int64 */
+            swapTotal: number;
+            /** @description Bytes per second received by physical interfaces */
+            netRx: number;
+            netTx: number;
+            disks: components["schemas"]["HostDisk"][];
+        };
+        HostPoint: {
+            /**
+             * Format: int64
+             * @description Unix seconds
+             */
+            t: number;
+            cpu: number;
+            /** @description Used percent */
+            memory: number;
+            netRx: number;
+            netTx: number;
+            /** @description Used percent by filesystem path */
+            disks: {
+                [key: string]: number;
+            };
+        };
+        HostThreshold: {
+            enabled: boolean;
+            percent: number;
+            /** @description How long the usage must stay above; 0 alerts at once */
+            minutes: number;
+        };
+        HostAlerts: {
+            cpu: components["schemas"]["HostThreshold"];
+            memory: components["schemas"]["HostThreshold"];
+            /** @description Applies to each watched filesystem */
+            disk: components["schemas"]["HostThreshold"];
+        };
         /** @enum {string} */
-        NotificationKind: "image.update" | "autoupdate.updated" | "autoupdate.failed" | "autoupdate.pending" | "container.died" | "container.oom" | "container.unhealthy" | "container.autoheal" | "job.failed" | "git.update";
+        NotificationKind: "image.update" | "autoupdate.updated" | "autoupdate.failed" | "autoupdate.pending" | "container.died" | "container.oom" | "container.unhealthy" | "container.autoheal" | "job.failed" | "git.update" | "host.alert";
         /**
          * @description Settings of a channel; which fields apply depends on the type. `secret`, `token`,
          *     `password` and, for Slack and Discord, `url` are write-only.
@@ -5088,6 +5199,56 @@ export interface operations {
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
+        };
+    };
+    getHostAlerts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Thresholds */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostAlerts"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
+    putHostAlerts: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HostAlerts"];
+            };
+        };
+        responses: {
+            /** @description Saved */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HostAlerts"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            415: components["responses"]["Error"];
         };
     };
     getSecuritySettings: {
@@ -8309,6 +8470,42 @@ export interface operations {
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    getHostMetrics: {
+        parameters: {
+            query?: {
+                range?: "1h" | "6h" | "24h";
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current values and history */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        current: components["schemas"]["HostSample"];
+                        points: components["schemas"]["HostPoint"][];
+                        range: string;
+                        intervalSeconds: number;
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            501: components["responses"]["Error"];
             503: components["responses"]["Error"];
         };
     };

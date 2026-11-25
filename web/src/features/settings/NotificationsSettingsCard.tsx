@@ -48,6 +48,7 @@ const kindLabels: Record<Kind, string> = {
   "container.autoheal": "Unhealthy container restarted, or left after repeated restarts",
   "job.failed": "Operation failed",
   "git.update": "New commit or update of a Git stack",
+  "host.alert": "Host usage above a threshold, or back below it",
 };
 
 const typeLabels: Record<ChannelType, string> = {

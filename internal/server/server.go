@@ -28,6 +28,7 @@ import (
 	"github.com/pessom/nerdui/internal/backup"
 	"github.com/pessom/nerdui/internal/environment"
 	"github.com/pessom/nerdui/internal/gitstacks"
+	"github.com/pessom/nerdui/internal/hostmetrics"
 	"github.com/pessom/nerdui/internal/httpjson"
 	"github.com/pessom/nerdui/internal/jobs"
 	"github.com/pessom/nerdui/internal/notify"
@@ -55,6 +56,8 @@ type Config struct {
 	VolumeBackups *volbackup.Service
 	// Templates are the stack templates (#33, #34); nil disables them.
 	Templates *templates.Service
+	// HostMetrics samples the host (#64); nil disables host metrics.
+	HostMetrics *hostmetrics.Sampler
 	// BasePath is the path prefix nerdui is served under, e.g. /nerdui, or "" (#222).
 	BasePath string
 	// Auth provides sessions and the authentication endpoints (required).
@@ -166,6 +169,7 @@ func New(cfg Config) http.Handler {
 				Notifications: cfg.Notifications, Notifier: cfg.Notifier, Audit: auditLog,
 				Backup: cfg.Backup, Schedules: cfg.Schedules, Variables: cfg.Variables,
 				VolumeBackups: cfg.VolumeBackups, Templates: cfg.Templates,
+				HostMetrics: cfg.HostMetrics,
 			}).Routes(r, guard)
 		})
 	})

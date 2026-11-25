@@ -9,10 +9,11 @@ import { createFileRoute } from "@tanstack/react-router";
 import { envStatusQuery, versionQuery } from "../../../../api/queries";
 import { InfoCard, Row } from "../../../../components/InfoCard";
 import { Dashboard } from "../../../../features/dashboard/Dashboard";
+import { HostMetrics } from "../../../../features/host/HostMetrics";
 import { PruneDialog } from "../../../../features/prune/PruneDialog";
 import { SystemInfoSection } from "../../../../features/system/SystemInfoSection";
 
-/** Environment overview: dashboard (#63), connectivity, versions, host and runtime information (#66). */
+/** Environment overview: dashboard (#63), host metrics (#64), connectivity, versions, host and runtime information (#66). */
 export const Route = createFileRoute("/_app/env/$env/")({
   component: Overview,
 });
@@ -60,6 +61,7 @@ function Overview() {
         </Text>
       )}
       {s.status === "connected" && <Dashboard env={env} />}
+      <HostMetrics env={env} />
       <SimpleGrid cols={{ base: 1, md: 2 }}>
         <InfoCard title="containerd">
           <Row label="Version" value={rt?.containerd || "—"} />

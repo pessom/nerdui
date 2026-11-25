@@ -27,6 +27,7 @@ import (
 	"github.com/pessom/nerdui/internal/environment"
 	"github.com/pessom/nerdui/internal/events"
 	"github.com/pessom/nerdui/internal/gitstacks"
+	"github.com/pessom/nerdui/internal/hostmetrics"
 	"github.com/pessom/nerdui/internal/jobs"
 	"github.com/pessom/nerdui/internal/notify"
 	"github.com/pessom/nerdui/internal/proxy"
@@ -172,6 +173,17 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 	// Unhealthy containers are reported, and restarted when labeled (#22).
 	healer := &autoheal.Healer{Environments: envs, Notify: notifier.Notify, Logger: logger}
 	checks.Go(func() { healer.Run(checkCtx) })
+	// Host CPU, memory, disk and network, with alert thresholds (#64). The disks watched are
+	// the root filesystem and those of nerdui's, containerd's and nerdctl's data.
+	hostMetrics := &hostmetrics.Sampler{
+		Paths:       []string{"/", cfg.DataDir, "/var/lib/containerd", ncfg.DataRoot},
+		Environment: envs.List()[0].ID,
+		Alerts: func(ctx context.Context) (hostmetrics.Alerts, error) {
+			return hostmetrics.LoadAlerts(ctx, st.Read())
+		},
+		Notify: notifier.Notify, Logger: logger,
+	}
+	checks.Go(func() { hostMetrics.Run(checkCtx) })
 
 	// Background jobs (#126) are canceled and awaited when serving ends.
 	jobManager := jobs.NewManager()
@@ -246,6 +258,7 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 			Variables:     stackVars,
 			VolumeBackups: volumeBackups,
 			Templates:     &templates.Service{Store: st.Write(), Registry: &templates.Registries{}},
+			HostMetrics:   hostMetrics,
 			Auth:          authSvc, Environments: envs, UI: web.Dist(), Jobs: jobManager, TrustedProxies: trusted,
 			ACME:         acmeCerts,
 			EventHistory: eventHistory, DisableExec: cfg.DisableExec, Settings: st.Write(),

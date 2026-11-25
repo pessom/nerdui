@@ -19,6 +19,7 @@ before they are saved. See [ADR-0034](adr/0034-notifications.md).
 | `container.autoheal` | nerdui restarted an unhealthy container labeled `nerdui.auto-heal=true`, the restart failed, or it stopped after 3 restarts within an hour ([ADR-0043](adr/0043-health-and-auto-heal.md)) |
 | `job.failed` | A background operation (pull, deploy, recreate, …) failed |
 | `git.update` | A Git stack's repository has a new commit (notify mode), or the stack was updated from it |
+| `host.alert` | Host CPU, memory or a disk stayed above its threshold (Settings → Host alerts), or fell back below it ([ADR-0054](adr/0054-host-metrics.md)) |
 
 ## Channels
 
