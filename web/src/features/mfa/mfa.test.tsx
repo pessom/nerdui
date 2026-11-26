@@ -92,14 +92,35 @@ describe("two-factor authentication", () => {
   });
 
   it("requires setup before anything else when the administrator demands it", async () => {
+    let enabled = false;
     fakeApi({
       ...signedIn,
-      "GET /api/v1/auth/me": () => json(200, { ...session, mfaSetupRequired: true }),
+      "GET /api/v1/auth/me": () => json(200, { ...session, mfaSetupRequired: !enabled }),
+      "POST /api/v1/auth/mfa/setup": () =>
+        json(200, {
+          secret: "JBSWY3DPEHPK3PXP",
+          uri: "otpauth://totp/nerdui:admin?secret=JBSWY3DPEHPK3PXP",
+        }),
+      "POST /api/v1/auth/mfa/enable": () => {
+        enabled = true;
+        return json(200, { backupCodes: ["code0-abcde"] });
+      },
     });
     const { router } = renderApp("/env/local");
     expect(
       await screen.findByRole("heading", { name: "Set up two-factor authentication" }),
     ).toBeInTheDocument();
     expect(router.state.location.pathname).toBe("/setup-mfa");
+
+    fireEvent.change(screen.getByLabelText(/Current password/), { target: { value: "pw" } });
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+    await screen.findByText("JBSW Y3DP EHPK 3PXP");
+    const pins = screen.getAllByRole("textbox");
+    "123456".split("").forEach((d, i) => fireEvent.change(pins[i]!, { target: { value: d } }));
+    fireEvent.click(screen.getByRole("button", { name: "Turn on" }));
+    fireEvent.click(await screen.findByRole("button", { name: "I saved them" }));
+    // The cached session still requires setup: it must be fetched again, or the app sends
+    // the user back to this page.
+    await waitFor(() => expect(router.state.location.pathname).toBe("/env/local"));
   });
 });
