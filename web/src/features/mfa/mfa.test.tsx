@@ -55,7 +55,14 @@ describe("two-factor authentication", () => {
     fakeApi({
       ...signedIn,
       "GET /api/v1/auth/mfa": () =>
-        json(200, { enabled, backupCodesLeft: enabled ? 10 : 0, required: false }),
+        json(200, {
+          enabled,
+          totp: enabled,
+          passkeys: 0,
+          backupCodesLeft: enabled ? 10 : 0,
+          required: false,
+        }),
+      "GET /api/v1/auth/passkeys": () => json(200, []),
       "POST /api/v1/auth/mfa/setup": (c) =>
         (c.body as { password: string }).password === "pw"
           ? json(200, {
@@ -75,7 +82,7 @@ describe("two-factor authentication", () => {
     expect(await within(card).findByText("Off")).toBeInTheDocument();
     fireEvent.click(within(card).getByRole("button", { name: "Set up" }));
 
-    const dialog = await screen.findByRole("dialog", { name: "Set up two-factor authentication" });
+    const dialog = await screen.findByRole("dialog", { name: "Set up an authenticator app" });
     fireEvent.change(within(dialog).getByLabelText(/Current password/), {
       target: { value: "pw" },
     });

@@ -173,7 +173,7 @@ const actionLabel = {
 };
 const confirmText = {
   reset2fa:
-    "Two-factor authentication and backup codes are removed, e.g. after a lost phone. The user can set it up again.",
+    "The authenticator app, the passkeys and the backup codes are removed, e.g. after a lost phone. The user can set them up again.",
   disable: "The user is signed out everywhere and cannot sign in until enabled again.",
   enable: "The user can sign in again with their current password.",
   delete: "The account and its sessions are removed. This cannot be undone.",

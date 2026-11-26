@@ -13,6 +13,9 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
   on the sign-in page, set up under Settings. Accounts are linked by username; with a group
   set, only its members can sign in and get an account at the first sign-in. The provider
   checks the second factor; passwords keep working (#76, ADR-0056, docs/sso.md).
+- Passkeys (WebAuthn): add them on the Account security page; a passkey is a second factor and
+  signs in without a password ("Sign in with a passkey"). Needs nerdui on a host name with a
+  trusted certificate, or on localhost (#226, ADR-0057).
 
 ### Fixed
 
@@ -21,8 +24,8 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 
 ### Upgrade notes
 
-- Database migration 20 (single sign-on links of users, sign-in method of sessions) is applied
-  on start.
+- Database migrations 20 (single sign-on links of users, sign-in method of sessions) and 21
+  (passkeys) are applied on start.
 
 ## [0.2.0-alpha.2] - 2026-11-25
 

@@ -4,6 +4,7 @@
 import { Alert, Button, Divider, PasswordInput, Stack, TextInput } from "@mantine/core";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
+import { IconKey } from "@tabler/icons-react";
 import { useState, type FormEvent } from "react";
 import { ApiError, api, setCsrfToken, unwrap } from "../api/client";
 import { keys, setupQuery } from "../api/queries";
@@ -11,6 +12,7 @@ import type { components } from "../api/schema";
 import { AuthCard } from "../components/AuthCard";
 import { withBase } from "../lib/base";
 import { safeRedirect } from "../lib/redirect";
+import { getPasskey, passkeyErrorText, passkeysSupported } from "../lib/webauthn";
 
 export const Route = createFileRoute("/login")({
   validateSearch: (search: Record<string, unknown>): { redirect?: string; sso_error?: string } => ({
@@ -37,8 +39,11 @@ function LoginPage() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   // Set after the password when the account uses two-factor authentication (#75).
-  const [mfaToken, setMfaToken] = useState<string>();
+  const [challenge, setChallenge] = useState<Challenge>();
+  const mfaToken = challenge?.mfaToken;
+  const setMfaToken = (v: undefined) => setChallenge(v);
   const [code, setCode] = useState("");
+  const withPasskeys = passkeysSupported();
 
   const finish = async (session: Session) => {
     setCsrfToken(session.csrfToken);
@@ -57,7 +62,7 @@ function LoginPage() {
     mutationFn: () => unwrap(api.POST("/api/v1/auth/login", { body: { username, password } })),
     onSuccess: async (res) => {
       if ("mfaRequired" in res) {
-        setMfaToken(res.mfaToken);
+        setChallenge(res);
         return;
       }
       await finish(res);
@@ -76,13 +81,45 @@ function LoginPage() {
       if (err instanceof ApiError && err.message.includes("expired")) setMfaToken(undefined);
     },
   });
+  // The second step with a passkey instead of a code (#226).
+  const secondPasskey = useMutation({
+    mutationFn: async () => {
+      const token = mfaToken ?? "";
+      const { options } = await unwrap(
+        api.POST("/api/v1/auth/login/mfa/passkey", { body: { mfaToken: token } }),
+      );
+      const passkey = await getPasskey(options);
+      return unwrap(
+        api.POST("/api/v1/auth/login/mfa", {
+          body: { mfaToken: token, passkey: passkey as Credential },
+        }),
+      );
+    },
+    onSuccess: finish,
+    onError: (err) => {
+      if (err instanceof ApiError && err.message.includes("expired")) setMfaToken(undefined);
+    },
+  });
+  // Sign-in with a passkey alone (#226): the browser offers the passkeys it has for this host.
+  const passkey = useMutation({
+    mutationFn: async () => {
+      const { token, options } = await unwrap(api.POST("/api/v1/auth/passkey/options"));
+      const credential = await getPasskey(options);
+      return unwrap(
+        api.POST("/api/v1/auth/passkey/login", {
+          body: { token: token ?? "", credential: credential as Credential },
+        }),
+      );
+    },
+    onSuccess: finish,
+  });
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
     login.mutate();
   };
 
-  if (mfaToken) {
+  if (challenge) {
     return (
       <AuthCard title="Two-factor authentication">
         <form
@@ -93,13 +130,33 @@ function LoginPage() {
         >
           <Stack>
             {second.error && <Alert color="red">{mfaErrorText(second.error)}</Alert>}
+            {secondPasskey.error && (
+              <Alert color="red">{passkeyErrorText(secondPasskey.error)}</Alert>
+            )}
+            {challenge.passkey && withPasskeys && (
+              <>
+                <Button
+                  variant="default"
+                  leftSection={<IconKey size={16} />}
+                  loading={secondPasskey.isPending}
+                  onClick={() => secondPasskey.mutate()}
+                >
+                  Use a passkey
+                </Button>
+                <Divider label="or with a code" labelPosition="center" />
+              </>
+            )}
             <TextInput
               label="Code"
-              description="From your authenticator app, or one of your backup codes"
+              description={
+                challenge.totp
+                  ? "From your authenticator app, or one of your backup codes"
+                  : "One of your backup codes"
+              }
               autoComplete="one-time-code"
               inputMode="text"
               required
-              autoFocus
+              autoFocus={!challenge.passkey || !withPasskeys}
               value={code}
               onChange={(e) => setCode(e.currentTarget.value)}
             />
@@ -113,6 +170,7 @@ function LoginPage() {
                 setMfaToken(undefined);
                 setCode("");
                 second.reset();
+                secondPasskey.reset();
               }}
             >
               Back
@@ -143,15 +201,30 @@ function LoginPage() {
               >
                 {sso.data.buttonLabel}
               </Button>
-              <Divider label="or with a password" labelPosition="center" />
             </>
+          )}
+          {withPasskeys && (
+            <>
+              {passkey.error && <Alert color="red">{passkeyLoginErrorText(passkey.error)}</Alert>}
+              <Button
+                variant="default"
+                leftSection={<IconKey size={16} />}
+                loading={passkey.isPending}
+                onClick={() => passkey.mutate()}
+              >
+                Sign in with a passkey
+              </Button>
+            </>
+          )}
+          {(sso.data?.enabled || withPasskeys) && (
+            <Divider label="or with a password" labelPosition="center" />
           )}
           {login.error && <Alert color="red">{errorText(login.error)}</Alert>}
           <TextInput
             label="Username"
             autoComplete="username"
             required
-            autoFocus={!sso.data?.enabled}
+            autoFocus={!sso.data?.enabled && !withPasskeys}
             value={username}
             onChange={(e) => setUsername(e.currentTarget.value)}
           />
@@ -172,6 +245,21 @@ function LoginPage() {
 }
 
 type Session = components["schemas"]["SessionResponse"];
+type Challenge = components["schemas"]["MFAChallenge"];
+type Credential = components["schemas"]["PasskeyCredential"];
+
+function passkeyLoginErrorText(err: unknown) {
+  if (err instanceof ApiError && err.code === "rate_limited") {
+    return "Too many attempts. Wait a moment and try again.";
+  }
+  if (err instanceof ApiError && err.status === 403) {
+    return "This account is disabled. Ask an administrator to enable it.";
+  }
+  if (err instanceof ApiError && err.status === 400) {
+    return "The passkey was not accepted. It may have been removed from nerdui.";
+  }
+  return passkeyErrorText(err);
+}
 
 function mfaErrorText(err: unknown) {
   if (err instanceof ApiError && err.code === "rate_limited") {
