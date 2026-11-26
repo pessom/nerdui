@@ -165,11 +165,17 @@ nerdui serves **HTTPS on port 9443** by default ([ADR-0005](adr/0005-authenticat
   (or reads it with `--password-stdin`), enables the account if it was disabled and revokes that
   user's sessions. For the container image:
   `sudo nerdctl exec -it nerdui nerdui admin reset-password admin`.
-- **Two-factor authentication.** Each user can turn on a TOTP authenticator app and get ten
-  one-time backup codes (account menu → Two-factor authentication). Administrators can require
-  it for every user under Settings → Sign-in security, and reset it for a user on the Users page.
-  If the only administrator lost both the phone and the backup codes, run
-  `nerdui admin reset-mfa <user>` on the host; it also revokes that user's sessions.
+- **Two-factor authentication.** Each user can turn on a TOTP authenticator app or add passkeys
+  and gets ten one-time backup codes (account menu → Account security). Administrators can
+  require it for every user under Settings → Sign-in security, and reset it (the app, the
+  passkeys and the codes) for a user on the Users page. If the only administrator lost both the
+  second factor and the backup codes, run `nerdui admin reset-mfa <user>` on the host; it also
+  revokes that user's sessions.
+- **Passkeys.** A passkey (WebAuthn: the browser, a phone or a security key) is a second factor
+  and signs in without a password too ("Sign in with a passkey"). Browsers offer passkeys only
+  on a host name with a trusted certificate, or on `localhost`: not on an IP address or plain
+  HTTP. A passkey is bound to the host name nerdui was opened by when it was added; behind a
+  [reverse proxy](reverse-proxy.md) that is the public name.
 - **Single sign-on.** Sign in with an OpenID Connect provider besides passwords: see
   [docs/sso.md](sso.md).
 - **Audit log.** Changes, terminal sessions, denied requests and sign-ins are recorded with the

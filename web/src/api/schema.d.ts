@@ -89,12 +89,145 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Complete a login with a two-factor code
+         * Complete a login with the second factor
          * @description #75, ADR-0037. `code` is the current authenticator code (each accepted once) or an unused
-         *     backup code. The token expires after 5 minutes or 5 attempts.
+         *     backup code; or `passkey` is the browser's answer to the options of
+         *     `POST /auth/login/mfa/passkey` (#226, ADR-0057). The token expires after 5 minutes or 5
+         *     attempts.
          */
         post: operations["loginMFA"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/login/mfa/passkey": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Options to answer the second step with a passkey
+         * @description #226, ADR-0057. For `navigator.credentials.get()`; the answer goes to `POST /auth/login/mfa`.
+         */
+        post: operations["loginMFAPasskeyOptions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/passkey/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Options to sign in with a passkey, without a password
+         * @description #226, ADR-0057. For `navigator.credentials.get()`: the browser offers the passkeys it has
+         *     for this host. 409 when nerdui is opened by an IP address or over plain HTTP (except
+         *     localhost), where browsers refuse passkeys.
+         */
+        post: operations["passkeyLoginOptions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/passkey/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign in with a passkey
+         * @description The passkey verified the user (PIN, biometrics) and counts as both factors.
+         */
+        post: operations["passkeyLogin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/passkeys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Own passkeys
+         * @description #226, ADR-0057. Requires a password session (not an API key).
+         */
+        get: operations["listPasskeys"];
+        put?: never;
+        /**
+         * Add a passkey
+         * @description `credential` is the browser's answer to the options of `POST /auth/passkeys/options`. The
+         *     first second factor of a user also returns backup codes.
+         */
+        post: operations["addPasskey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/passkeys/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Options to add a passkey
+         * @description Checks the password and returns the options for `navigator.credentials.create()`. The
+         *     passkey is bound to the host nerdui is opened by; 409 on an IP address or plain HTTP
+         *     (except localhost), or at 20 passkeys.
+         */
+        post: operations["passkeyRegisterOptions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/passkeys/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a passkey
+         * @description Without another second factor left, the backup codes are removed too.
+         */
+        delete: operations["deletePasskey"];
         options?: never;
         head?: never;
         patch?: never;
@@ -183,7 +316,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Turn two-factor authentication off */
+        /**
+         * Turn the authenticator app off
+         * @description The backup codes stay while the user has passkeys.
+         */
         post: operations["disableMFA"];
         delete?: never;
         options?: never;
@@ -204,7 +340,7 @@ export interface paths {
         put?: never;
         /**
          * Turn off another user's two-factor authentication
-         * @description Requires `users:write` (e.g. after a lost phone).
+         * @description Requires `users:write` (e.g. after a lost phone). Removes the authenticator app, the passkeys and the backup codes.
          */
         post: operations["resetUserMFA"];
         delete?: never;
@@ -4071,12 +4207,53 @@ export interface components {
             /** @constant */
             mfaRequired: true;
             mfaToken: string;
+            /** @description The user has an authenticator app */
+            totp: boolean;
+            /** @description The user has passkeys */
+            passkey: boolean;
         };
         MFAStatus: {
+            /** @description An authenticator app or a passkey */
             enabled: boolean;
+            /** @description The authenticator app is set up */
+            totp: boolean;
+            passkeys: number;
             backupCodesLeft: number;
             /** @description The administrator requires it from every user */
             required: boolean;
+        };
+        Passkey: {
+            /** Format: int64 */
+            id: number;
+            name: string;
+            /** @description The host name the passkey is bound to */
+            host: string;
+            /** Format: date-time */
+            createdAt: string;
+            /** Format: date-time */
+            lastUsedAt?: string;
+        };
+        PasskeyOptions: {
+            /** @description Sent back with the answer (not for the second step) */
+            token?: string;
+            /** @description The JSON form of the WebAuthn options, with a `publicKey` member */
+            options: {
+                publicKey: {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        /** @description The JSON form of a PublicKeyCredential (`credential.toJSON()`) */
+        PasskeyCredential: {
+            id: string;
+            rawId: string;
+            /** @constant */
+            type: "public-key";
+            response: {
+                [key: string]: unknown;
+            };
+        } & {
+            [key: string]: unknown;
         };
         SecuritySettings: {
             requireMfa: boolean;
@@ -5292,7 +5469,8 @@ export interface operations {
                      * @example 123456
                      * @example abcde-fghij
                      */
-                    code: string;
+                    code?: string;
+                    passkey?: components["schemas"]["PasskeyCredential"];
                 };
             };
         };
@@ -5312,6 +5490,197 @@ export interface operations {
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
             429: components["responses"]["RateLimited"];
+        };
+    };
+    loginMFAPasskeyOptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    mfaToken: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Options */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasskeyOptions"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    passkeyLoginOptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Options and the token of the request (5 minutes, once) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasskeyOptions"];
+                };
+            };
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            429: components["responses"]["RateLimited"];
+        };
+    };
+    passkeyLogin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    token: string;
+                    credential: components["schemas"]["PasskeyCredential"];
+                };
+            };
+        };
+        responses: {
+            /** @description Logged in; sets the session cookie */
+            200: {
+                headers: {
+                    /** @description nerdui_session (HttpOnly, SameSite=Strict) */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SessionResponse"];
+                };
+            };
+            400: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            429: components["responses"]["RateLimited"];
+        };
+    };
+    listPasskeys: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Passkeys */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Passkey"][];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
+    addPasskey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    token: string;
+                    /** @description Default: Passkey */
+                    name?: string;
+                    credential: components["schemas"]["PasskeyCredential"];
+                };
+            };
+        };
+        responses: {
+            /** @description Added */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        passkey: components["schemas"]["Passkey"];
+                        backupCodes?: string[];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    passkeyRegisterOptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["PasswordConfirm"];
+        responses: {
+            /** @description Options and the token of the request (5 minutes, once) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PasskeyOptions"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    deletePasskey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["PasswordConfirm"];
+        responses: {
+            /** @description Removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
         };
     };
     getMFA: {

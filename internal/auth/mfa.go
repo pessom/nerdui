@@ -37,8 +37,13 @@ const (
 )
 
 // MFAChallengeError is returned by Login when the password was right and a second factor is
-// needed: the client sends Token with a code to LoginMFA.
-type MFAChallengeError struct{ Token string }
+// needed: the client sends Token with a code or a passkey to LoginMFA. TOTP and Passkey tell
+// which factors the user has; backup codes always work.
+type MFAChallengeError struct {
+	Token   string
+	TOTP    bool
+	Passkey bool
+}
 
 func (e *MFAChallengeError) Error() string { return "two-factor code required" }
 
@@ -46,6 +51,7 @@ type challenge struct {
 	userID   int64
 	expires  time.Time
 	attempts int
+	passkey  *ceremony // the passkey request of the second step, if started
 }
 
 type challenges struct {
@@ -69,18 +75,42 @@ func (c *challenges) add(userID int64, now time.Time) string {
 	return token
 }
 
-// use returns the user of a live challenge and counts an attempt; done removes it.
-func (c *challenges) use(token string, now time.Time) (int64, func(), bool) {
+// peek returns the user of a live challenge without counting an attempt.
+func (c *challenges) peek(token string, now time.Time) (int64, bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	ch, ok := c.m[string(hashToken(token))]
+	if !ok || !now.Before(ch.expires) || ch.attempts >= challengeAttempts {
+		return 0, false
+	}
+	return ch.userID, true
+}
+
+// setPasskey attaches the passkey request of the second step to a challenge.
+func (c *challenges) setPasskey(token string, ce *ceremony) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	ch, ok := c.m[string(hashToken(token))]
+	if ok {
+		ch.passkey = ce
+	}
+	return ok
+}
+
+// use returns a live challenge and counts an attempt; done removes it.
+func (c *challenges) use(token string, now time.Time) (challenge, func(), bool) {
 	key := string(hashToken(token))
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	ch, ok := c.m[key]
 	if !ok || !now.Before(ch.expires) || ch.attempts >= challengeAttempts {
 		delete(c.m, key)
-		return 0, nil, false
+		return challenge{}, nil, false
 	}
 	ch.attempts++
-	return ch.userID, func() {
+	used := *ch
+	ch.passkey = nil // a passkey request is answered once
+	return used, func() {
 		c.mu.Lock()
 		defer c.mu.Unlock()
 		delete(c.m, key)
@@ -138,7 +168,11 @@ func (s *Service) checkPassword(ctx context.Context, userID int64, password stri
 
 // MFAStatus describes a user's two-factor authentication. Keep in sync with api/openapi.yaml.
 type MFAStatus struct {
-	Enabled         bool `json:"enabled"`
+	// Enabled: the user has a second factor, an authenticator app or a passkey.
+	Enabled bool `json:"enabled"`
+	// TOTP: the authenticator app is set up.
+	TOTP            bool `json:"totp"`
+	Passkeys        int  `json:"passkeys"`
 	BackupCodesLeft int  `json:"backupCodesLeft"`
 	// Required: the administrator requires it from every user.
 	Required bool `json:"required"`
@@ -154,7 +188,10 @@ func (s *Service) MFAStatusOf(ctx context.Context, userID int64) (MFAStatus, err
 	if err != nil {
 		return MFAStatus{}, err
 	}
-	return MFAStatus{Enabled: u.MfaEnabled != 0, BackupCodesLeft: int(n), Required: s.RequireMFA(ctx)}, nil
+	return MFAStatus{
+		Enabled: hasSecondFactor(u), TOTP: u.MfaEnabled != 0, Passkeys: int(u.PasskeyCount),
+		BackupCodesLeft: int(n), Required: s.RequireMFA(ctx),
+	}, nil
 }
 
 // MFAEnrollment is a new secret to add to an authenticator app.
@@ -216,7 +253,7 @@ func (s *Service) NewBackupCodes(ctx context.Context, userID int64, password str
 	if err != nil {
 		return nil, err
 	}
-	if u.MfaEnabled == 0 {
+	if !hasSecondFactor(u) {
 		return nil, ErrMFANotEnabled
 	}
 	var codes []string
@@ -227,21 +264,34 @@ func (s *Service) NewBackupCodes(ctx context.Context, userID int64, password str
 	return codes, err
 }
 
-// DisableMFA turns two-factor authentication off after checking the password.
+// DisableMFA turns the authenticator app off after checking the password. The backup codes
+// stay while the user has passkeys.
 func (s *Service) DisableMFA(ctx context.Context, userID int64, password string) error {
 	u, err := s.checkPassword(ctx, userID, password)
 	if err != nil {
 		return err
 	}
-	if err := s.resetMFA(ctx, userID); err != nil {
+	if u.MfaEnabled == 0 {
+		return ErrMFANotEnabled
+	}
+	err = s.store.Tx(ctx, func(q *db.Queries) error {
+		if _, err := q.DisableMFA(ctx, db.DisableMFAParams{ID: userID, Now: s.opts.Now().Unix()}); err != nil {
+			return err
+		}
+		if u.PasskeyCount == 0 {
+			return q.DeleteBackupCodes(ctx, userID)
+		}
+		return nil
+	})
+	if err != nil {
 		return err
 	}
-	s.opts.Logger.Info("two-factor authentication disabled", "username", u.Username)
+	s.opts.Logger.Info("authenticator app turned off", "username", u.Username)
 	return nil
 }
 
-// ResetMFA turns off another user's two-factor authentication (administrators, e.g. a lost
-// phone).
+// ResetMFA turns off another user's two-factor authentication: the authenticator app, the
+// passkeys and the backup codes (administrators, e.g. a lost phone).
 func (s *Service) ResetMFA(ctx context.Context, actorID, userID int64) error {
 	if actorID == userID {
 		return ErrOwnAccount
@@ -256,11 +306,21 @@ func (s *Service) ResetMFA(ctx context.Context, actorID, userID int64) error {
 
 func (s *Service) resetMFA(ctx context.Context, userID int64) error {
 	return s.store.Tx(ctx, func(q *db.Queries) error {
-		if _, err := q.DisableMFA(ctx, db.DisableMFAParams{ID: userID, Now: s.opts.Now().Unix()}); err != nil {
-			return err
-		}
-		return q.DeleteBackupCodes(ctx, userID)
+		return resetSecondFactors(ctx, q, userID, s.opts.Now())
 	})
+}
+
+func resetSecondFactors(ctx context.Context, q *db.Queries, userID int64, now time.Time) error {
+	if _, err := q.DisableMFA(ctx, db.DisableMFAParams{ID: userID, Now: now.Unix()}); err != nil {
+		return err
+	}
+	if err := q.DeleteBackupCodes(ctx, userID); err != nil {
+		return err
+	}
+	if err := q.DeleteUserPasskeys(ctx, userID); err != nil {
+		return err
+	}
+	return q.CountPasskeys(ctx, userID)
 }
 
 func normalizeBackupCode(c string) string {
@@ -289,7 +349,8 @@ func replaceBackupCodes(ctx context.Context, q *db.Queries, userID int64) ([]str
 
 // verifySecondFactor accepts a TOTP code (once) or a backup code (consumed).
 func (s *Service) verifySecondFactor(ctx context.Context, u db.User, code string) (bool, error) {
-	if step, ok := verifyTOTP(u.MfaSecret, code, s.opts.Now()); ok {
+	// A pending secret (setup not confirmed) is not a factor yet.
+	if step, ok := verifyTOTP(u.MfaSecret, code, s.opts.Now()); ok && u.MfaEnabled != 0 {
 		n, err := s.store.Write().UseMFAStep(ctx, db.UseMFAStepParams{ID: u.ID, Step: step})
 		return n == 1, err
 	}
@@ -303,17 +364,18 @@ func (s *Service) verifySecondFactor(ctx context.Context, u db.User, code string
 	return n == 1, err
 }
 
-// LoginMFA completes a login with the second factor and creates a session.
-func (s *Service) LoginMFA(ctx context.Context, token, code string, c Client) (User, Issued, error) {
+// LoginMFA completes a login with the second factor, a code or the answer of a passkey
+// (BeginPasskeyMFA), and creates a session.
+func (s *Service) LoginMFA(ctx context.Context, token, code string, passkey []byte, c Client) (User, Issued, error) {
 	ipKey := "login-ip:" + c.IP
 	if wait, ok := s.limiter.Allow(ipKey); !ok {
 		return User{}, Issued{}, &RateLimitedError{RetryAfter: wait}
 	}
-	userID, done, ok := s.challenges.use(token, s.opts.Now())
+	ch, done, ok := s.challenges.use(token, s.opts.Now())
 	if !ok {
 		return User{}, Issued{}, ErrMFAChallenge
 	}
-	u, err := s.store.Read().GetUserByID(ctx, userID)
+	u, err := s.store.Read().GetUserByID(ctx, ch.userID)
 	if err != nil {
 		return User{}, Issued{}, err
 	}
@@ -321,11 +383,15 @@ func (s *Service) LoginMFA(ctx context.Context, token, code string, c Client) (U
 	if wait, ok := s.limiter.Allow(userKey); !ok {
 		return User{}, Issued{}, &RateLimitedError{RetryAfter: wait}
 	}
-	if u.DisabledAt.Valid || u.MfaEnabled == 0 {
+	if u.DisabledAt.Valid || !hasSecondFactor(u) {
 		done()
 		return User{}, Issued{}, ErrMFAChallenge
 	}
-	ok, err = s.verifySecondFactor(ctx, u, code)
+	if len(passkey) > 0 {
+		ok, err = s.verifyPasskeyFactor(ctx, u, ch.passkey, passkey)
+	} else {
+		ok, err = s.verifySecondFactor(ctx, u, code)
+	}
 	if err != nil {
 		return User{}, Issued{}, err
 	}
@@ -333,6 +399,9 @@ func (s *Service) LoginMFA(ctx context.Context, token, code string, c Client) (U
 		s.limiter.Fail(ipKey)
 		s.limiter.Fail(userKey)
 		s.opts.Logger.Warn("failed second factor", "username", u.Username, "client_ip", c.IP)
+		if len(passkey) > 0 {
+			return toUser(u), Issued{}, ErrPasskeyFailed
+		}
 		return toUser(u), Issued{}, ErrMFAInvalidCode
 	}
 	done()
@@ -353,10 +422,7 @@ func ResetMFAOffline(ctx context.Context, st *store.Store, username string, now 
 		if err != nil {
 			return err
 		}
-		if _, err := q.DisableMFA(ctx, db.DisableMFAParams{ID: u.ID, Now: now.Unix()}); err != nil {
-			return err
-		}
-		if err := q.DeleteBackupCodes(ctx, u.ID); err != nil {
+		if err := resetSecondFactors(ctx, q, u.ID, now); err != nil {
 			return err
 		}
 		_, err = q.DeleteUserSessions(ctx, u.ID)

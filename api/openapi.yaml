@@ -167,10 +167,12 @@ paths:
     post:
       tags: [auth]
       operationId: loginMFA
-      summary: Complete a login with a two-factor code
+      summary: Complete a login with the second factor
       description: |
         #75, ADR-0037. `code` is the current authenticator code (each accepted once) or an unused
-        backup code. The token expires after 5 minutes or 5 attempts.
+        backup code; or `passkey` is the browser's answer to the options of
+        `POST /auth/login/mfa/passkey` (#226, ADR-0057). The token expires after 5 minutes or 5
+        attempts.
       security: []
       requestBody:
         required: true
@@ -178,11 +180,12 @@ paths:
           application/json:
             schema:
               type: object
-              required: [mfaToken, code]
+              required: [mfaToken]
               additionalProperties: false
               properties:
                 mfaToken: { type: string }
                 code: { type: string, examples: ["123456", "abcde-fghij"] }
+                passkey: { $ref: "#/components/schemas/PasskeyCredential" }
       responses:
         "200":
           description: Logged in; sets the session cookie
@@ -195,6 +198,164 @@ paths:
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
         "429": { $ref: "#/components/responses/RateLimited" }
+  /api/v1/auth/login/mfa/passkey:
+    post:
+      tags: [auth]
+      operationId: loginMFAPasskeyOptions
+      summary: Options to answer the second step with a passkey
+      description: "#226, ADR-0057. For `navigator.credentials.get()`; the answer goes to `POST /auth/login/mfa`."
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [mfaToken]
+              additionalProperties: false
+              properties:
+                mfaToken: { type: string }
+      responses:
+        "200":
+          description: Options
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PasskeyOptions" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/v1/auth/passkey/options:
+    post:
+      tags: [auth]
+      operationId: passkeyLoginOptions
+      summary: Options to sign in with a passkey, without a password
+      description: |
+        #226, ADR-0057. For `navigator.credentials.get()`: the browser offers the passkeys it has
+        for this host. 409 when nerdui is opened by an IP address or over plain HTTP (except
+        localhost), where browsers refuse passkeys.
+      security: []
+      responses:
+        "200":
+          description: Options and the token of the request (5 minutes, once)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PasskeyOptions" }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+  /api/v1/auth/passkey/login:
+    post:
+      tags: [auth]
+      operationId: passkeyLogin
+      summary: Sign in with a passkey
+      description: The passkey verified the user (PIN, biometrics) and counts as both factors.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, credential]
+              additionalProperties: false
+              properties:
+                token: { type: string }
+                credential: { $ref: "#/components/schemas/PasskeyCredential" }
+      responses:
+        "200":
+          description: Logged in; sets the session cookie
+          headers:
+            Set-Cookie: { schema: { type: string }, description: "nerdui_session (HttpOnly, SameSite=Strict)" }
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SessionResponse" }
+        "400": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "429": { $ref: "#/components/responses/RateLimited" }
+  /api/v1/auth/passkeys:
+    get:
+      tags: [auth]
+      operationId: listPasskeys
+      summary: Own passkeys
+      description: "#226, ADR-0057. Requires a password session (not an API key)."
+      responses:
+        "200":
+          description: Passkeys
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Passkey" } }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+    post:
+      tags: [auth]
+      operationId: addPasskey
+      summary: Add a passkey
+      description: |
+        `credential` is the browser's answer to the options of `POST /auth/passkeys/options`. The
+        first second factor of a user also returns backup codes.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, credential]
+              additionalProperties: false
+              properties:
+                token: { type: string }
+                name: { type: string, maxLength: 64, description: "Default: Passkey" }
+                credential: { $ref: "#/components/schemas/PasskeyCredential" }
+      responses:
+        "201":
+          description: Added
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [passkey]
+                properties:
+                  passkey: { $ref: "#/components/schemas/Passkey" }
+                  backupCodes: { type: array, items: { type: string } }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/v1/auth/passkeys/options:
+    post:
+      tags: [auth]
+      operationId: passkeyRegisterOptions
+      summary: Options to add a passkey
+      description: |
+        Checks the password and returns the options for `navigator.credentials.create()`. The
+        passkey is bound to the host nerdui is opened by; 409 on an IP address or plain HTTP
+        (except localhost), or at 20 passkeys.
+      requestBody: { $ref: "#/components/requestBodies/PasswordConfirm" }
+      responses:
+        "200":
+          description: Options and the token of the request (5 minutes, once)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PasskeyOptions" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/v1/auth/passkeys/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: integer, format: int64 } }
+    delete:
+      tags: [auth]
+      operationId: deletePasskey
+      summary: Remove a passkey
+      description: Without another second factor left, the backup codes are removed too.
+      requestBody: { $ref: "#/components/requestBodies/PasswordConfirm" }
+      responses:
+        "204": { description: Removed }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
   /api/v1/auth/mfa:
     get:
       tags: [auth]
@@ -267,7 +428,8 @@ paths:
     post:
       tags: [auth]
       operationId: disableMFA
-      summary: Turn two-factor authentication off
+      summary: Turn the authenticator app off
+      description: The backup codes stay while the user has passkeys.
       requestBody: { $ref: "#/components/requestBodies/PasswordConfirm" }
       responses:
         "204": { description: Disabled }
@@ -281,7 +443,7 @@ paths:
       tags: [users]
       operationId: resetUserMFA
       summary: Turn off another user's two-factor authentication
-      description: "Requires `users:write` (e.g. after a lost phone)."
+      description: "Requires `users:write` (e.g. after a lost phone). Removes the authenticator app, the passkeys and the backup codes."
       responses:
         "204": { description: Reset }
         "401": { $ref: "#/components/responses/Error" }
@@ -5066,17 +5228,51 @@ components:
           description: Two-factor authentication is required and the user has not set it up yet
     MFAChallenge:
       type: object
-      required: [mfaRequired, mfaToken]
+      required: [mfaRequired, mfaToken, totp, passkey]
       properties:
         mfaRequired: { type: boolean, const: true }
         mfaToken: { type: string }
+        totp: { type: boolean, description: The user has an authenticator app }
+        passkey: { type: boolean, description: The user has passkeys }
     MFAStatus:
       type: object
-      required: [enabled, backupCodesLeft, required]
+      required: [enabled, totp, passkeys, backupCodesLeft, required]
       properties:
-        enabled: { type: boolean }
+        enabled: { type: boolean, description: An authenticator app or a passkey }
+        totp: { type: boolean, description: The authenticator app is set up }
+        passkeys: { type: integer }
         backupCodesLeft: { type: integer }
         required: { type: boolean, description: The administrator requires it from every user }
+    Passkey:
+      type: object
+      required: [id, name, host, createdAt]
+      properties:
+        id: { type: integer, format: int64 }
+        name: { type: string }
+        host: { type: string, description: The host name the passkey is bound to }
+        createdAt: { type: string, format: date-time }
+        lastUsedAt: { type: string, format: date-time }
+    PasskeyOptions:
+      type: object
+      required: [options]
+      properties:
+        token: { type: string, description: Sent back with the answer (not for the second step) }
+        options:
+          type: object
+          description: The JSON form of the WebAuthn options, with a `publicKey` member
+          required: [publicKey]
+          properties:
+            publicKey: { type: object, additionalProperties: true }
+    PasskeyCredential:
+      type: object
+      description: The JSON form of a PublicKeyCredential (`credential.toJSON()`)
+      required: [id, rawId, type, response]
+      additionalProperties: true
+      properties:
+        id: { type: string }
+        rawId: { type: string }
+        type: { type: string, const: public-key }
+        response: { type: object, additionalProperties: true }
     SecuritySettings:
       type: object
       required: [requireMfa]

@@ -181,6 +181,7 @@ func (s *Service) Routes(r chi.Router, g *authz.Guard) {
 	r.Method(http.MethodPost, "/setup", authz.Public(s.handleSetup))
 	r.Method(http.MethodPost, "/auth/login", authz.Public(s.handleLogin))
 	r.Method(http.MethodPost, "/auth/login/mfa", authz.Public(s.handleLoginMFA))
+	s.passkeyPublicRoutes(r)
 	s.oidcPublicRoutes(r)
 	r.Group(func(r chi.Router) {
 		r.Use(s.RequireSession, CSRF)
@@ -190,6 +191,7 @@ func (s *Service) Routes(r chi.Router, g *authz.Guard) {
 		r.Group(func(r chi.Router) {
 			r.Use(PasswordChanged)
 			s.mfaSessionRoutes(r, g)
+			s.passkeySessionRoutes(r, g)
 		})
 		r.Group(func(r chi.Router) {
 			r.Use(PasswordChanged, s.MFAEnrolled)
@@ -267,7 +269,7 @@ func (s *Service) handleLogin(w http.ResponseWriter, r *http.Request) {
 	var mfa *MFAChallengeError
 	if errors.As(err, &mfa) {
 		// The second step is audited: the password alone did not sign in.
-		httpjson.Write(w, http.StatusOK, MFAChallengeResponse{MFARequired: true, MFAToken: mfa.Token})
+		httpjson.Write(w, http.StatusOK, MFAChallengeResponse{MFARequired: true, MFAToken: mfa.Token, TOTP: mfa.TOTP, Passkey: mfa.Passkey})
 		return
 	}
 	s.audit(r, "auth:login", req.Username, err)
@@ -321,6 +323,13 @@ func (s *Service) writeAuthError(w http.ResponseWriter, err error) bool {
 	case errors.Is(err, ErrInvalidCredentials), errors.Is(err, ErrInvalidSetupToken),
 		errors.Is(err, ErrMFAInvalidCode), errors.Is(err, ErrMFAChallenge):
 		httpjson.WriteError(w, http.StatusUnauthorized, httpjson.CodeUnauthenticated, err.Error())
+	// A refused passkey is 400 in every step: the browser's answer was wrong, not the session.
+	case errors.Is(err, ErrPasskeyFailed), errors.Is(err, ErrPasskeyCeremony), errors.Is(err, ErrPasskeyName):
+		httpjson.WriteError(w, http.StatusBadRequest, httpjson.CodeInvalidArgument, err.Error())
+	case errors.Is(err, ErrPasskeyNotFound):
+		httpjson.WriteError(w, http.StatusNotFound, httpjson.CodeNotFound, err.Error())
+	case errors.Is(err, ErrPasskeyHost), errors.Is(err, ErrPasskeyLimit):
+		httpjson.WriteError(w, http.StatusConflict, httpjson.CodeConflict, err.Error())
 	case errors.Is(err, ErrUserDisabled):
 		httpjson.WriteError(w, http.StatusForbidden, httpjson.CodeForbidden, err.Error())
 	case errors.Is(err, ErrUserNotFound):

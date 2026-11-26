@@ -144,6 +144,17 @@ type NotificationChannel struct {
 	UpdatedAt  int64
 }
 
+type Passkey struct {
+	ID           int64
+	UserID       int64
+	CredentialID []byte
+	Name         string
+	RpID         string
+	Credential   string
+	CreatedAt    int64
+	LastUsedAt   sql.NullInt64
+}
+
 type Schedule struct {
 	ID          int64
 	Name        string
@@ -224,6 +235,8 @@ type User struct {
 	MfaEnabled         int64
 	MfaLastStep        int64
 	OidcIdentity       sql.NullString
+	WebauthnHandle     []byte
+	PasskeyCount       int64
 }
 
 type UserPreference struct {

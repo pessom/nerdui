@@ -36,8 +36,8 @@ func newResetMFACmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "reset-mfa <username>",
 		Short: "Turn off a user's two-factor authentication and revoke their sessions",
-		Long: "Turn off two-factor authentication of a local user, delete their backup codes and\n" +
-			"revoke all of their sessions, e.g. when the only administrator lost the phone and the\n" +
+		Long: "Turn off two-factor authentication of a local user, delete their passkeys and backup\n" +
+			"codes and revoke all of their sessions, e.g. when the only administrator lost the phone and the\n" +
 			"backup codes. If two-factor authentication is required, the user sets it up again at\n" +
 			"the next sign-in. Requires direct access to the data directory (usually root).",
 		Args: cobra.ExactArgs(1),

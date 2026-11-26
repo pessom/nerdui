@@ -81,7 +81,7 @@ type Principal struct {
 	tokenHash []byte
 	// APIKey is set when the request authenticated with an API key instead of a session.
 	APIKey *KeyRef
-	// Method is how the session signed in: MethodPassword or MethodOIDC.
+	// Method is how the session signed in: MethodPassword, MethodPasskey or MethodOIDC.
 	Method string
 }
 
@@ -139,6 +139,9 @@ type Service struct {
 
 	// Single sign-on (#76).
 	oidc oidcState
+
+	// Passkey registrations and sign-ins waiting for the browser (#226).
+	passkeys ceremonies
 }
 
 // New creates the service. When the database has no users, it generates a one-time setup
@@ -288,8 +291,10 @@ func (s *Service) Login(ctx context.Context, username, password string, c Client
 			})
 		}
 	}
-	if u.MfaEnabled != 0 {
-		return toUser(u), Issued{}, &MFAChallengeError{Token: s.challenges.add(u.ID, s.opts.Now())}
+	if hasSecondFactor(u) {
+		return toUser(u), Issued{}, &MFAChallengeError{
+			Token: s.challenges.add(u.ID, s.opts.Now()), TOTP: u.MfaEnabled != 0, Passkey: u.PasskeyCount > 0,
+		}
 	}
 	return s.finishLogin(ctx, u, c)
 }
@@ -424,7 +429,7 @@ func ResetPassword(ctx context.Context, st *store.Store, username, password stri
 func toUser(u db.User) User {
 	return User{
 		ID: u.ID, Username: u.Username, Role: u.Role, MustChangePassword: u.MustChangePassword != 0,
-		MFAEnabled: u.MfaEnabled != 0, SSO: u.OidcIdentity.Valid,
+		MFAEnabled: hasSecondFactor(u), SSO: u.OidcIdentity.Valid,
 	}
 }
 

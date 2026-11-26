@@ -4,6 +4,7 @@
 package auth
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 
@@ -22,6 +23,9 @@ const CodeMFASetupRequired = "mfa_setup_required"
 type MFAChallengeResponse struct {
 	MFARequired bool   `json:"mfaRequired"`
 	MFAToken    string `json:"mfaToken"`
+	// TOTP and Passkey tell which factors the user has; backup codes always work.
+	TOTP    bool `json:"totp"`
+	Passkey bool `json:"passkey"`
 }
 
 // SecuritySettings are the server-wide sign-in rules. Keep in sync with api/openapi.yaml.
@@ -66,11 +70,13 @@ func (s *Service) handleLoginMFA(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Token string `json:"mfaToken"`
 		Code  string `json:"code"`
+		// Passkey is the browser's answer to the options of /auth/login/mfa/passkey.
+		Passkey json.RawMessage `json:"passkey"`
 	}
 	if !httpjson.Decode(w, r, &req) {
 		return
 	}
-	u, issued, err := s.LoginMFA(r.Context(), req.Token, req.Code, clientOf(r))
+	u, issued, err := s.LoginMFA(r.Context(), req.Token, req.Code, req.Passkey, clientOf(r))
 	s.audit(r, "auth:login", u.Username, err)
 	if s.writeAuthError(w, err) {
 		return
