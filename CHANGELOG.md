@@ -7,6 +7,19 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-26
+
+Second stable release: operations and automation for one host. It contains everything from the
+0.2 pre-releases below and the changes listed here:
+
+- automatic image updates, schedules, Git stacks with webhooks and polling, incoming webhooks;
+- container health with auto-heal, host metrics with alerts and notifications;
+- encrypted stack variables, stack templates, a file editor for stacks, stack deletion;
+- volume backups (host directory or S3), backups of nerdui itself, image archives, a volume
+  browser;
+- audit log, two-factor authentication, passkeys, single sign-on with OpenID Connect, API keys
+  limited to chosen permissions, Let's Encrypt certificates, sub-path deployment.
+
 ### Added
 
 - Single sign-on with an OpenID Connect provider (Keycloak, Authentik, dex, Google…): a button
@@ -21,11 +34,23 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 
 - "I saved them" did nothing on the required two-factor setup page: the app sent the user back
   to it with the cached session.
+- A schedule started right after its previous run finished could be refused as still running.
+
+### Known limitations
+
+- One host per nerdui instance; multiple environments and remote agents are planned (#69, #70).
+- Every user is an administrator; roles are planned (#78). API keys can be limited.
+- Rootless containerd is not supported.
+- The container image is experimental (#145); install the binary with systemd.
+- Passkeys and single sign-on are covered by automated tests; report problems with your
+  browser or identity provider as issues.
 
 ### Upgrade notes
 
-- Database migrations 20 (single sign-on links of users, sign-in method of sessions) and 21
-  (passkeys) are applied on start.
+- From 0.2.0-alpha.2: database migrations 20 (single sign-on links of users, sign-in method of
+  sessions) and 21 (passkeys) are applied on start.
+- From 0.1.x: read the upgrade notes of 0.2.0-alpha.1 and 0.2.0-alpha.2 too; migrations run
+  automatically at start, with a backup.
 
 ## [0.2.0-alpha.2] - 2026-11-25
 
@@ -481,7 +506,8 @@ First preview release: manage containers on one Linux host with containerd and n
 - Every user is an administrator; roles are planned (#78).
 - The container image is experimental (#145); install the binary with systemd.
 
-[Unreleased]: https://github.com/pessom/nerdui/compare/v0.2.0-alpha.2...HEAD
+[Unreleased]: https://github.com/pessom/nerdui/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/pessom/nerdui/compare/v0.2.0-alpha.2...v0.2.0
 [0.2.0-alpha.2]: https://github.com/pessom/nerdui/compare/v0.2.0-alpha.1...v0.2.0-alpha.2
 [0.2.0-alpha.1]: https://github.com/pessom/nerdui/compare/v0.1.1...v0.2.0-alpha.1
 [0.1.1]: https://github.com/pessom/nerdui/compare/v0.1.0...v0.1.1
