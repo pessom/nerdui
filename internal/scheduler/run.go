@@ -140,7 +140,8 @@ func (s *Service) start(ctx context.Context, r db.Schedule, trigger, user string
 		return jobs.Job{}, fmt.Errorf("record the run: %w", err)
 	}
 	finish := func(err error) {
-		defer s.end(r.ID)
+		// The work is done: a run recorded as finished can be started again at once.
+		s.end(r.ID)
 		status, msg := StatusSucceeded, ""
 		if err != nil {
 			status, msg = StatusFailed, err.Error()
