@@ -36,8 +36,10 @@ function SetupMFAPage() {
       </Text>
       <MFASetup
         onDone={() => {
+          // No component observes the session here, so invalidating would only mark it stale
+          // and the app would send the user back with the cached one: fetch it again.
           void queryClient
-            .invalidateQueries({ queryKey: keys.me })
+            .refetchQueries({ queryKey: keys.me })
             .then(() => navigate({ to: safeRedirect(target) }));
         }}
       />

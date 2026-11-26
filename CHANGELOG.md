@@ -14,6 +14,11 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
   set, only its members can sign in and get an account at the first sign-in. The provider
   checks the second factor; passwords keep working (#76, ADR-0056, docs/sso.md).
 
+### Fixed
+
+- "I saved them" did nothing on the required two-factor setup page: the app sent the user back
+  to it with the cached session.
+
 ### Upgrade notes
 
 - Database migration 20 (single sign-on links of users, sign-in method of sessions) is applied
