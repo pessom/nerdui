@@ -206,6 +206,10 @@ describe("nerdui app shell", () => {
       await screen.findByText("AppArmor may block containers that switch user"),
     ).toBeInTheDocument();
     expect(screen.getByText("apparmor=unconfined")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "AppArmor on Linux 7" })).toHaveAttribute(
+      "href",
+      "https://github.com/pessom/nerdui/blob/main/docs/deployment.md#apparmor-on-linux-7",
+    );
   });
 
   it("shows a banner when containerd is unreachable", async () => {

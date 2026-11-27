@@ -1,13 +1,17 @@
 // SPDX-FileCopyrightText: 2026 The nerdui Authors
 // SPDX-License-Identifier: AGPL-3.0-only
 
-import { Alert, Stack } from "@mantine/core";
+import { Alert, Anchor, Stack } from "@mantine/core";
 import { IconAlertTriangle, IconLock, IconPlugConnectedX } from "@tabler/icons-react";
 import type { components } from "../api/client";
 
 type RuntimeVersions = components["schemas"]["RuntimeVersions"];
 type ACMEStatus = components["schemas"]["ACMEStatus"];
 type HostWarning = NonNullable<components["schemas"]["EnvironmentStatus"]["warnings"]>[number];
+
+/** The deployment guide's section on the AppArmor signal problem (ADR-0060). */
+const apparmorDocs =
+  "https://github.com/pessom/nerdui/blob/main/docs/deployment.md#apparmor-on-linux-7";
 
 /** "2.3.5" → "2.3"; empty for unknown versions. */
 function hostMinor(version: string | undefined): string {
@@ -82,7 +86,11 @@ export function RuntimeBanners({
           PostgreSQL and many others) then hang at start at 100% CPU; the kernel log shows{" "}
           <code>apparmor=&quot;DENIED&quot; operation=&quot;signal&quot;</code>. Set the sysctl to{" "}
           <code>0</code>, run such a container with <code>apparmor=unconfined</code>, or update the
-          kernel once it is fixed: see &quot;AppArmor on Linux 7&quot; in docs/deployment.md.
+          kernel once it is fixed: see{" "}
+          <Anchor href={apparmorDocs} target="_blank" rel="noreferrer" inherit>
+            AppArmor on Linux 7
+          </Anchor>{" "}
+          in the deployment guide.
         </Alert>
       )}
       {unsupported && (
