@@ -217,7 +217,7 @@ func TestOIDC(t *testing.T) {
 		t.Fatalf("bob: %s", target)
 	}
 	bob, err := e.st.Read().GetUserByUsername(ctx, "bob")
-	if err != nil || !bob.OidcIdentity.Valid || bob.Role != RoleAdmin {
+	if err != nil || !bob.OidcIdentity.Valid || bob.Role != "viewer" {
 		t.Fatalf("bob %+v %v", bob, err)
 	}
 	// A disabled account cannot sign in.

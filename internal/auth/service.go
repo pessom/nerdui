@@ -35,7 +35,7 @@ const (
 	// touchInterval limits last-seen updates to one write per minute per session.
 	touchInterval   = time.Minute
 	cleanupInterval = time.Hour
-	// RoleAdmin is the only role in MVP (ADR-0009).
+	// RoleAdmin may do everything (ADR-0058).
 	RoleAdmin = authz.RoleAdmin
 )
 
@@ -142,6 +142,10 @@ type Service struct {
 
 	// Passkey registrations and sign-ins waiting for the browser (#226).
 	passkeys ceremonies
+
+	// Custom roles (#78) and the guard that checks callers against them.
+	roles roleCache
+	guard *authz.Guard
 }
 
 // New creates the service. When the database has no users, it generates a one-time setup

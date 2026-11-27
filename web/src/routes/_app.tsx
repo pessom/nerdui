@@ -31,6 +31,7 @@ import { UserMenu } from "../components/UserMenu";
 import { useJobsPanel } from "../features/jobs/JobsContext";
 import { JobsIndicator, JobsProvider } from "../features/jobs/JobsPanel";
 import { PreferencesProvider } from "../features/preferences/PreferencesProvider";
+import { allows, type Permission } from "../lib/permissions";
 
 /**
  * Pathless layout for everything behind authentication: resolves the session (ADR-0005)
@@ -65,6 +66,7 @@ function AppLayout() {
   const { session } = Route.useRouteContext();
   const params = useParams({ strict: false }) as { env?: string };
   const env = params.env ?? "local";
+  const can = (a: Permission) => allows(session, a);
 
   return (
     <PreferencesProvider>
@@ -107,119 +109,149 @@ function AppLayout() {
           <AppShell.Navbar p="xs" component="nav" aria-label="Main navigation">
             <ScrollArea>
               {/* Only implemented sections are listed; new features add their items here. */}
-              <RouterNavLink
-                to="/env/$env"
-                params={{ env }}
-                // The remembered namespace may be in the URL (?ns=); Overview ignores it.
-                activeOptions={{ exact: true, includeSearch: false }}
-                label="Overview"
-                leftSection={<IconLayoutDashboard size={18} stroke={1.5} />}
-                onClick={close}
-              />
-              <RouterNavLink
-                to="/env/$env/containers"
-                params={{ env }}
-                search={(prev: { ns?: string }) => ({ ns: prev.ns })}
-                label="Containers"
-                leftSection={<IconBox size={18} stroke={1.5} />}
-                onClick={close}
-              />
-              <RouterNavLink
-                to="/env/$env/stacks"
-                params={{ env }}
-                search={(prev: { ns?: string }) => ({ ns: prev.ns })}
-                label="Stacks"
-                leftSection={<IconStack2 size={18} stroke={1.5} />}
-                onClick={close}
-              />
-              <RouterNavLink
-                to="/env/$env/templates"
-                params={{ env }}
-                search={(prev: { ns?: string }) => ({ ns: prev.ns })}
-                label="Templates"
-                leftSection={<IconTemplate size={18} stroke={1.5} />}
-                onClick={close}
-              />
-              <RouterNavLink
-                to="/env/$env/images"
-                params={{ env }}
-                search={(prev: { ns?: string }) => ({ ns: prev.ns })}
-                label="Images"
-                leftSection={<IconStack3 size={18} stroke={1.5} />}
-                onClick={close}
-              />
-              <RouterNavLink
-                to="/env/$env/volumes"
-                params={{ env }}
-                search={(prev: { ns?: string }) => ({ ns: prev.ns })}
-                label="Volumes"
-                leftSection={<IconDatabase size={18} stroke={1.5} />}
-                onClick={close}
-              />
-              <RouterNavLink
-                to="/env/$env/networks"
-                params={{ env }}
-                search={(prev: { ns?: string }) => ({ ns: prev.ns })}
-                label="Networks"
-                leftSection={<IconNetwork size={18} stroke={1.5} />}
-                onClick={close}
-              />
-              <RouterNavLink
-                to="/env/$env/ports"
-                params={{ env }}
-                label="Ports"
-                leftSection={<IconPlug size={18} stroke={1.5} />}
-                onClick={close}
-              />
-              <RouterNavLink
-                to="/env/$env/registries"
-                params={{ env }}
-                search={(prev: { ns?: string }) => ({ ns: prev.ns })}
-                label="Registries"
-                leftSection={<IconKey size={18} stroke={1.5} />}
-                onClick={close}
-              />
-              <RouterNavLink
-                to="/env/$env/events"
-                params={{ env }}
-                search={(prev: { ns?: string }) => ({ ns: prev.ns })}
-                label="Events"
-                leftSection={<IconActivity size={18} stroke={1.5} />}
-                onClick={close}
-              />
-              <RouterNavLink
-                to="/env/$env/namespaces"
-                params={{ env }}
-                search={(prev: { ns?: string }) => ({ ns: prev.ns })}
-                label="Namespaces"
-                leftSection={<IconFolders size={18} stroke={1.5} />}
-                onClick={close}
-              />
-              <RouterNavLink
-                to="/env/$env/settings"
-                params={{ env }}
-                label="Settings"
-                leftSection={<IconSettings size={18} stroke={1.5} />}
-                onClick={close}
-              />
-              <RouterNavLink
-                to="/users"
-                label="Users"
-                leftSection={<IconUsers size={18} stroke={1.5} />}
-                onClick={close}
-              />
-              <RouterNavLink
-                to="/schedules"
-                label="Schedules"
-                leftSection={<IconClock size={18} stroke={1.5} />}
-                onClick={close}
-              />
-              <RouterNavLink
-                to="/audit"
-                label="Audit log"
-                leftSection={<IconListSearch size={18} stroke={1.5} />}
-                onClick={close}
-              />
+              {can("system:read") && (
+                <RouterNavLink
+                  to="/env/$env"
+                  params={{ env }}
+                  // The remembered namespace may be in the URL (?ns=); Overview ignores it.
+                  activeOptions={{ exact: true, includeSearch: false }}
+                  label="Overview"
+                  leftSection={<IconLayoutDashboard size={18} stroke={1.5} />}
+                  onClick={close}
+                />
+              )}
+              {can("containers:read") && (
+                <RouterNavLink
+                  to="/env/$env/containers"
+                  params={{ env }}
+                  search={(prev: { ns?: string }) => ({ ns: prev.ns })}
+                  label="Containers"
+                  leftSection={<IconBox size={18} stroke={1.5} />}
+                  onClick={close}
+                />
+              )}
+              {can("stacks:read") && (
+                <RouterNavLink
+                  to="/env/$env/stacks"
+                  params={{ env }}
+                  search={(prev: { ns?: string }) => ({ ns: prev.ns })}
+                  label="Stacks"
+                  leftSection={<IconStack2 size={18} stroke={1.5} />}
+                  onClick={close}
+                />
+              )}
+              {can("stacks:read") && (
+                <RouterNavLink
+                  to="/env/$env/templates"
+                  params={{ env }}
+                  search={(prev: { ns?: string }) => ({ ns: prev.ns })}
+                  label="Templates"
+                  leftSection={<IconTemplate size={18} stroke={1.5} />}
+                  onClick={close}
+                />
+              )}
+              {can("images:read") && (
+                <RouterNavLink
+                  to="/env/$env/images"
+                  params={{ env }}
+                  search={(prev: { ns?: string }) => ({ ns: prev.ns })}
+                  label="Images"
+                  leftSection={<IconStack3 size={18} stroke={1.5} />}
+                  onClick={close}
+                />
+              )}
+              {can("volumes:read") && (
+                <RouterNavLink
+                  to="/env/$env/volumes"
+                  params={{ env }}
+                  search={(prev: { ns?: string }) => ({ ns: prev.ns })}
+                  label="Volumes"
+                  leftSection={<IconDatabase size={18} stroke={1.5} />}
+                  onClick={close}
+                />
+              )}
+              {can("networks:read") && (
+                <RouterNavLink
+                  to="/env/$env/networks"
+                  params={{ env }}
+                  search={(prev: { ns?: string }) => ({ ns: prev.ns })}
+                  label="Networks"
+                  leftSection={<IconNetwork size={18} stroke={1.5} />}
+                  onClick={close}
+                />
+              )}
+              {can("containers:read") && (
+                <RouterNavLink
+                  to="/env/$env/ports"
+                  params={{ env }}
+                  label="Ports"
+                  leftSection={<IconPlug size={18} stroke={1.5} />}
+                  onClick={close}
+                />
+              )}
+              {can("registries:read") && (
+                <RouterNavLink
+                  to="/env/$env/registries"
+                  params={{ env }}
+                  search={(prev: { ns?: string }) => ({ ns: prev.ns })}
+                  label="Registries"
+                  leftSection={<IconKey size={18} stroke={1.5} />}
+                  onClick={close}
+                />
+              )}
+              {can("system:read") && (
+                <RouterNavLink
+                  to="/env/$env/events"
+                  params={{ env }}
+                  search={(prev: { ns?: string }) => ({ ns: prev.ns })}
+                  label="Events"
+                  leftSection={<IconActivity size={18} stroke={1.5} />}
+                  onClick={close}
+                />
+              )}
+              {can("namespaces:read") && (
+                <RouterNavLink
+                  to="/env/$env/namespaces"
+                  params={{ env }}
+                  search={(prev: { ns?: string }) => ({ ns: prev.ns })}
+                  label="Namespaces"
+                  leftSection={<IconFolders size={18} stroke={1.5} />}
+                  onClick={close}
+                />
+              )}
+              {can("settings:read") && (
+                <RouterNavLink
+                  to="/env/$env/settings"
+                  params={{ env }}
+                  label="Settings"
+                  leftSection={<IconSettings size={18} stroke={1.5} />}
+                  onClick={close}
+                />
+              )}
+              {can("users:read") && (
+                <RouterNavLink
+                  to="/users"
+                  label="Users"
+                  leftSection={<IconUsers size={18} stroke={1.5} />}
+                  onClick={close}
+                />
+              )}
+              {can("settings:read") && (
+                <RouterNavLink
+                  to="/schedules"
+                  label="Schedules"
+                  leftSection={<IconClock size={18} stroke={1.5} />}
+                  onClick={close}
+                />
+              )}
+              {can("audit:read") && (
+                <RouterNavLink
+                  to="/audit"
+                  label="Audit log"
+                  leftSection={<IconListSearch size={18} stroke={1.5} />}
+                  onClick={close}
+                />
+              )}
               <RouterNavLink
                 to="/api-docs"
                 label="API"

@@ -43,7 +43,7 @@ tags:
   - name: jobs
     description: Background jobs for long operations (#126, ADR-0006, ADR-0018)
   - name: users
-    description: Local users (#74, ADR-0016); every user is an administrator until roles (#78)
+    description: Local users and their roles (#74, #78, ADR-0016, ADR-0058)
   - name: settings
     description: Per-environment settings such as the Prometheus connection (#176, ADR-0023)
 security:
@@ -847,7 +847,8 @@ paths:
       summary: Create a user with a temporary password
       description: |
         Requires `users:write`. Without `password`, one is generated and returned once in
-        `generatedPassword`. The user must change it at the first sign-in.
+        `generatedPassword`. The user must change it at the first sign-in. The caller must have
+        every permission of `role` (403 otherwise, ADR-0058); an unknown role is 404.
       requestBody:
         required: true
         content:
@@ -859,6 +860,7 @@ paths:
               properties:
                 username: { type: string, pattern: "^[A-Za-z0-9._-]{1,64}$" }
                 password: { type: string, minLength: 12 }
+                role: { type: string, default: viewer, description: A built-in or custom role }
       responses:
         "201":
           description: Created
@@ -868,6 +870,78 @@ paths:
         "400": { $ref: "#/components/responses/Error" }
         "401": { $ref: "#/components/responses/Error" }
         "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/v1/roles:
+    get:
+      tags: [users]
+      operationId: listRoles
+      summary: List roles
+      description: "Requires `users:read`. Built-in roles first, then custom roles by name (ADR-0058)."
+      responses:
+        "200":
+          description: Roles
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Role" } }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+    post:
+      tags: [users]
+      operationId: createRole
+      summary: Create a custom role
+      description: "Requires `users:write` and every permission of the role."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RoleInput" }
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Role" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+  /api/v1/roles/{name}:
+    parameters:
+      - { name: name, in: path, required: true, schema: { type: string } }
+    put:
+      tags: [users]
+      operationId: updateRole
+      summary: Change a custom role
+      description: |
+        Requires `users:write` and every permission of the role before and after the change.
+        Users with the role get the new permissions at their next request. Built-in roles
+        cannot be changed (409).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RoleInput" }
+      responses:
+        "200":
+          description: Changed
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Role" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+    delete:
+      tags: [users]
+      operationId: deleteRole
+      summary: Delete a custom role
+      description: "Requires `users:write`. A role that users have cannot be deleted (409)."
+      responses:
+        "204": { description: Deleted }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
   /api/v1/users/{id}:
     parameters:
@@ -890,20 +964,22 @@ paths:
     patch:
       tags: [users]
       operationId: updateUser
-      summary: Disable or enable a user
+      summary: Change the role of a user, or disable or enable them
       description: |
         Requires `users:write`. Disabling revokes the user's sessions. The caller's own account
-        and the last active administrator cannot be disabled (409).
+        cannot be changed, and the last active administrator cannot be disabled or lose the
+        admin role (409). The caller must have every permission of the user's current and new
+        role (403 otherwise, ADR-0058). This applies to every change of another user.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [disabled]
               additionalProperties: false
               properties:
                 disabled: { type: boolean }
+                role: { type: string, description: A built-in or custom role }
       responses:
         "200":
           description: Updated
@@ -5173,7 +5249,7 @@ components:
         sso: { type: boolean, description: Linked to an account at the single sign-on provider (#76) }
         id: { type: integer, format: int64 }
         username: { type: string }
-        role: { type: string, enum: [admin] }
+        role: { type: string, description: "admin, editor, operator, viewer or a custom role (ADR-0058)" }
         mustChangePassword:
           type: boolean
           description: |
@@ -5197,6 +5273,7 @@ components:
         usernameClaim: { type: string, description: Default preferred_username }
         groupsClaim: { type: string, description: Default groups }
         group: { type: string, description: "Required to sign in; its members without an account get one. Empty: only existing accounts" }
+        role: { type: string, description: "Role of accounts created at the first sign-in; default viewer (admin for settings saved before roles)" }
         buttonLabel: { type: string, description: Default "Sign in with SSO" }
         redirectUrl: { type: string, description: Overrides the callback URL derived from the request }
         callbackUrl: { type: string, readOnly: true, description: The callback URL to register at the provider }
@@ -5218,7 +5295,7 @@ components:
           description: Present only when the server generated the password; shown once
     SessionResponse:
       type: object
-      required: [user, csrfToken, expiresAt, mfaSetupRequired]
+      required: [user, csrfToken, expiresAt, mfaSetupRequired, permissions]
       properties:
         user: { $ref: "#/components/schemas/User" }
         csrfToken: { type: string }
@@ -5226,6 +5303,31 @@ components:
         mfaSetupRequired:
           type: boolean
           description: Two-factor authentication is required and the user has not set it up yet
+        permissions:
+          type: array
+          items: { $ref: "#/components/schemas/Permission" }
+          description: |
+            What the caller may do: the actions of the user's role, limited by the API key of the
+            request (ADR-0058). The UI hides the rest; the server checks every request.
+    Role:
+      type: object
+      required: [name, description, builtin, permissions, users]
+      properties:
+        name: { type: string, pattern: "^[a-z][a-z0-9-]{0,31}$" }
+        description: { type: string, maxLength: 200 }
+        builtin: { type: boolean, description: admin, editor, operator and viewer cannot be changed }
+        permissions: { type: array, items: { $ref: "#/components/schemas/Permission" } }
+        users: { type: integer, format: int64, description: Users with the role }
+    RoleInput:
+      type: object
+      additionalProperties: false
+      properties:
+        name: { type: string, description: Only when creating }
+        description: { type: string, maxLength: 200 }
+        permissions:
+          type: array
+          items: { $ref: "#/components/schemas/Permission" }
+          description: The caller must have each of them; jobs:read is always added
     MFAChallenge:
       type: object
       required: [mfaRequired, mfaToken, totp, passkey]

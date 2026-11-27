@@ -4,6 +4,7 @@
 package auth
 
 import (
+	"cmp"
 	"context"
 	"crypto/subtle"
 	"encoding/json"
@@ -18,6 +19,7 @@ import (
 	"github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
 
+	"github.com/pessom/nerdui/internal/authz"
 	"github.com/pessom/nerdui/internal/store"
 	"github.com/pessom/nerdui/internal/store/db"
 )
@@ -67,6 +69,9 @@ type OIDCSettings struct {
 	// Group, when set, is required to sign in, and its members without an account get one.
 	// Without it only existing accounts can sign in.
 	Group string `json:"group"`
+	// Role is given to accounts created at the first sign-in (ADR-0058); settings saved
+	// before roles existed read as admin, new ones default to viewer.
+	Role string `json:"role"`
 	// ButtonLabel is the text of the sign-in button; default "Sign in with SSO".
 	ButtonLabel string `json:"buttonLabel"`
 	// RedirectURL overrides the callback URL nerdui derives from the request.
@@ -157,6 +162,9 @@ func (s *Service) OIDCSettings(ctx context.Context) (OIDCSettings, error) {
 		return OIDCSettings{}, err
 	}
 	c := st.OIDCSettings
+	if c.Role == "" {
+		c.Role = RoleAdmin
+	}
 	c.ClientSecret = nil
 	c.HasClientSecret = st.SealedSecret != ""
 	return c, nil
@@ -185,6 +193,9 @@ func (s *Service) SetOIDCSettings(ctx context.Context, c OIDCSettings) (OIDCSett
 	c.ClientID = strings.TrimSpace(c.ClientID)
 	c.Group = strings.TrimSpace(c.Group)
 	c.RedirectURL = strings.TrimSpace(c.RedirectURL)
+	if c.Role = strings.TrimSpace(c.Role); c.Role == "" {
+		c.Role = authz.RoleViewer
+	}
 	if err := c.validate(); err != nil {
 		return OIDCSettings{}, err
 	}
@@ -453,11 +464,11 @@ func (s *Service) oidcUser(ctx context.Context, c OIDCSettings, id OIDCIdentity)
 				return err
 			}
 			if u, err = q.CreateUser(ctx, db.CreateUserParams{
-				Username: id.Username, PasswordHash: hash, Role: RoleAdmin, Now: s.opts.Now().Unix(),
+				Username: id.Username, PasswordHash: hash, Role: cmp.Or(c.Role, RoleAdmin), Now: s.opts.Now().Unix(),
 			}); err != nil {
 				return err
 			}
-			s.opts.Logger.Info("account created for single sign-on", "username", u.Username)
+			s.opts.Logger.Info("account created for single sign-on", "username", u.Username, "role", u.Role)
 		}
 		if _, err := q.SetUserOIDCIdentity(ctx, db.SetUserOIDCIdentityParams{
 			ID: u.ID, OidcIdentity: nullString(id.ID), Now: s.opts.Now().Unix(),

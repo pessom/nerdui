@@ -7,6 +7,25 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 
 ## [Unreleased]
 
+### Added
+
+- Roles: `admin`, `editor`, `operator` (start, stop, restart, terminal, deploy) and `viewer`
+  built in, and custom roles from the same permissions as API keys, e.g. an editor without the
+  terminal. Give users a role on the Users page; the menu shows only the sections a role may open.
+  Nobody can give a role or manage a user with permissions they do not have, and the last
+  active administrator keeps the admin role (#78, #102, ADR-0058).
+- Single sign-on: a role for accounts created at the first sign-in (*Role of new accounts*).
+
+### Changed
+
+- New users get the `viewer` role unless another one is chosen; existing users stay
+  administrators. Single sign-on settings saved from now on give new accounts `viewer` by
+  default.
+
+### Upgrade notes
+
+- Database migration 22 (roles) is applied on start.
+
 ## [0.2.0] - 2026-11-26
 
 Second stable release: operations and automation for one host. It contains everything from the

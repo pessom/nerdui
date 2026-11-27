@@ -23,7 +23,7 @@ import (
 // keyServer adds a read route and a write route guarded like the real API.
 func keyServer(t *testing.T, e *env) *client {
 	t.Helper()
-	g := authz.NewGuard(authz.AdminOnly{}, SubjectFromRequest, nil)
+	g := authz.NewGuard(authz.Roles{Lookup: e.svc}, SubjectFromRequest, nil)
 	r := chi.NewRouter()
 	r.Route("/api/v1", func(r chi.Router) {
 		e.svc.Routes(r, g)

@@ -5,14 +5,15 @@ dex, Google and others (#76, ADR-0056). Passwords keep working as a fallback.
 
 ## How accounts are matched
 
-Every nerdui user is an administrator, so decide who may sign in:
+Decide who may sign in, and with which role (ADR-0058):
 
 - **Without a group** (default): only existing nerdui accounts can sign in. The first time, the
   account at the provider is linked to the nerdui account whose username equals the username
   claim (`preferred_username` by default). Create the users in nerdui first.
 - **With a group** (e.g. `nerdui-admins`): only members of the group can sign in, and members
-  without a nerdui account get one at their first sign-in. The group comes from the groups
-  claim (`groups` by default).
+  without a nerdui account get one at their first sign-in, with the role chosen under *Role of
+  new accounts* (`viewer` by default; `admin` for settings saved before roles). The group comes
+  from the groups claim (`groups` by default). Change a user's role later on the Users page.
 
 Later sign-ins use the link (the provider's issuer and subject), not the username. An account
 linked to another account at the provider is not relinked; administrators can unlink a user on

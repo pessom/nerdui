@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 
@@ -198,6 +199,77 @@ func TestKeyAllows(t *testing.T) {
 	} {
 		if err := tc.s.KeyAllows(tc.a); (err == nil) != tc.want || (err != nil && !errors.Is(err, ErrForbidden)) {
 			t.Errorf("%+v %s: %v", tc.s, tc.a, err)
+		}
+	}
+}
+
+func TestBuiltinRoles(t *testing.T) {
+	has := func(role string, a Action) bool {
+		perms, ok := Builtin(role)
+		if !ok {
+			t.Fatalf("role %q missing", role)
+		}
+		return slices.Contains(perms, a)
+	}
+	admin, _ := Builtin(RoleAdmin)
+	if !slices.Equal(admin, All()) {
+		t.Errorf("admin = %v", admin)
+	}
+	for _, c := range []struct {
+		role string
+		a    Action
+		want bool
+	}{
+		{RoleEditor, ContainersWrite, true},
+		{RoleEditor, SettingsRead, true},
+		{RoleEditor, SettingsWrite, false},
+		{RoleEditor, UsersRead, false},
+		{RoleEditor, AuditRead, false},
+		{RoleOperator, ContainersOperate, true},
+		{RoleOperator, ContainersExec, true},
+		{RoleOperator, StacksDeploy, true},
+		{RoleOperator, ContainersWrite, false},
+		{RoleOperator, StacksWrite, false},
+		{RoleOperator, SettingsRead, false},
+		{RoleViewer, ContainersRead, true},
+		{RoleViewer, JobsRead, true},
+		{RoleViewer, SessionSelf, true},
+		{RoleViewer, ContainersOperate, false},
+		{RoleViewer, ContainersExec, false},
+		{RoleViewer, UsersRead, false},
+		{RoleViewer, SettingsRead, false},
+	} {
+		if got := has(c.role, c.a); got != c.want {
+			t.Errorf("%s %s = %v", c.role, c.a, got)
+		}
+	}
+	if _, ok := Builtin("root"); ok {
+		t.Error("unknown built-in role")
+	}
+	if got := Normalize([]Action{StacksDeploy, "x:y", ContainersRead, StacksDeploy}); !slices.Equal(got,
+		[]Action{SessionSelf, JobsRead, ContainersRead, StacksDeploy}) {
+		t.Errorf("Normalize = %v", got)
+	}
+}
+
+type lookup map[string][]Action
+
+func (l lookup) RolePermissions(_ context.Context, role string) ([]Action, error) {
+	return l[role], nil
+}
+
+func TestRolesAuthorizer(t *testing.T) {
+	ctx := context.Background()
+	az := Roles{Lookup: lookup{"deployer": {StacksRead, StacksDeploy}}}
+	if err := az.Authorize(ctx, Subject{Role: "deployer"}, StacksDeploy, Resource{}); err != nil {
+		t.Error(err)
+	}
+	for _, c := range []struct {
+		role string
+		a    Action
+	}{{"deployer", StacksWrite}, {"gone", ContainersRead}, {"deployer", "stacks:fly"}} {
+		if err := az.Authorize(ctx, Subject{Role: c.role}, c.a, Resource{}); !errors.Is(err, ErrForbidden) {
+			t.Errorf("%s %s: %v", c.role, c.a, err)
 		}
 	}
 }

@@ -177,6 +177,9 @@ func (s *Service) handleMFAReset(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if !s.mayManageUser(w, r, id) {
+		return
+	}
 	if s.writeAuthError(w, s.ResetMFA(r.Context(), p.User.ID, id)) {
 		return
 	}

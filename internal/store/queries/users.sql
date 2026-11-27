@@ -40,3 +40,6 @@ SELECT * FROM users WHERE oidc_identity = ?;
 
 -- name: SetUserOIDCIdentity :execrows
 UPDATE users SET oidc_identity = @oidc_identity, updated_at = @now WHERE id = @id;
+
+-- name: SetUserRole :execrows
+UPDATE users SET role = @role, updated_at = @now WHERE id = @id;

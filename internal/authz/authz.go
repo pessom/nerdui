@@ -23,8 +23,8 @@ import (
 // Action is a permission name in the form "<area>:<verb>".
 type Action string
 
-// Action catalog (ADR-0009). Add new actions here; the catalog doubles as the permission
-// list for the future roles UI (#78).
+// Action catalog (ADR-0009). Add new actions here; the catalog is also the permission list
+// of roles (ADR-0058) and API keys (ADR-0053). Check the built-in roles (Builtin) too.
 const (
 	SessionSelf Action = "session:self" // own session: me, logout
 
@@ -81,8 +81,89 @@ func All() []Action { return slices.Clone(catalog) }
 // Known reports whether a is in the catalog.
 func Known(a Action) bool { return slices.Contains(catalog, a) }
 
-// RoleAdmin is the only role in MVP.
-const RoleAdmin = "admin"
+// Built-in roles (ADR-0058); custom roles are stored by the auth service.
+const (
+	RoleAdmin    = "admin"    // every action
+	RoleEditor   = "editor"   // everything but users, settings:write and the audit log
+	RoleOperator = "operator" // what a viewer reads; start, stop, restart, terminal, deploy
+	RoleViewer   = "viewer"   // read actions, except users, settings and the audit log
+)
+
+// BuiltinRoles lists the built-in roles, most permissions first.
+func BuiltinRoles() []string { return []string{RoleAdmin, RoleEditor, RoleOperator, RoleViewer} }
+
+// Always are the actions every role has: the caller's own session and jobs (each job is
+// further limited to callers allowed the action that started it).
+var Always = []Action{SessionSelf, JobsRead}
+
+// adminArea reports whether a belongs to administration: users, settings and the audit log.
+func adminArea(a Action) bool {
+	switch a {
+	case UsersRead, UsersWrite, SettingsRead, SettingsWrite, AuditRead:
+		return true
+	}
+	return false
+}
+
+// Builtin returns the actions of a built-in role, in catalog order.
+func Builtin(role string) ([]Action, bool) {
+	var keep func(Action) bool
+	switch role {
+	case RoleAdmin:
+		keep = func(Action) bool { return true }
+	case RoleEditor:
+		keep = func(a Action) bool { return !adminArea(a) || a == SettingsRead }
+	case RoleOperator:
+		keep = func(a Action) bool {
+			return (a.Read() && !adminArea(a)) || a == ContainersOperate || a == ContainersExec || a == StacksDeploy
+		}
+	case RoleViewer:
+		keep = func(a Action) bool { return a.Read() && !adminArea(a) }
+	default:
+		return nil, false
+	}
+	var out []Action
+	for _, a := range catalog {
+		if keep(a) || slices.Contains(Always, a) {
+			out = append(out, a)
+		}
+	}
+	return out, true
+}
+
+// Normalize returns the known actions of list plus Always, deduplicated, in catalog order.
+func Normalize(list []Action) []Action {
+	var out []Action
+	for _, a := range catalog {
+		if slices.Contains(list, a) || slices.Contains(Always, a) {
+			out = append(out, a)
+		}
+	}
+	return out
+}
+
+// RoleLookup returns the actions of a role; an unknown role has none.
+type RoleLookup interface {
+	RolePermissions(ctx context.Context, role string) ([]Action, error)
+}
+
+// Roles authorizes by the actions of the subject's role (ADR-0058).
+type Roles struct{ Lookup RoleLookup }
+
+// Authorize implements Authorizer.
+func (r Roles) Authorize(ctx context.Context, s Subject, a Action, _ Resource) error {
+	if !Known(a) {
+		return fmt.Errorf("%w: unknown action %q", ErrForbidden, a)
+	}
+	perms, err := r.Lookup.RolePermissions(ctx, s.Role)
+	if err != nil {
+		return err
+	}
+	if !slices.Contains(perms, a) {
+		return fmt.Errorf("%w: role %q may not %s", ErrForbidden, s.Role, a)
+	}
+	return nil
+}
 
 // Subject is the authenticated caller.
 type Subject struct {
@@ -141,7 +222,7 @@ type Authorizer interface {
 	Authorize(ctx context.Context, s Subject, a Action, r Resource) error
 }
 
-// AdminOnly is the MVP authorizer: the admin role may do everything, nobody else anything.
+// AdminOnly allows the admin role everything and nobody else anything; tests use it.
 // Unknown actions are always denied.
 type AdminOnly struct{}
 

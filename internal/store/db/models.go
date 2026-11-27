@@ -155,6 +155,14 @@ type Passkey struct {
 	LastUsedAt   sql.NullInt64
 }
 
+type Role struct {
+	Name        string
+	Description string
+	Permissions string
+	CreatedAt   int64
+	UpdatedAt   int64
+}
+
 type Schedule struct {
 	ID          int64
 	Name        string
@@ -225,7 +233,6 @@ type User struct {
 	ID                 int64
 	Username           string
 	PasswordHash       string
-	Role               string
 	CreatedAt          int64
 	UpdatedAt          int64
 	DisabledAt         sql.NullInt64
@@ -237,6 +244,7 @@ type User struct {
 	OidcIdentity       sql.NullString
 	WebauthnHandle     []byte
 	PasskeyCount       int64
+	Role               string
 }
 
 type UserPreference struct {

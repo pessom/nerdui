@@ -48,5 +48,6 @@ can do everything, so who may sign in through the provider matters most.
   it at the provider (in Keycloak, keep "Edit username" off). The docs say so.
 - Accounts created by the provider sign in only through it, until an administrator sets a
   temporary password.
-- Groups do not map to roles yet; with roles (#78) they can.
+- Groups do not map to roles yet; accounts created at the first sign-in get one configured role
+  (ADR-0058).
 - One provider; logout does not end the provider's session.

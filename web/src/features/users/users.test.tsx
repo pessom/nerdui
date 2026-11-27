@@ -62,8 +62,11 @@ describe("users page", () => {
     );
     expect(calls.find((c) => c.method === "POST" && c.path === "/api/v1/users")?.body).toEqual({
       username: "carol",
+      role: "viewer",
     });
-    expect(await within(screen.getByRole("table")).findByText("carol")).toBeInTheDocument();
+    expect(
+      await within(screen.getByRole("table", { name: "Users" })).findByText("carol"),
+    ).toBeInTheDocument();
   });
 
   it("sends a typed temporary password and validates its length", async () => {

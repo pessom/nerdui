@@ -14,6 +14,7 @@ export const keys = {
   me: ["me"] as const,
   jobs: ["jobs"] as const,
   users: ["users"] as const,
+  roles: ["roles"] as const,
   setup: ["setup"] as const,
   version: ["version"] as const,
   environments: ["environments"] as const,
@@ -89,6 +90,13 @@ export type UserDetail = components["schemas"]["UserDetail"];
 export const usersQuery = queryOptions({
   queryKey: keys.users,
   queryFn: async () => (await unwrap(api.GET("/api/v1/users"))).users,
+});
+
+export type Role = components["schemas"]["Role"];
+
+export const rolesQuery = queryOptions({
+  queryKey: keys.roles,
+  queryFn: () => unwrap(api.GET("/api/v1/roles")),
 });
 
 export const namespacesQuery = (env: string) =>
