@@ -1,0 +1,35 @@
+services:
+  monica:
+    image: monica:${VERSION:-4}-apache
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      APP_KEY: ${APP_KEY:?set APP_KEY}
+      DB_HOST: db
+      DB_DATABASE: monica
+      DB_USERNAME: monica
+      DB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
+    ports:
+      - "${PORT:-8119}:80"
+    volumes:
+      - storage:/var/www/html/storage
+  db:
+    image: percona/percona-server:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: monica
+      MYSQL_USER: monica
+      MYSQL_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
+      MYSQL_RANDOM_ROOT_PASSWORD: "1"
+    volumes:
+      - db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "--silent"]
+      interval: 10s
+      start_period: 60s
+      retries: 5
+volumes:
+  storage:
+  db:

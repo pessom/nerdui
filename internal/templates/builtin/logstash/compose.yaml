@@ -1,0 +1,14 @@
+services:
+  logstash:
+    image: logstash:${ELASTIC_VERSION:-9.5.7}
+    restart: unless-stopped
+    environment:
+      XPACK_MONITORING_ENABLED: "false"
+      LS_JAVA_OPTS: -Xms${HEAP:-512m} -Xmx${HEAP:-512m}
+    ports:
+      - "${BEATS_PORT:-5044}:5044"
+      - "${API_PORT:-9600}:9600"
+    volumes:
+      - pipeline:/usr/share/logstash/pipeline
+volumes:
+  pipeline:

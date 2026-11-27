@@ -1,0 +1,9 @@
+{
+  "name": "Apache ZooKeeper",
+  "description": "Coordination service for distributed systems, a single server.",
+  "categories": [
+    "messaging",
+    "tools"
+  ],
+  "documentation": "https://hub.docker.com/_/zookeeper"
+}

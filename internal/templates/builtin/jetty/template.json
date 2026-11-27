@@ -1,0 +1,9 @@
+{
+  "name": "Eclipse Jetty",
+  "description": "Java servlet container; put .war files into the webapps volume.",
+  "categories": [
+    "web",
+    "java"
+  ],
+  "documentation": "https://hub.docker.com/_/jetty"
+}

@@ -1,0 +1,20 @@
+services:
+  traefik:
+    image: traefik:${VERSION:-v3}
+    restart: unless-stopped
+    command:
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --providers.file.directory=/etc/traefik/dynamic
+      - --providers.file.watch=true
+      - --api.dashboard=true
+      - --api.insecure=true
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+      # The dashboard has no password: only on this host by default.
+      - "${DASHBOARD_BIND:-127.0.0.1}:${DASHBOARD_PORT:-8125}:8080"
+    volumes:
+      - dynamic:/etc/traefik/dynamic
+volumes:
+  dynamic:

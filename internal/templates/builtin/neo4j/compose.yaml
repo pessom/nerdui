@@ -1,0 +1,13 @@
+services:
+  neo4j:
+    image: neo4j:${VERSION:-2026}-community
+    restart: unless-stopped
+    environment:
+      NEO4J_AUTH: neo4j/${NEO4J_PASSWORD:?set NEO4J_PASSWORD}
+    ports:
+      - "${HTTP_PORT:-7474}:7474"
+      - "${BOLT_PORT:-7687}:7687"
+    volumes:
+      - data:/data
+volumes:
+  data:

@@ -1,0 +1,9 @@
+{
+  "name": "Hitch",
+  "description": "TLS proxy in front of Varnish or another server that speaks the PROXY protocol; a self-signed certificate is created at the first start, replace site.pem in the certs volume.",
+  "categories": [
+    "proxy",
+    "security"
+  ],
+  "documentation": "https://hub.docker.com/_/hitch"
+}

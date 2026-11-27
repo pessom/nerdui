@@ -1,0 +1,34 @@
+services:
+  backdrop:
+    image: backdrop:${VERSION:-1}-apache
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      BACKDROP_DB_HOST: db
+      BACKDROP_DB_USER: backdrop
+      BACKDROP_DB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
+      BACKDROP_DB_NAME: backdrop
+    ports:
+      - "${PORT:-8126}:80"
+    volumes:
+      - files:/var/www/html/files
+  db:
+    image: percona/percona-server:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: backdrop
+      MYSQL_USER: backdrop
+      MYSQL_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
+      MYSQL_RANDOM_ROOT_PASSWORD: "1"
+    volumes:
+      - db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "--silent"]
+      interval: 10s
+      start_period: 60s
+      retries: 5
+volumes:
+  files:
+  db:

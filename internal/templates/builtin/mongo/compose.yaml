@@ -1,0 +1,18 @@
+services:
+  mongo:
+    image: mongo:${MONGO_VERSION:-8.0}
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USER:-root}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:?set MONGO_PASSWORD}
+    ports:
+      - "${PORT:-27017}:27017"
+    volumes:
+      - data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      start_period: 30s
+      retries: 5
+volumes:
+  data:

@@ -1,0 +1,8 @@
+{
+  "name": "Apache Storm",
+  "description": "Distributed realtime computation: Nimbus, a supervisor, the UI and ZooKeeper.",
+  "categories": [
+    "analytics"
+  ],
+  "documentation": "https://hub.docker.com/_/storm"
+}

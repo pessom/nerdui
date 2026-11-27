@@ -1,0 +1,8 @@
+{
+  "name": "EspoCRM",
+  "description": "Customer relationship management, with Percona Server.",
+  "categories": [
+    "productivity"
+  ],
+  "documentation": "https://hub.docker.com/_/espocrm"
+}

@@ -1,0 +1,8 @@
+{
+  "name": "GCC",
+  "description": "Sandbox with the GNU C and C++ compilers: the container keeps running, work in it in the Terminal tab; files in /work are kept.",
+  "categories": [
+    "sandbox"
+  ],
+  "documentation": "https://hub.docker.com/_/gcc"
+}

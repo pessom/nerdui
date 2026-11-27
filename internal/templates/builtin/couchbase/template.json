@@ -1,0 +1,8 @@
+{
+  "name": "Couchbase Server",
+  "description": "Document database with caching and full-text search (Community Edition); finish the setup in the web console.",
+  "categories": [
+    "database"
+  ],
+  "documentation": "https://hub.docker.com/_/couchbase"
+}

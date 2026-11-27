@@ -1,0 +1,45 @@
+services:
+  friendica:
+    image: friendica:${VERSION:-2026.05}-apache
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      MYSQL_HOST: db
+      MYSQL_DATABASE: friendica
+      MYSQL_USER: friendica
+      MYSQL_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
+      FRIENDICA_URL: ${URL:-http://localhost:8127}
+      FRIENDICA_ADMIN_MAIL: ${ADMIN_MAIL:?set ADMIN_MAIL}
+    ports:
+      - "${PORT:-8127}:80"
+    volumes:
+      - friendica:/var/www/html
+  # Background jobs of Friendica.
+  cron:
+    image: friendica:${VERSION:-2026.05}-apache
+    restart: unless-stopped
+    entrypoint: /cron.sh
+    depends_on:
+      - friendica
+    volumes:
+      - friendica:/var/www/html
+  db:
+    image: percona/percona-server:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: friendica
+      MYSQL_USER: friendica
+      MYSQL_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
+      MYSQL_RANDOM_ROOT_PASSWORD: "1"
+    volumes:
+      - db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "--silent"]
+      interval: 10s
+      start_period: 60s
+      retries: 5
+volumes:
+  friendica:
+  db:

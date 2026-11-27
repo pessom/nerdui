@@ -1,0 +1,9 @@
+{
+  "name": "Hello World",
+  "description": "Prints a greeting and exits: checks that this host can pull and run containers.",
+  "categories": [
+    "sandbox",
+    "tools"
+  ],
+  "documentation": "https://hub.docker.com/_/hello-world"
+}

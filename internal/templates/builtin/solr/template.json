@@ -1,0 +1,8 @@
+{
+  "name": "Apache Solr",
+  "description": "Search platform with one core created at the first start.",
+  "categories": [
+    "search"
+  ],
+  "documentation": "https://hub.docker.com/_/solr"
+}

@@ -1,0 +1,9 @@
+{
+  "name": "Ghost",
+  "description": "Publishing platform for blogs and newsletters, with Percona Server.",
+  "categories": [
+    "cms",
+    "web"
+  ],
+  "documentation": "https://hub.docker.com/_/ghost"
+}

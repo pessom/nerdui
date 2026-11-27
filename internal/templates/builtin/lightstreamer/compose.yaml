@@ -1,0 +1,6 @@
+services:
+  lightstreamer:
+    image: lightstreamer:${VERSION:-7.4}
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8138}:8080"

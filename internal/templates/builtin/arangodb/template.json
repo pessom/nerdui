@@ -1,0 +1,8 @@
+{
+  "name": "ArangoDB",
+  "description": "Multi-model database: documents, graphs and key-value.",
+  "categories": [
+    "database"
+  ],
+  "documentation": "https://hub.docker.com/_/arangodb"
+}

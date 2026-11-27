@@ -4,7 +4,9 @@
 ([ADR-0051](adr/0051-stack-templates.md)), or as single containers
 ([ADR-0059](adr/0059-container-templates.md)). Templates come from three sources:
 
-- the built-in catalog;
+- the built-in catalog: about 130 applications by category (databases, caches,
+  messaging, web servers and proxies, CMS, productivity, monitoring, logging, search,
+  development, communication) and *sandbox* templates;
 - registries you add under **Registries**;
 - templates you saved, shown as *Mine*.
 
@@ -18,6 +20,19 @@ back to its template:
 - Variables marked **Secret** become encrypted variables of the stack (its Variables tab,
   [ADR-0049](adr/0049-stack-variables.md)). They are left out of `.env` and never shown again.
 - Leave a secret empty when the application does not need it.
+
+## Sandboxes
+
+The *sandbox* category holds base images (Alpine, Ubuntu, Debian, BusyBox), languages (Python,
+Node.js, Go, Rust, Ruby, PHP, Java and others) and build tools (Maven, Gradle, Composer). Such
+images exit at once when started as they are; a sandbox template keeps the container running
+instead, so you work in it from the container's **Terminal** tab. Files in `/work` are kept in a
+volume. *Hello World* is the exception: it prints a greeting and exits, to check that the host
+can pull and run containers.
+
+Images that need AppArmor to allow signals inside containers (MySQL, MongoDB and others that
+switch user with `gosu`, Elasticsearch, InfluxDB) may hang or fail on Linux 7: see
+[AppArmor on Linux 7](deployment.md#apparmor-on-linux-7).
 
 ## Deploying as a container
 

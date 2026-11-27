@@ -1,0 +1,9 @@
+{
+  "name": "CrateDB",
+  "description": "Distributed SQL database for time series and search, a single node.",
+  "categories": [
+    "database",
+    "analytics"
+  ],
+  "documentation": "https://hub.docker.com/_/crate"
+}

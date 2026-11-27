@@ -1,0 +1,10 @@
+services:
+  chronograf:
+    image: chronograf:${VERSION:-1.11}-alpine
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8888}:8888"
+    volumes:
+      - data:/var/lib/chronograf
+volumes:
+  data:

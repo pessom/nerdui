@@ -25,9 +25,10 @@ compose.yaml, an .env.example and metadata.
   right above a line describe it) and a name, description, categories, logo and documentation
   link. A variable whose name looks like a password, secret, token or key is proposed as a
   secret.
-- Sources: a **built-in catalog** embedded in the binary (PostgreSQL, Percona Server for MySQL,
-  Redis, nginx, Adminer, Uptime Kuma, Gitea, Vaultwarden, WordPress, Grafana, whoami; MariaDB
-  until 0.2), **registries** by URL
+- Sources: a **built-in catalog** embedded in the binary (databases, caches, message brokers,
+  web servers and proxies, Java servers, CMS, monitoring, logging and more, about 130 since
+  0.3; images no longer maintained are replaced by their successors; *sandbox* templates
+  keep a base or language image running to work in it from the terminal), **registries** by URL
   in Arcane's `registry.json` format (`compose_url`, `env_url`, `icon_url`,
   `documentation_url`, `tags`, relative to the registry) or with the files inline, and
   **templates users save** in the database, also from an existing stack (its compose file, and
@@ -46,7 +47,8 @@ compose.yaml, an .env.example and metadata.
 
 - Templates are plain compose files: a deployed stack is an ordinary stack, edited and
   updated like any other; it keeps no link to its template.
-- Built-in templates change only with nerdui releases; image tags are majors or `latest`
-  where the image has no major tags. A test loads each one like `nerdctl compose`.
+- Built-in templates change only with nerdui releases; image tags are majors where the image
+  publishes them, otherwise a pinned version or `latest`. A test loads each one like
+  `nerdctl compose`, and turns each one-service template into a container.
 - A registry decides where its files are fetched from; registries are trusted like the
   images they reference.

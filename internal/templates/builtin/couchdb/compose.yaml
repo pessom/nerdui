@@ -1,0 +1,13 @@
+services:
+  couchdb:
+    image: couchdb:${VERSION:-3}
+    restart: unless-stopped
+    environment:
+      COUCHDB_USER: ${COUCHDB_USER:-admin}
+      COUCHDB_PASSWORD: ${COUCHDB_PASSWORD:?set COUCHDB_PASSWORD}
+    ports:
+      - "${PORT:-5984}:5984"
+    volumes:
+      - data:/opt/couchdb/data
+volumes:
+  data:

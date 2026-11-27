@@ -1,0 +1,8 @@
+{
+  "name": "Telegraf with InfluxDB",
+  "description": "InfluxDB 2 and Telegraf sending it CPU, memory and disk metrics.",
+  "categories": [
+    "monitoring"
+  ],
+  "documentation": "https://hub.docker.com/_/telegraf"
+}

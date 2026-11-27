@@ -1,0 +1,9 @@
+{
+  "name": "MediaWiki",
+  "description": "The wiki software of Wikipedia; the installer keeps the wiki in SQLite in the data volume.",
+  "categories": [
+    "cms",
+    "productivity"
+  ],
+  "documentation": "https://hub.docker.com/_/mediawiki"
+}

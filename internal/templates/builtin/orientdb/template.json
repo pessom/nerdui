@@ -1,0 +1,8 @@
+{
+  "name": "OrientDB",
+  "description": "Multi-model graph and document database.",
+  "categories": [
+    "database"
+  ],
+  "documentation": "https://hub.docker.com/_/orientdb"
+}

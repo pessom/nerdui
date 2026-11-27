@@ -1,0 +1,13 @@
+services:
+  kapacitor:
+    image: kapacitor:${VERSION:-1.8}-alpine
+    restart: unless-stopped
+    environment:
+      KAPACITOR_INFLUXDB_0_ENABLED: ${INFLUXDB_ENABLED:-false}
+      KAPACITOR_INFLUXDB_0_URLS_0: ${INFLUXDB_URL:-http://influxdb:8086}
+    ports:
+      - "${PORT:-9092}:9092"
+    volumes:
+      - data:/var/lib/kapacitor
+volumes:
+  data:

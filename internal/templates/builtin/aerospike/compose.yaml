@@ -1,0 +1,10 @@
+services:
+  aerospike:
+    image: aerospike:${VERSION:-ce-8.2.0.2}
+    restart: unless-stopped
+    ports:
+      - "3000-3002:3000-3002"
+    volumes:
+      - data:/opt/aerospike/data
+volumes:
+  data:

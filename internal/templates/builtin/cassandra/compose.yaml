@@ -1,0 +1,19 @@
+services:
+  cassandra:
+    image: cassandra:${VERSION:-5.0}
+    restart: unless-stopped
+    environment:
+      CASSANDRA_CLUSTER_NAME: ${CLUSTER_NAME:-nerdui}
+      MAX_HEAP_SIZE: ${HEAP:-1G}
+      HEAP_NEWSIZE: 200M
+    ports:
+      - "${PORT:-9042}:9042"
+    volumes:
+      - data:/var/lib/cassandra
+    healthcheck:
+      test: ["CMD-SHELL", "cqlsh -e 'describe keyspaces' > /dev/null"]
+      interval: 30s
+      start_period: 120s
+      retries: 5
+volumes:
+  data:

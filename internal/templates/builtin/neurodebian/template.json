@@ -1,0 +1,8 @@
+{
+  "name": "NeuroDebian",
+  "description": "Sandbox with Debian with the NeuroDebian repository of neuroscience software: the container keeps running, work in it in the Terminal tab; files in /work are kept.",
+  "categories": [
+    "sandbox"
+  ],
+  "documentation": "https://hub.docker.com/_/neurodebian"
+}

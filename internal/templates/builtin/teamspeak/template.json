@@ -1,0 +1,8 @@
+{
+  "name": "TeamSpeak 3 Server",
+  "description": "Voice chat server; the privilege key of the first administrator is in the log.",
+  "categories": [
+    "communication"
+  ],
+  "documentation": "https://hub.docker.com/_/teamspeak"
+}

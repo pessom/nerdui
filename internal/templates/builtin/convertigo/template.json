@@ -1,0 +1,8 @@
+{
+  "name": "Convertigo",
+  "description": "Low-code platform for mobile and web applications; the administration console is at /convertigo.",
+  "categories": [
+    "development"
+  ],
+  "documentation": "https://hub.docker.com/_/convertigo"
+}

@@ -1,0 +1,8 @@
+{
+  "name": "Nextcloud",
+  "description": "Files, calendars and contacts in the cloud, with PostgreSQL.",
+  "categories": [
+    "productivity"
+  ],
+  "documentation": "https://hub.docker.com/_/nextcloud"
+}

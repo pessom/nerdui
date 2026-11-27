@@ -1,0 +1,8 @@
+{
+  "name": "HashiCorp Vault",
+  "description": "Secrets management with file storage; initialize and unseal it in the web interface.",
+  "categories": [
+    "security"
+  ],
+  "documentation": "https://hub.docker.com/r/hashicorp/vault"
+}

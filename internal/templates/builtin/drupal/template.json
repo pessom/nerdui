@@ -1,0 +1,9 @@
+{
+  "name": "Drupal",
+  "description": "Content management system, with PostgreSQL: in the installer choose PostgreSQL, host db, database and user drupal.",
+  "categories": [
+    "cms",
+    "web"
+  ],
+  "documentation": "https://hub.docker.com/_/drupal"
+}

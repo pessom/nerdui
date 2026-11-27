@@ -1,0 +1,9 @@
+{
+  "name": "Redmine",
+  "description": "Project management and issue tracking, with PostgreSQL.",
+  "categories": [
+    "development",
+    "productivity"
+  ],
+  "documentation": "https://hub.docker.com/_/redmine"
+}

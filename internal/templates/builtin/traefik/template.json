@@ -1,0 +1,8 @@
+{
+  "name": "Traefik",
+  "description": "Reverse proxy; routes come from files in the dynamic volume (nerdctl has no Docker API for labels).",
+  "categories": [
+    "proxy"
+  ],
+  "documentation": "https://doc.traefik.io/traefik/providers/file/"
+}

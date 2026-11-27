@@ -1,0 +1,9 @@
+{
+  "name": "Friendica",
+  "description": "Decentralized social network that federates with the Fediverse, with Percona Server.",
+  "categories": [
+    "communication",
+    "web"
+  ],
+  "documentation": "https://hub.docker.com/_/friendica"
+}

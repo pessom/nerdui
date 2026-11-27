@@ -1,0 +1,8 @@
+{
+  "name": "HashiCorp Consul",
+  "description": "Service discovery and key-value store, a single server with the web interface.",
+  "categories": [
+    "tools"
+  ],
+  "documentation": "https://hub.docker.com/r/hashicorp/consul"
+}

@@ -1,0 +1,26 @@
+services:
+  hitch:
+    image: hitch:${VERSION:-1}
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+      BACKEND: ${BACKEND:-[127.0.0.1]:8443}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        pem=/etc/hitch/certs/site.pem
+        if [ ! -s "$$pem" ]; then
+          openssl req -batch -x509 -nodes -days 3650 -newkey rsa:2048 -subj "/CN=$$DOMAIN" \
+            -keyout /tmp/key.pem -out /tmp/cert.pem 2> /dev/null
+          cat /tmp/key.pem /tmp/cert.pem > "$$pem"
+          rm -f /tmp/key.pem /tmp/cert.pem
+        fi
+        exec hitch --frontend='[*]:443' --backend="$$BACKEND" --user=hitch --group=hitch --write-proxy-v2 "$$pem"
+    ports:
+      - "${PORT:-8137}:443"
+    volumes:
+      - certs:/etc/hitch/certs
+volumes:
+  certs:

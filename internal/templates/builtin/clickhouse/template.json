@@ -1,0 +1,9 @@
+{
+  "name": "ClickHouse",
+  "description": "Column-oriented database for analytics.",
+  "categories": [
+    "database",
+    "analytics"
+  ],
+  "documentation": "https://hub.docker.com/_/clickhouse"
+}

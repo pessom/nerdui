@@ -1,0 +1,9 @@
+{
+  "name": "MongoDB with Mongo Express",
+  "description": "MongoDB and its web admin interface.",
+  "categories": [
+    "database",
+    "tools"
+  ],
+  "documentation": "https://hub.docker.com/_/mongo-express"
+}

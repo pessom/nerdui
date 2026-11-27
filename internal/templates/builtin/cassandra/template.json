@@ -1,0 +1,8 @@
+{
+  "name": "Apache Cassandra",
+  "description": "Wide-column database, a single node.",
+  "categories": [
+    "database"
+  ],
+  "documentation": "https://hub.docker.com/_/cassandra"
+}

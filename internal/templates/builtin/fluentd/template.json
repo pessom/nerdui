@@ -1,0 +1,8 @@
+{
+  "name": "Fluentd",
+  "description": "Log collector; receives logs on the forward protocol, change fluent.conf in the config volume.",
+  "categories": [
+    "logging"
+  ],
+  "documentation": "https://hub.docker.com/_/fluentd"
+}

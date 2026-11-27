@@ -1,0 +1,8 @@
+{
+  "name": "Aerospike",
+  "description": "Key-value database for high throughput (Community Edition).",
+  "categories": [
+    "database"
+  ],
+  "documentation": "https://hub.docker.com/_/aerospike"
+}

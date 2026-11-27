@@ -1,0 +1,9 @@
+{
+  "name": "Open Liberty",
+  "description": "Java application server (Jakarta EE, MicroProfile); put applications into the dropins volume.",
+  "categories": [
+    "web",
+    "java"
+  ],
+  "documentation": "https://hub.docker.com/_/open-liberty"
+}

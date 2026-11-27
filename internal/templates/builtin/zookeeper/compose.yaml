@@ -1,0 +1,12 @@
+services:
+  zookeeper:
+    image: zookeeper:${VERSION:-3.9}
+    restart: unless-stopped
+    ports:
+      - "${PORT:-2181}:2181"
+    volumes:
+      - data:/data
+      - datalog:/datalog
+volumes:
+  data:
+  datalog:

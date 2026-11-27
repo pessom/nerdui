@@ -1,0 +1,8 @@
+{
+  "name": "Eggdrop",
+  "description": "IRC bot; connect to it with telnet on the port below and type NEW to become its owner.",
+  "categories": [
+    "communication"
+  ],
+  "documentation": "https://hub.docker.com/_/eggdrop"
+}

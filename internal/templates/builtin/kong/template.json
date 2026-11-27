@@ -1,0 +1,8 @@
+{
+  "name": "Kong Gateway",
+  "description": "API gateway without a database: configure it through the Admin API (on this host by default).",
+  "categories": [
+    "proxy"
+  ],
+  "documentation": "https://hub.docker.com/_/kong"
+}

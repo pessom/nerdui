@@ -1,0 +1,10 @@
+services:
+  krakend:
+    image: krakend:${VERSION:-3}
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8134}:8080"
+    volumes:
+      - config:/etc/krakend
+volumes:
+  config:

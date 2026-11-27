@@ -1,0 +1,13 @@
+services:
+  rethinkdb:
+    image: rethinkdb:${VERSION:-2.4}
+    restart: unless-stopped
+    command: ["rethinkdb", "--bind", "all"]
+    ports:
+      # The administration interface has no password: only on this host by default.
+      - "${ADMIN_BIND:-127.0.0.1}:${ADMIN_PORT:-8122}:8080"
+      - "${PORT:-28015}:28015"
+    volumes:
+      - data:/data
+volumes:
+  data:

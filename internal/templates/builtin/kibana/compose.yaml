@@ -1,0 +1,43 @@
+services:
+  kibana:
+    image: kibana:${ELASTIC_VERSION:-9.5.7}
+    restart: unless-stopped
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+      ELASTICSEARCH_USERNAME: kibana_system
+      ELASTICSEARCH_PASSWORD: ${KIBANA_PASSWORD:?set KIBANA_PASSWORD}
+    ports:
+      - "${PORT:-5601}:5601"
+    volumes:
+      - kibana:/usr/share/kibana/data
+  # Sets the password Kibana signs in to Elasticsearch with, then exits.
+  setup:
+    image: elasticsearch:${ELASTIC_VERSION:-9.5.7}
+    restart: "no"
+    environment:
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:?set ELASTIC_PASSWORD}
+      KIBANA_PASSWORD: ${KIBANA_PASSWORD:?set KIBANA_PASSWORD}
+    command:
+      - bash
+      - -c
+      - |
+        until curl -s -u "elastic:$$ELASTIC_PASSWORD" -X POST -H 'Content-Type: application/json' \
+          http://elasticsearch:9200/_security/user/kibana_system/_password \
+          -d "{\"password\":\"$$KIBANA_PASSWORD\"}" | grep -q '^{}'; do sleep 5; done
+  elasticsearch:
+    image: elasticsearch:${ELASTIC_VERSION:-9.5.7}
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      ELASTIC_PASSWORD: ${ELASTIC_PASSWORD:?set ELASTIC_PASSWORD}
+      xpack.security.http.ssl.enabled: "false"
+      xpack.security.transport.ssl.enabled: "false"
+      ES_JAVA_OPTS: -Xms${HEAP:-1g} -Xmx${HEAP:-1g}
+    volumes:
+      - data:/usr/share/elasticsearch/data
+volumes:
+  data:
+  kibana:

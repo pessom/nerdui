@@ -1,0 +1,8 @@
+{
+  "name": "IBM Semeru Runtime",
+  "description": "Sandbox with the OpenJDK with the Eclipse OpenJ9 virtual machine; replaces ibmjava: the container keeps running, work in it in the Terminal tab; files in /work are kept.",
+  "categories": [
+    "sandbox"
+  ],
+  "documentation": "https://hub.docker.com/_/ibm-semeru-runtimes"
+}

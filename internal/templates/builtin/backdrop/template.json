@@ -1,0 +1,9 @@
+{
+  "name": "Backdrop CMS",
+  "description": "Content management system for small sites, with Percona Server.",
+  "categories": [
+    "cms",
+    "web"
+  ],
+  "documentation": "https://hub.docker.com/_/backdrop"
+}

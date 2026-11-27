@@ -1,0 +1,9 @@
+{
+  "name": "Silverpeas",
+  "description": "Collaborative intranet: documents, workflows, calendars; with PostgreSQL. The first start takes several minutes.",
+  "categories": [
+    "productivity",
+    "java"
+  ],
+  "documentation": "https://hub.docker.com/_/silverpeas"
+}

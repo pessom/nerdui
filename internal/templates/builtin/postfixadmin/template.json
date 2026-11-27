@@ -1,0 +1,8 @@
+{
+  "name": "PostfixAdmin",
+  "description": "Web interface to manage the domains and mailboxes of a Postfix mail server, with Percona Server; open /setup.php first.",
+  "categories": [
+    "tools"
+  ],
+  "documentation": "https://hub.docker.com/_/postfixadmin"
+}

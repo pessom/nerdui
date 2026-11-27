@@ -1,0 +1,16 @@
+services:
+  clickhouse:
+    image: clickhouse:${VERSION:-26.8}
+    restart: unless-stopped
+    environment:
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-default}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:?set CLICKHOUSE_PASSWORD}
+      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-app}
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+    ports:
+      - "${HTTP_PORT:-8123}:8123"
+      - "${NATIVE_PORT:-9000}:9000"
+    volumes:
+      - data:/var/lib/clickhouse
+volumes:
+  data:

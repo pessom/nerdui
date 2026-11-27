@@ -1,0 +1,8 @@
+{
+  "name": "MongoDB",
+  "description": "Document database.",
+  "categories": [
+    "database"
+  ],
+  "documentation": "https://hub.docker.com/_/mongo"
+}

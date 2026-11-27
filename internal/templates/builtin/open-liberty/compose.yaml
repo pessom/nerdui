@@ -1,0 +1,11 @@
+services:
+  liberty:
+    image: open-liberty:${VERSION:-full-java17-openj9}
+    restart: unless-stopped
+    ports:
+      - "${PORT:-9080}:9080"
+      - "${TLS_PORT:-9443}:9443"
+    volumes:
+      - dropins:/config/dropins
+volumes:
+  dropins:

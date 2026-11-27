@@ -1,0 +1,8 @@
+{
+  "name": "BusyBox",
+  "description": "Sandbox with the smallest shell with Unix tools: the container keeps running, work in it in the Terminal tab; files in /work are kept.",
+  "categories": [
+    "sandbox"
+  ],
+  "documentation": "https://hub.docker.com/_/busybox"
+}

@@ -1,0 +1,35 @@
+services:
+  silverpeas:
+    image: silverpeas:${VERSION:-6.4}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_SERVERTYPE: POSTGRESQL
+      DB_SERVER: db
+      DB_NAME: silverpeas
+      DB_USER: silverpeas
+      DB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
+    ports:
+      - "${PORT:-8131}:8000"
+    volumes:
+      - data:/opt/silverpeas/data
+      - log:/opt/silverpeas/log
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: silverpeas
+      POSTGRES_USER: silverpeas
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
+    volumes:
+      - db:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U silverpeas"]
+      interval: 10s
+      retries: 5
+volumes:
+  data:
+  log:
+  db:

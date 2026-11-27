@@ -1,0 +1,10 @@
+services:
+  tomee:
+    image: tomee:${VERSION:-10}-jre21-plus
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8107}:8080"
+    volumes:
+      - webapps:/usr/local/tomee/webapps
+volumes:
+  webapps:

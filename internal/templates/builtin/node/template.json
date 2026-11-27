@@ -1,0 +1,8 @@
+{
+  "name": "Node.js",
+  "description": "Sandbox with Node.js with npm: the container keeps running, work in it in the Terminal tab; files in /work are kept.",
+  "categories": [
+    "sandbox"
+  ],
+  "documentation": "https://hub.docker.com/_/node"
+}

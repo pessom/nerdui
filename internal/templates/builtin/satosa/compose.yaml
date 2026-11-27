@@ -1,0 +1,13 @@
+services:
+  satosa:
+    image: satosa:${VERSION:-8}
+    restart: unless-stopped
+    environment:
+      BASE_URL: ${BASE_URL:-https://localhost:8135}
+      STATE_ENCRYPTION_KEY: ${STATE_ENCRYPTION_KEY:?set STATE_ENCRYPTION_KEY}
+    ports:
+      - "${PORT:-8135}:8080"
+    volumes:
+      - config:/etc/satosa
+volumes:
+  config:

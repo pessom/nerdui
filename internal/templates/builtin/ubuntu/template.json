@@ -1,0 +1,8 @@
+{
+  "name": "Ubuntu",
+  "description": "Sandbox with Ubuntu with apt: the container keeps running, work in it in the Terminal tab; files in /work are kept.",
+  "categories": [
+    "sandbox"
+  ],
+  "documentation": "https://hub.docker.com/_/ubuntu"
+}

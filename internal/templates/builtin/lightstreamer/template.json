@@ -1,0 +1,8 @@
+{
+  "name": "Lightstreamer",
+  "description": "Real-time messaging server for web and mobile clients, with its demo pages.",
+  "categories": [
+    "messaging"
+  ],
+  "documentation": "https://hub.docker.com/_/lightstreamer"
+}

@@ -1,0 +1,9 @@
+{
+  "name": "Matomo",
+  "description": "Web analytics that keeps the data on your server (formerly Piwik), with Percona Server.",
+  "categories": [
+    "analytics",
+    "web"
+  ],
+  "documentation": "https://hub.docker.com/_/matomo"
+}
