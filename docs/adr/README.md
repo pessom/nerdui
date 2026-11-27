@@ -67,3 +67,4 @@ We record significant architectural decisions as ADRs
 | 0056 | [Sign-in with an OpenID Connect provider](0056-oidc-sign-in.md) | Accepted |
 | 0057 | [Passkeys (WebAuthn)](0057-passkeys.md) | Accepted |
 | 0058 | [Roles: built-in and custom](0058-roles.md) | Accepted |
+| 0059 | [Templates for single containers](0059-container-templates.md) | Accepted |

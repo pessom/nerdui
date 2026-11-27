@@ -60,6 +60,9 @@ type Template struct {
 	Compose   string     `json:"compose"`
 	Env       string     `json:"env"`
 	Variables []Variable `json:"variables"`
+	// Services of the compose file; with one, the template can also start a container
+	// (ADR-0059).
+	Services []string `json:"services"`
 }
 
 // Variable is a variable of .env.example. Keep in sync with api/openapi.yaml.
@@ -362,6 +365,17 @@ func (s *Service) List(ctx context.Context) ([]Summary, []SourceError, error) {
 
 // Get returns a template with its files.
 func (s *Service) Get(ctx context.Context, source, id string) (Template, error) {
+	t, err := s.get(ctx, source, id)
+	if err == nil {
+		t.Services = Services(t.Compose)
+		if t.Services == nil {
+			t.Services = []string{}
+		}
+	}
+	return t, err
+}
+
+func (s *Service) get(ctx context.Context, source, id string) (Template, error) {
 	switch source {
 	case SourceBuiltin:
 		if strings.ContainsAny(id, "/\\") || id == "" || id == "." || id == ".." {

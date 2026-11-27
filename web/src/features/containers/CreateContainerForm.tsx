@@ -104,17 +104,20 @@ export function CreateContainerForm({
   readOnly,
   onStarted,
   recreate,
+  initial,
 }: {
   env: string;
   namespace: string;
   readOnly: boolean;
   onStarted: () => void;
+  /** Settings to start from, e.g. a template's (ADR-0059). */
+  initial?: CreateForm;
   /** Edit an existing container (#18): the form starts from its settings and recreates it. */
   recreate?: { id: string; initial: CreateForm };
 }) {
   const queryClient = useQueryClient();
   const panel = useJobsPanel();
-  const [form, setForm] = useState<CreateForm>(recreate?.initial ?? emptyForm);
+  const [form, setForm] = useState<CreateForm>(recreate?.initial ?? initial ?? emptyForm);
   const [pull, setPull] = useState(false);
   const set = (patch: Partial<CreateForm>) => setForm((f) => ({ ...f, ...patch }));
   const { request, error: parseError } = toRequest(form);

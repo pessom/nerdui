@@ -1228,6 +1228,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/templates/container": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * A one-service template as a container's create request
+         * @description Requires `containers:write` (ADR-0059). Loads the compose file with the variables given
+         *     (none from nerdui's environment) and converts its only service into the request of
+         *     `POST /environments/{env}/containers`; nothing is created. Named volumes become
+         *     `<name>-<volume>`. Settings that do not convert are listed in `unsupported`.
+         */
+        post: operations["templateContainer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/templates/{id}": {
         parameters: {
             query?: never;
@@ -3120,6 +3143,35 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/environments/{env}/containers/{id}/template": {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                id: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * A container's settings as a template
+         * @description Requires `containers:read` (#19, ADR-0059). A one-service compose file and an
+         *     `.env.example` from the settings recreating would use; environment variables named like
+         *     secrets become variables without a value. Nothing is saved.
+         */
+        get: operations["getContainerTemplate"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/environments/{env}/containers/{id}/spec": {
         parameters: {
             query?: {
@@ -3617,6 +3669,19 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        ContainerFromTemplate: {
+            spec: components["schemas"]["CreateContainerRequest"];
+            /** @description Settings of the service a container from the form lacks */
+            unsupported: string[];
+        };
+        TemplateFromContainer: {
+            /** @description One-service compose file */
+            compose: string;
+            /** @description .env.example: variables for the container's secrets, without values */
+            env: string;
+            /** @description Settings the template lacks */
+            unsupported: string[];
+        };
         ContainerSpec: {
             id: string;
             spec: components["schemas"]["CreateContainerRequest"];
@@ -3646,6 +3711,8 @@ export interface components {
         Template: components["schemas"]["TemplateSummary"] & {
             compose: string;
             env: string;
+            /** @description Services of the compose file (detail only); with one, the template can also start a container (ADR-0059) */
+            services?: string[];
             variables: {
                 name: string;
                 default: string;
@@ -7350,6 +7417,40 @@ export interface operations {
             503: components["responses"]["Error"];
         };
     };
+    templateContainer: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    compose: string;
+                    values?: {
+                        [key: string]: string;
+                    };
+                    /** @description Container name; default: container_name or the service name */
+                    name?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The create request */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContainerFromTemplate"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
     updateTemplate: {
         parameters: {
             query?: never;
@@ -10259,6 +10360,37 @@ export interface operations {
             409: components["responses"]["Error"];
             500: components["responses"]["Error"];
             503: components["responses"]["Error"];
+        };
+    };
+    getContainerTemplate: {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Template files */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemplateFromContainer"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
         };
     };
     getContainerSpec: {

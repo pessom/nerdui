@@ -16,6 +16,7 @@ import (
 	"github.com/pessom/nerdui/internal/httpjson"
 	"github.com/pessom/nerdui/internal/jobs"
 	"github.com/pessom/nerdui/internal/runtime"
+	"github.com/pessom/nerdui/internal/templates"
 )
 
 // CreateContainerRequest is the body of POST /containers. Keep in sync with api/openapi.yaml.
@@ -120,6 +121,24 @@ func (h *Handler) containerSpec(w http.ResponseWriter, r *http.Request) {
 		spec.Unsupported = []string{}
 	}
 	httpjson.Write(w, http.StatusOK, spec)
+}
+
+// containerTemplate turns a container's settings into a one-service compose file and an
+// .env.example for a template (#19, ADR-0059); secrets become variables without a value.
+//
+//	GET /api/v1/environments/{env}/containers/{id}/template?namespace=
+func (h *Handler) containerTemplate(w http.ResponseWriter, r *http.Request) {
+	ns, err := Namespace(r)
+	if err != nil {
+		httpjson.WriteErr(w, r, h.Logger, err)
+		return
+	}
+	spec, err := EnvFrom(r.Context()).Runtime.Containers().Spec(r.Context(), ns, chi.URLParam(r, "id"))
+	if err != nil {
+		httpjson.WriteErr(w, r, h.Logger, err)
+		return
+	}
+	httpjson.Write(w, http.StatusOK, templates.FromContainer(spec.Spec, spec.Unsupported))
 }
 
 // recreateContainer replaces a container with one created from the edited settings as a job

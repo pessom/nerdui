@@ -15,10 +15,11 @@ import {
   Title,
 } from "@mantine/core";
 import { useQuery } from "@tanstack/react-query";
-import { IconPencil } from "@tabler/icons-react";
+import { IconPencil, IconTemplate } from "@tabler/icons-react";
 import { createFileRoute, getRouteApi } from "@tanstack/react-router";
-import { Suspense, lazy } from "react";
-import { ApiError } from "../../../../api/client";
+import { Suspense, lazy, useState } from "react";
+import { notifications } from "@mantine/notifications";
+import { ApiError, api, unwrap } from "../../../../api/client";
 import { RouterAnchor } from "../../../../components/RouterAnchor";
 import { containerInspectQuery, containersQuery, envStatusQuery } from "../../../../api/queries";
 import { useContainerActions } from "../../../../features/containers/actions";
@@ -31,6 +32,8 @@ import { LogsPanel } from "../../../../features/containers/LogsPanel";
 import { ProcessesPanel } from "../../../../features/containers/ProcessesPanel";
 import { StatsPanel } from "../../../../features/containers/StatsPanel";
 import { useActionRequests } from "../../../../features/containers/useActionRequests";
+import { TemplateDialog, type TemplateDraft } from "../../../../features/templates/TemplateDialog";
+import { useCan } from "../../../../lib/permissions";
 
 const JsonViewer = lazy(() => import("../../../../features/containers/JsonViewer"));
 
@@ -69,6 +72,29 @@ function ContainerPage() {
   const { request, dialog } = useActionRequests(tableActions);
   const gone = inspect.error instanceof ApiError && inspect.error.status === 404;
   const name = summary ? displayName(summary) : inspect.data?.Name || id.slice(0, 12);
+  const can = useCan();
+  const [templateDraft, setTemplateDraft] = useState<TemplateDraft | null>(null);
+  const [saving, setSaving] = useState(false);
+  // A container's settings as a one-service template; secrets become variables (ADR-0059).
+  const saveAsTemplate = async () => {
+    setSaving(true);
+    try {
+      const t = await unwrap(
+        api.GET("/api/v1/environments/{env}/containers/{id}/template", {
+          params: { path: { env, id }, query: { namespace } },
+        }),
+      );
+      setTemplateDraft({ name, description: "", ...t });
+    } catch (err) {
+      notifications.show({
+        color: "red",
+        title: "Cannot make a template",
+        message: (err as Error).message,
+      });
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <Stack>
@@ -107,11 +133,23 @@ function ContainerPage() {
                 Edit
               </Button>
             )}
+            {can("stacks:write") && (
+              <Button
+                onClick={() => void saveAsTemplate()}
+                variant="default"
+                size="xs"
+                loading={saving}
+                leftSection={<IconTemplate size={14} />}
+              >
+                Save as template
+              </Button>
+            )}
             <RowActions container={summary} actions={tableActions} request={request} />
           </Group>
         )}
       </Group>
       {dialog}
+      <TemplateDialog draft={templateDraft} onClose={() => setTemplateDraft(null)} />
 
       {inspect.isPending && <Loader aria-label="Loading" />}
       {gone && (
