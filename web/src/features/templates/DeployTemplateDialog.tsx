@@ -180,6 +180,14 @@ function Form({
     else create.mutate();
   };
   const failed = as === "container" ? container.error : create.error;
+  if (!canStack && !canContainer)
+    return (
+      <Alert color="gray" title="Cannot deploy this template">
+        Your role may create containers, not stacks, and this template has{" "}
+        {(template.services ?? []).length} services: only a template with one service can start a
+        container.
+      </Alert>
+    );
   return (
     <form onSubmit={submit}>
       <Stack>

@@ -16,6 +16,7 @@ import { VariablesSettingsCard } from "../../../../features/settings/VariablesSe
 import { BackupTargetsSettingsCard } from "../../../../features/settings/BackupTargetsSettingsCard";
 import { PrometheusSettingsCard } from "../../../../features/settings/PrometheusSettingsCard";
 import { HostAlertsSettingsCard } from "../../../../features/settings/HostAlertsSettingsCard";
+import { ReadOnlyUnless } from "../../../../components/ReadOnlyUnless";
 
 const envRoute = getRouteApi("/_app/env/$env");
 
@@ -32,17 +33,19 @@ function SettingsPage() {
   return (
     <Stack>
       <Title order={2}>Settings</Title>
-      <PrometheusSettingsCard env={env} />
-      <ImageUpdatesSettingsCard env={env} namespace={namespace} />
-      <NotificationsSettingsCard />
-      <HostAlertsSettingsCard />
-      <VariablesSettingsCard />
-      <GitCredentialsSettingsCard />
-      <WebhooksSettingsCard env={env} namespace={namespace} />
-      <SecuritySettingsCard />
-      <OIDCSettingsCard />
-      <BackupSettingsCard />
-      <BackupTargetsSettingsCard />
+      <ReadOnlyUnless action="settings:write">
+        <PrometheusSettingsCard env={env} />
+        <ImageUpdatesSettingsCard env={env} namespace={namespace} />
+        <NotificationsSettingsCard />
+        <HostAlertsSettingsCard />
+        <VariablesSettingsCard />
+        <GitCredentialsSettingsCard />
+        <WebhooksSettingsCard env={env} namespace={namespace} />
+        <SecuritySettingsCard />
+        <OIDCSettingsCard />
+        <BackupSettingsCard />
+        <BackupTargetsSettingsCard />
+      </ReadOnlyUnless>
     </Stack>
   );
 }

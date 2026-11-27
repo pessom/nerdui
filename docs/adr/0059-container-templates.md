@@ -33,7 +33,7 @@ container into a compose file is also asked for on its own (#19).
   extra networks, secrets, configs and similar settings are reported as unsupported.
 - The form opens filled in: the user reviews everything, including the unsupported list, and
   creates the container as usual (`containers:write`). The values never go into the URL.
-- `GET /environments/{env}/containers/{id}/compose` turns a container's settings (the same
+- `GET /environments/{env}/containers/{id}/template` turns a container's settings (the same
   reconstruction as recreating, ADR-0031) into a one-service compose file and an
   `.env.example`. Environment variables whose names look like secrets become `${NAME}`
   variables without a value, so a saved template holds no passwords. The container page

@@ -25,6 +25,7 @@ import {
   CreateNetworkDialog,
   RemoveNetworkDialog,
 } from "../../../../features/networks/NetworkDialogs";
+import { useCan } from "../../../../lib/permissions";
 
 const envRoute = getRouteApi("/_app/env/$env");
 
@@ -50,6 +51,7 @@ function NetworksPage() {
   const [removing, setRemoving] = useState<Network>();
   const nerdctl = status.data?.runtime?.nerdctl;
   const readOnly = !!nerdctl && !nerdctl.compatible && !nerdctl.checkSkipped;
+  const write = useCan()("networks:write");
 
   return (
     <Stack>
@@ -58,11 +60,13 @@ function NetworksPage() {
           <Title order={2}>Networks</Title>
           {list.isFetching && !list.isPending && <Loader size="xs" aria-label="Refreshing" />}
         </Group>
-        <Tooltip label="Read-only mode: host nerdctl is incompatible" disabled={!readOnly}>
-          <Button leftSection={<IconPlus size={16} />} onClick={open} disabled={readOnly}>
-            Create network
-          </Button>
-        </Tooltip>
+        {write && (
+          <Tooltip label="Read-only mode: host nerdctl is incompatible" disabled={!readOnly}>
+            <Button leftSection={<IconPlus size={16} />} onClick={open} disabled={readOnly}>
+              Create network
+            </Button>
+          </Tooltip>
+        )}
       </Group>
       {list.isPending && <Loader aria-label="Loading" />}
       {list.isError && (
@@ -170,17 +174,19 @@ function NetworksPage() {
                     ))}
                   </Table.Td>
                   <Table.Td>
-                    <Tooltip label={readOnly ? "Read-only mode" : (blocked ?? "Remove")}>
-                      <ActionIcon
-                        variant="subtle"
-                        color="red"
-                        aria-label={`Remove ${n.name}`}
-                        disabled={!!blocked || readOnly}
-                        onClick={() => setRemoving(n)}
-                      >
-                        <IconTrash size={16} />
-                      </ActionIcon>
-                    </Tooltip>
+                    {write && (
+                      <Tooltip label={readOnly ? "Read-only mode" : (blocked ?? "Remove")}>
+                        <ActionIcon
+                          variant="subtle"
+                          color="red"
+                          aria-label={`Remove ${n.name}`}
+                          disabled={!!blocked || readOnly}
+                          onClick={() => setRemoving(n)}
+                        >
+                          <IconTrash size={16} />
+                        </ActionIcon>
+                      </Tooltip>
+                    )}
                   </Table.Td>
                 </Table.Tr>
               );

@@ -36,6 +36,7 @@ import {
   templatesQuery,
   type TemplateSummary,
 } from "../../../../features/templates/templates";
+import { useCan } from "../../../../lib/permissions";
 
 const envRoute = getRouteApi("/_app/env/$env");
 
@@ -53,6 +54,7 @@ function TemplatesPage() {
   const list = useQuery(templatesQuery);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string>("all");
+  const can = useCan();
   const [deploying, setDeploying] = useState<TemplateSummary | null>(null);
   const [editing, setEditing] = useState<TemplateDraft | null>(null);
   const [removing, setRemoving] = useState<TemplateSummary | null>(null);
@@ -104,19 +106,23 @@ function TemplatesPage() {
       <Group justify="space-between">
         <Title order={2}>Templates</Title>
         <Group gap="xs">
-          <Button
-            variant="default"
-            leftSection={<IconWorld size={16} />}
-            onClick={() => setRegistries(true)}
-          >
-            Registries
-          </Button>
-          <Button
-            leftSection={<IconPlus size={16} />}
-            onClick={() => setEditing({ name: "", description: "", compose: "", env: "" })}
-          >
-            New template
-          </Button>
+          {can("settings:write") && (
+            <Button
+              variant="default"
+              leftSection={<IconWorld size={16} />}
+              onClick={() => setRegistries(true)}
+            >
+              Registries
+            </Button>
+          )}
+          {can("stacks:write") && (
+            <Button
+              leftSection={<IconPlus size={16} />}
+              onClick={() => setEditing({ name: "", description: "", compose: "", env: "" })}
+            >
+              New template
+            </Button>
+          )}
         </Group>
       </Group>
       <Text size="sm" c="dimmed">
@@ -195,10 +201,12 @@ function TemplatesPage() {
                 ))}
               </Group>
               <Group justify="space-between" mt="auto">
-                <Button size="xs" onClick={() => setDeploying(t)} aria-label={`Deploy ${t.name}`}>
-                  Deploy
-                </Button>
-                {t.source === "custom" && (
+                {(can("stacks:write") || can("containers:write")) && (
+                  <Button size="xs" onClick={() => setDeploying(t)} aria-label={`Deploy ${t.name}`}>
+                    Deploy
+                  </Button>
+                )}
+                {t.source === "custom" && can("stacks:write") && (
                   <Group gap={4}>
                     <Tooltip label="Edit">
                       <ActionIcon

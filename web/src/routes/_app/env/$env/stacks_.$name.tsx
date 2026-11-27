@@ -36,6 +36,7 @@ import { StackFilesPanel } from "../../../../features/stacks/StackFilesPanel";
 import { StackLogsPanel } from "../../../../features/stacks/StackLogsPanel";
 import { StackMode, StackStatus } from "../../../../features/stacks/StackStatus";
 import { VariablesEditor } from "../../../../features/variables/VariablesEditor";
+import { useCan } from "../../../../lib/permissions";
 
 const envRoute = getRouteApi("/_app/env/$env");
 
@@ -67,6 +68,7 @@ function StackPage() {
   const namespace = ns ?? status.data?.defaultNamespace ?? "default";
   const nerdctl = status.data?.runtime?.nerdctl;
   const readOnly = !!nerdctl && !nerdctl.compatible && !nerdctl.checkSkipped;
+  const can = useCan();
   const stack = useQuery(stackQuery(env, namespace, name));
   const [adopting, adoptDialog] = useDisclosure();
   const [deleting, deleteDialog] = useDisclosure();
@@ -126,33 +128,39 @@ function StackPage() {
           {stack.data && <StackMode mode={stack.data.mode} />}
         </Group>
         <Group gap="xs">
-          {stack.data?.mode === "unmanaged" && <Button onClick={adoptDialog.open}>Adopt</Button>}
-          {stack.data && stack.data.mode !== "unmanaged" && stack.data.composeFile && (
-            <Button
-              variant="default"
-              leftSection={<IconTemplate size={16} />}
-              loading={saveTemplate.isPending}
-              onClick={() => saveTemplate.mutate()}
-            >
-              Save as template
-            </Button>
+          {stack.data?.mode === "unmanaged" && can("stacks:write") && (
+            <Button onClick={adoptDialog.open}>Adopt</Button>
           )}
-          {stack.data?.mode === "external" && (
+          {stack.data &&
+            stack.data.mode !== "unmanaged" &&
+            stack.data.composeFile &&
+            can("stacks:write") && (
+              <Button
+                variant="default"
+                leftSection={<IconTemplate size={16} />}
+                loading={saveTemplate.isPending}
+                onClick={() => saveTemplate.mutate()}
+              >
+                Save as template
+              </Button>
+            )}
+          {stack.data?.mode === "external" && can("stacks:write") && (
             <Button variant="default" loading={forget.isPending} onClick={() => forget.mutate()}>
               Forget
             </Button>
           )}
-          {(stack.data?.mode === "managed" || stack.data?.mode === "git") && (
-            <Button
-              variant="light"
-              color="red"
-              leftSection={<IconTrash size={16} />}
-              disabled={readOnly}
-              onClick={deleteDialog.open}
-            >
-              Delete
-            </Button>
-          )}
+          {(stack.data?.mode === "managed" || stack.data?.mode === "git") &&
+            can("stacks:write") && (
+              <Button
+                variant="light"
+                color="red"
+                leftSection={<IconTrash size={16} />}
+                disabled={readOnly}
+                onClick={deleteDialog.open}
+              >
+                Delete
+              </Button>
+            )}
         </Group>
       </Group>
       <TemplateDialog draft={templateDraft} onClose={() => setTemplateDraft(null)} />
@@ -180,7 +188,7 @@ function StackPage() {
       )}
       {stack.data && (
         <>
-          {stack.data.mode !== "unmanaged" && stack.data.composeFile && (
+          {stack.data.mode !== "unmanaged" && stack.data.composeFile && can("stacks:deploy") && (
             <StackActions
               env={env}
               namespace={namespace}
@@ -316,7 +324,7 @@ function StackPage() {
   );
 
   function services(list: NonNullable<typeof stack.data>["services"]) {
-    const manageable = !readOnly && stack.data?.mode !== "unmanaged";
+    const manageable = !readOnly && stack.data?.mode !== "unmanaged" && can("stacks:deploy");
     return list.map((svc) => (
       <Paper key={svc.name} withBorder p="sm" component="section" aria-label={svc.name}>
         <Group gap="xs" mb={4}>

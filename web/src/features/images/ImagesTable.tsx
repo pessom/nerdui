@@ -46,6 +46,7 @@ import { Time } from "../../components/Time";
 import { UpdateBadgeFor } from "../updates/UpdateBadge";
 import { ColumnsMenu } from "../preferences/ColumnsMenu";
 import { useHiddenColumns } from "../preferences/useHiddenColumns";
+import { useCan } from "../../lib/permissions";
 import { formatBytes } from "../system/info";
 import { displayName, matchesUsage, searchText, shortID, type UsageFilter } from "./format";
 import { ImageRowActions, type ImageActionHandlers } from "./ImageActions";
@@ -200,7 +201,9 @@ export function ImagesTable({
       }
       return next;
     });
-  const selectable = !!actions && !actions.disabled;
+  // Saving and removing need images:write (ADR-0058); without it there is nothing to select.
+  const write = useCan()("images:write");
+  const selectable = !!actions && !actions.disabled && write;
   const extraCols = actions ? 2 : 0;
 
   return (
@@ -233,7 +236,7 @@ export function ImagesTable({
           <ColumnsMenu table="images" columns={hideable} />
         </Group>
       </Group>
-      {actions && selected.length > 0 && (
+      {actions && write && selected.length > 0 && (
         <Paper withBorder p="xs" mb="sm">
           <Group justify="space-between">
             <Text size="sm">{selected.length} selected</Text>

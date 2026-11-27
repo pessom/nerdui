@@ -26,6 +26,7 @@ import { CreateVolumeDialog, RemoveVolumeDialog } from "../../../../features/vol
 import { VolumeBrowser } from "../../../../features/volumes/VolumeBrowser";
 import { VolumeBackupsDialog } from "../../../../features/volumes/VolumeBackupsDialog";
 import { Time } from "../../../../components/Time";
+import { useCan } from "../../../../lib/permissions";
 
 const envRoute = getRouteApi("/_app/env/$env");
 
@@ -49,6 +50,8 @@ function VolumesPage() {
   const [backingUp, setBackingUp] = useState<string>();
   const nerdctl = status.data?.runtime?.nerdctl;
   const readOnly = !!nerdctl && !nerdctl.compatible && !nerdctl.checkSkipped;
+  // Browsing, backups and changes run a helper container: volumes:write (ADR-0058).
+  const write = useCan()("volumes:write");
 
   return (
     <Stack>
@@ -66,11 +69,13 @@ function VolumesPage() {
           >
             Calculate sizes
           </Button>
-          <Tooltip label="Read-only mode: host nerdctl is incompatible" disabled={!readOnly}>
-            <Button leftSection={<IconPlus size={16} />} onClick={open} disabled={readOnly}>
-              Create volume
-            </Button>
-          </Tooltip>
+          {write && (
+            <Tooltip label="Read-only mode: host nerdctl is incompatible" disabled={!readOnly}>
+              <Button leftSection={<IconPlus size={16} />} onClick={open} disabled={readOnly}>
+                Create volume
+              </Button>
+            </Tooltip>
+          )}
         </Group>
       </Group>
       {list.isPending && <Loader aria-label="Loading" />}
@@ -163,47 +168,49 @@ function VolumesPage() {
                     {v.createdAt ? <Time value={v.createdAt} /> : <Text size="sm">—</Text>}
                   </Table.Td>
                   <Table.Td>
-                    <Group gap={4} wrap="nowrap">
-                      <Tooltip label="Browse files">
-                        <ActionIcon
-                          variant="subtle"
-                          color="gray"
-                          aria-label={`Browse ${v.name}`}
-                          onClick={() => setBrowsing(v.name)}
+                    {write && (
+                      <Group gap={4} wrap="nowrap">
+                        <Tooltip label="Browse files">
+                          <ActionIcon
+                            variant="subtle"
+                            color="gray"
+                            aria-label={`Browse ${v.name}`}
+                            onClick={() => setBrowsing(v.name)}
+                          >
+                            <IconFolderOpen size={16} />
+                          </ActionIcon>
+                        </Tooltip>
+                        <Tooltip label="Backups">
+                          <ActionIcon
+                            variant="subtle"
+                            color="gray"
+                            aria-label={`Backups of ${v.name}`}
+                            onClick={() => setBackingUp(v.name)}
+                          >
+                            <IconArchive size={16} />
+                          </ActionIcon>
+                        </Tooltip>
+                        <Tooltip
+                          label={
+                            used
+                              ? "Used by containers: remove them first"
+                              : readOnly
+                                ? "Read-only mode"
+                                : "Remove"
+                          }
                         >
-                          <IconFolderOpen size={16} />
-                        </ActionIcon>
-                      </Tooltip>
-                      <Tooltip label="Backups">
-                        <ActionIcon
-                          variant="subtle"
-                          color="gray"
-                          aria-label={`Backups of ${v.name}`}
-                          onClick={() => setBackingUp(v.name)}
-                        >
-                          <IconArchive size={16} />
-                        </ActionIcon>
-                      </Tooltip>
-                      <Tooltip
-                        label={
-                          used
-                            ? "Used by containers: remove them first"
-                            : readOnly
-                              ? "Read-only mode"
-                              : "Remove"
-                        }
-                      >
-                        <ActionIcon
-                          variant="subtle"
-                          color="red"
-                          aria-label={`Remove ${v.name}`}
-                          disabled={used || readOnly}
-                          onClick={() => setRemoving(v)}
-                        >
-                          <IconTrash size={16} />
-                        </ActionIcon>
-                      </Tooltip>
-                    </Group>
+                          <ActionIcon
+                            variant="subtle"
+                            color="red"
+                            aria-label={`Remove ${v.name}`}
+                            disabled={used || readOnly}
+                            onClick={() => setRemoving(v)}
+                          >
+                            <IconTrash size={16} />
+                          </ActionIcon>
+                        </Tooltip>
+                      </Group>
+                    )}
                   </Table.Td>
                 </Table.Tr>
               );

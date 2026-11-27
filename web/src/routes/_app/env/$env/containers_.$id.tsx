@@ -54,7 +54,7 @@ export const Route = createFileRoute("/_app/env/$env/containers_/$id")({
 
 function ContainerPage() {
   const { env, id } = Route.useParams();
-  const { tab = "overview", size = false } = Route.useSearch();
+  const { tab: requested = "overview", size = false } = Route.useSearch();
   const navigate = Route.useNavigate();
   const { ns } = envRoute.useSearch();
   const status = useQuery(envStatusQuery(env));
@@ -73,6 +73,8 @@ function ContainerPage() {
   const gone = inspect.error instanceof ApiError && inspect.error.status === 404;
   const name = summary ? displayName(summary) : inspect.data?.Name || id.slice(0, 12);
   const can = useCan();
+  // Without containers:exec there is no Terminal tab (ADR-0058, #102).
+  const tab = requested === "terminal" && !can("containers:exec") ? "overview" : requested;
   const [templateDraft, setTemplateDraft] = useState<TemplateDraft | null>(null);
   const [saving, setSaving] = useState(false);
   // A container's settings as a one-service template; secrets become variables (ADR-0059).
@@ -116,7 +118,7 @@ function ContainerPage() {
         </Group>
         {summary && (
           <Group gap="xs">
-            {!summary.compose?.project && (
+            {!summary.compose?.project && can("containers:write") && (
               <Button
                 onClick={() =>
                   void navigate({
@@ -182,7 +184,7 @@ function ContainerPage() {
             <Tabs.Tab value="logs">Logs</Tabs.Tab>
             <Tabs.Tab value="stats">Stats</Tabs.Tab>
             <Tabs.Tab value="processes">Processes</Tabs.Tab>
-            <Tabs.Tab value="terminal">Terminal</Tabs.Tab>
+            {can("containers:exec") && <Tabs.Tab value="terminal">Terminal</Tabs.Tab>}
             <Tabs.Tab value="inspect">Inspect</Tabs.Tab>
           </Tabs.List>
           <Tabs.Panel value="overview">

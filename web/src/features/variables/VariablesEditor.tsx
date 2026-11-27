@@ -32,12 +32,15 @@ import {
   type Variable,
   type VariableScope,
 } from "./variables";
+import { useCan } from "../../lib/permissions";
 
 /** A table of variables with add, edit and delete (#35, ADR-0049). */
 export function VariablesEditor({ scope }: { scope: VariableScope }) {
   const { prefs } = usePreferences();
   const queryClient = useQueryClient();
   const list = useQuery(variablesQuery(scope));
+  // Global variables are settings, a stack's belong to the stack (ADR-0058).
+  const write = useCan()(scope.kind === "stack" ? "stacks:write" : "settings:write");
   const [editing, setEditing] = useState<Variable | "new" | null>(null);
   const [removing, setRemoving] = useState<Variable | null>(null);
   const remove = useMutation({
@@ -52,9 +55,11 @@ export function VariablesEditor({ scope }: { scope: VariableScope }) {
 
   return (
     <Stack gap="sm">
-      <Group justify="flex-end">
-        <Button onClick={() => setEditing("new")}>Add variable</Button>
-      </Group>
+      {write && (
+        <Group justify="flex-end">
+          <Button onClick={() => setEditing("new")}>Add variable</Button>
+        </Group>
+      )}
       {list.isPending && <Loader aria-label="Loading variables" />}
       {list.isError && (
         <Alert color="red" title="Cannot read variables">
@@ -108,27 +113,29 @@ export function VariablesEditor({ scope }: { scope: VariableScope }) {
                     )}
                   </Table.Td>
                   <Table.Td>
-                    <Group gap={4} justify="flex-end" wrap="nowrap">
-                      <Tooltip label="Edit">
-                        <ActionIcon
-                          variant="subtle"
-                          aria-label={`Edit ${v.name}`}
-                          onClick={() => setEditing(v)}
-                        >
-                          <IconPencil size={16} />
-                        </ActionIcon>
-                      </Tooltip>
-                      <Tooltip label="Delete">
-                        <ActionIcon
-                          variant="subtle"
-                          color="red"
-                          aria-label={`Delete ${v.name}`}
-                          onClick={() => setRemoving(v)}
-                        >
-                          <IconTrash size={16} />
-                        </ActionIcon>
-                      </Tooltip>
-                    </Group>
+                    {write && (
+                      <Group gap={4} justify="flex-end" wrap="nowrap">
+                        <Tooltip label="Edit">
+                          <ActionIcon
+                            variant="subtle"
+                            aria-label={`Edit ${v.name}`}
+                            onClick={() => setEditing(v)}
+                          >
+                            <IconPencil size={16} />
+                          </ActionIcon>
+                        </Tooltip>
+                        <Tooltip label="Delete">
+                          <ActionIcon
+                            variant="subtle"
+                            color="red"
+                            aria-label={`Delete ${v.name}`}
+                            onClick={() => setRemoving(v)}
+                          >
+                            <IconTrash size={16} />
+                          </ActionIcon>
+                        </Tooltip>
+                      </Group>
+                    )}
                   </Table.Td>
                 </Table.Tr>
               ))}
