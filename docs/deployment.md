@@ -256,6 +256,44 @@ reads from Prometheus; network traffic is not part of containerd's metrics.
    token. **Test connection** reports how many containers have metrics; **Save** turns on the
    periods on the Stats tab.
 
+## AppArmor on Linux 7
+
+On Linux 7 with AppArmor and `kernel.apparmor_restrict_unprivileged_unconfined=1` (the default of
+Ubuntu 26.04), AppArmor denies signals between the processes of a container. Images whose
+entrypoint switches user with `gosu` (MySQL, MariaDB, Percona, PostgreSQL and many others) then
+never start: the container runs, its log stops after *Switching to dedicated user*, and `gosu`
+spins at 100% CPU. nerdui shows a warning on the host's pages when it finds these settings
+([ADR-0060](adr/0060-host-warnings.md)).
+
+Check the kernel log:
+
+```bash
+sudo dmesg | grep 'apparmor="DENIED" operation="signal"'
+# ... profile="nerdctl-default" ... signal=rtmin+1 peer="nerdctl-default//&unconfined"
+```
+
+Ways out, from the widest to the narrowest:
+
+- **Turn the restriction off** on the host. It also lifts Ubuntu's limit on unprivileged user
+  namespaces, which hardens the host against local exploits, so weigh it first:
+
+  ```bash
+  echo 'kernel.apparmor_restrict_unprivileged_unconfined=0' | sudo tee /etc/sysctl.d/60-apparmor-containers.conf
+  sudo sysctl --system
+  ```
+
+- **Run only the affected containers without AppArmor**: `--security-opt apparmor=unconfined`,
+  or in a stack:
+
+  ```yaml
+  services:
+    db:
+      image: percona/percona-server:8.4
+      security_opt: ["apparmor=unconfined"]
+  ```
+
+- **Update the kernel** once a fixed one is released, or stay on an earlier one.
+
 ## Health check
 
 - `GET /healthz` returns `200 {"status":"ok"}` without authentication. With the default TLS it is

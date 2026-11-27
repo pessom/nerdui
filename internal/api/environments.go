@@ -20,6 +20,7 @@ import (
 	"github.com/pessom/nerdui/internal/backup"
 	"github.com/pessom/nerdui/internal/environment"
 	"github.com/pessom/nerdui/internal/gitstacks"
+	"github.com/pessom/nerdui/internal/hostcheck"
 	"github.com/pessom/nerdui/internal/hostmetrics"
 	"github.com/pessom/nerdui/internal/httpjson"
 	"github.com/pessom/nerdui/internal/jobs"
@@ -44,6 +45,9 @@ type Handler struct {
 	EventHistory EventHistory
 	// ExecDisabled turns off the web terminal (--disable-exec, #15).
 	ExecDisabled bool
+	// HostPaths are where the local host's settings are read for warnings (ADR-0060); empty
+	// means /proc and /sys.
+	HostPaths hostcheck.Paths
 	// Settings stores per-environment settings such as the Prometheus connection (#176);
 	// nil disables them.
 	Settings Settings
@@ -208,6 +212,8 @@ type EnvironmentStatus struct {
 	Runtime *runtime.Versions `json:"runtime,omitempty"`
 	// Features reports server settings the UI adapts to.
 	Features Features `json:"features"`
+	// Warnings are host problems the runtime does not report (ADR-0060); local hosts only.
+	Warnings []hostcheck.Warning `json:"warnings,omitempty"`
 }
 
 // Features of the server for an environment.
@@ -251,6 +257,9 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request) {
 	}
 	// Partial versions (nerdctl status, library) are useful even when containerd is down.
 	resp.Runtime = &v
+	if e.Kind == environment.KindLocal {
+		resp.Warnings = hostcheck.Check(h.HostPaths)
+	}
 	httpjson.Write(w, http.StatusOK, resp)
 }
 

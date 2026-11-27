@@ -4177,6 +4177,8 @@ export interface components {
                 /** @description True when a Prometheus connection is configured (#176) */
                 metricsHistory: boolean;
             };
+            /** @description Host problems the runtime does not report (ADR-0060), local hosts only. apparmor_signals: AppArmor denies signals inside containers (Linux 7 with kernel.apparmor_restrict_unprivileged_unconfined=1); images that switch user with gosu hang at start. */
+            warnings?: "apparmor_signals"[];
         };
         Container: {
             /** @description Full container ID (64 hex characters) */

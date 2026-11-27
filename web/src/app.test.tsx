@@ -194,6 +194,24 @@ describe("nerdui app shell", () => {
     expect(screen.getByText(/connection refused/)).toBeInTheDocument();
   });
 
+  it("warns when AppArmor blocks signals inside containers", async () => {
+    fakeApi({
+      ...common,
+      "GET /api/v1/auth/me": () => json(200, session),
+      "GET /api/v1/environments/local": () =>
+        json(200, { ...envStatus, warnings: ["apparmor_signals"] }),
+    });
+    renderApp("/env/local");
+    expect(
+      await screen.findByText("AppArmor may block containers that switch user"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("apparmor=unconfined")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "AppArmor on Linux 7" })).toHaveAttribute(
+      "href",
+      "https://github.com/pessom/nerdui/blob/main/docs/deployment.md#apparmor-on-linux-7",
+    );
+  });
+
   it("shows a banner when containerd is unreachable", async () => {
     fakeApi({
       ...common,

@@ -26,6 +26,10 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 - Stack templates: Percona Server for MySQL replaces MariaDB in the built-in catalog, also as
   the database of the WordPress template. Stacks deployed from the old templates keep running
   unchanged. *Mine* explains how to add templates of your own when it is empty.
+- A warning on the host's pages when AppArmor on Linux 7 (Ubuntu 26.04) blocks signals inside
+  containers: images that switch user with `gosu` (MySQL, MariaDB, Percona, PostgreSQL and
+  others) hang at start there. docs/deployment.md explains the check and the ways out
+  (ADR-0060).
 
 ### Changed
 
