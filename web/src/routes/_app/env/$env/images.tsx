@@ -21,6 +21,7 @@ import { ImageJobDialog } from "../../../../features/images/ImageJobDialog";
 import { ImageLoadDialog } from "../../../../features/images/ImageLoadDialog";
 import { downloadImages } from "../../../../features/images/archive";
 import { CheckUpdatesButton } from "../../../../features/updates/CheckUpdatesButton";
+import { useCan } from "../../../../lib/permissions";
 import { ImageUpdatesContext } from "../../../../features/updates/context";
 
 const envRoute = getRouteApi("/_app/env/$env");
@@ -46,6 +47,7 @@ function ImagesPage() {
   const nerdctl = status.data?.runtime?.nerdctl;
   // Read-only mode (ADR-0011): the server would answer 503 nerdctl_incompatible.
   const readOnly = !!nerdctl && !nerdctl.compatible && !nerdctl.checkSkipped;
+  const write = useCan()("images:write");
 
   return (
     <>
@@ -56,21 +58,25 @@ function ImagesPage() {
         </Group>
         <Group gap="sm">
           {updates.data && <CheckUpdatesButton env={env} overview={updates.data} />}
-          <Tooltip label="Read-only mode: host nerdctl is incompatible" disabled={!readOnly}>
-            <Button
-              variant="default"
-              leftSection={<IconFileImport size={16} />}
-              onClick={loadDialog.open}
-              disabled={readOnly}
-            >
-              Load
-            </Button>
-          </Tooltip>
-          <Tooltip label="Read-only mode: host nerdctl is incompatible" disabled={!readOnly}>
-            <Button leftSection={<IconDownload size={16} />} onClick={open} disabled={readOnly}>
-              Pull image
-            </Button>
-          </Tooltip>
+          {write && (
+            <>
+              <Tooltip label="Read-only mode: host nerdctl is incompatible" disabled={!readOnly}>
+                <Button
+                  variant="default"
+                  leftSection={<IconFileImport size={16} />}
+                  onClick={loadDialog.open}
+                  disabled={readOnly}
+                >
+                  Load
+                </Button>
+              </Tooltip>
+              <Tooltip label="Read-only mode: host nerdctl is incompatible" disabled={!readOnly}>
+                <Button leftSection={<IconDownload size={16} />} onClick={open} disabled={readOnly}>
+                  Pull image
+                </Button>
+              </Tooltip>
+            </>
+          )}
         </Group>
       </Group>
       <ImageJobDialog

@@ -12,6 +12,7 @@ import { Dashboard } from "../../../../features/dashboard/Dashboard";
 import { HostMetrics } from "../../../../features/host/HostMetrics";
 import { PruneDialog } from "../../../../features/prune/PruneDialog";
 import { SystemInfoSection } from "../../../../features/system/SystemInfoSection";
+import { useCan } from "../../../../lib/permissions";
 
 /** Environment overview: dashboard (#63), host metrics (#64), connectivity, versions, host and runtime information (#66). */
 export const Route = createFileRoute("/_app/env/$env/")({
@@ -23,6 +24,7 @@ function Overview() {
   const status = useQuery(envStatusQuery(env));
   const version = useQuery(versionQuery);
   const [pruning, { open, close }] = useDisclosure();
+  const can = useCan();
 
   if (status.isPending) return <Loader aria-label="Loading" />;
   if (status.isError) return <Text c="red">{status.error.message}</Text>;
@@ -34,7 +36,7 @@ function Overview() {
       <Group justify="space-between">
         <Title order={2}>{s.name}</Title>
         <Group gap="xs">
-          {s.status === "connected" && (
+          {s.status === "connected" && can("system:prune") && (
             <Button
               variant="default"
               leftSection={<IconTrash size={16} />}

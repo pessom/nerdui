@@ -28,6 +28,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { api, unwrap, unwrapEmpty } from "../../api/client";
 import { keys, type Image } from "../../api/queries";
+import { useCan } from "../../lib/permissions";
 import { displayName } from "./format";
 
 export interface ImageActionHandlers {
@@ -50,6 +51,7 @@ export function ImageRowActions({
   actions: ImageActionHandlers;
 }) {
   const name = displayName(image);
+  const write = useCan()("images:write");
   return (
     <Menu position="bottom-end" withArrow>
       <Menu.Target>
@@ -61,34 +63,41 @@ export function ImageRowActions({
         <Menu.Item leftSection={<IconHistory size={16} />} onClick={() => actions.history(image)}>
           History
         </Menu.Item>
-        <Menu.Item leftSection={<IconFileExport size={16} />} onClick={() => actions.save([image])}>
-          Save as tar
-        </Menu.Item>
-        <Menu.Divider />
-        <Menu.Item
-          leftSection={<IconTag size={16} />}
-          onClick={() => actions.tag(image)}
-          disabled={!!actions.disabled}
-          title={actions.disabled}
-        >
-          Tag…
-        </Menu.Item>
-        <Menu.Item
-          leftSection={<IconUpload size={16} />}
-          onClick={() => actions.push(image)}
-          disabled={!image.repository || !!actions.disabled}
-        >
-          Push…
-        </Menu.Item>
-        <Menu.Divider />
-        <Menu.Item
-          color="red"
-          leftSection={<IconTrash size={16} />}
-          onClick={() => actions.remove([image])}
-          disabled={!!actions.disabled}
-        >
-          Remove…
-        </Menu.Item>
+        {write && (
+          <>
+            <Menu.Item
+              leftSection={<IconFileExport size={16} />}
+              onClick={() => actions.save([image])}
+            >
+              Save as tar
+            </Menu.Item>
+            <Menu.Divider />
+            <Menu.Item
+              leftSection={<IconTag size={16} />}
+              onClick={() => actions.tag(image)}
+              disabled={!!actions.disabled}
+              title={actions.disabled}
+            >
+              Tag…
+            </Menu.Item>
+            <Menu.Item
+              leftSection={<IconUpload size={16} />}
+              onClick={() => actions.push(image)}
+              disabled={!image.repository || !!actions.disabled}
+            >
+              Push…
+            </Menu.Item>
+            <Menu.Divider />
+            <Menu.Item
+              color="red"
+              leftSection={<IconTrash size={16} />}
+              onClick={() => actions.remove([image])}
+              disabled={!!actions.disabled}
+            >
+              Remove…
+            </Menu.Item>
+          </>
+        )}
       </Menu.Dropdown>
     </Menu>
   );

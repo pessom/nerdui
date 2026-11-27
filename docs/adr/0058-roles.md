@@ -47,7 +47,9 @@ list of those actions (ADR-0053).
 - New users get `viewer` unless a role is given. Accounts created at the first single sign-on
   get the role chosen in the provider settings (`admin` for settings saved before roles).
 - `/auth/me` returns the caller's actions (`permissions`); the UI hides what the user may not
-  do. The server still checks every request.
+  do: menu sections, buttons and menu items of actions, the terminal tab; pages of settings the
+  user may read but not change are shown with their controls disabled. The server still checks
+  every request.
 
 ## Consequences
 

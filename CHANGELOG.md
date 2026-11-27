@@ -13,7 +13,10 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
   built in, and custom roles from the same permissions as API keys, e.g. an editor without the
   terminal. Give users a role on the Users page; the menu shows only the sections a role may open.
   Nobody can give a role or manage a user with permissions they do not have, and the last
-  active administrator keeps the admin role (#78, #102, ADR-0058).
+  active administrator keeps the admin role (#78, #102, ADR-0058). Pages show only the
+  actions a role allows: a viewer sees no buttons that change anything, an operator can start
+  and stop but not remove, the terminal tab needs `containers:exec`, and settings are shown
+  read-only without `settings:write`.
 - Single sign-on: a role for accounts created at the first sign-in (*Role of new accounts*).
 - Templates for containers: a template with one service deploys as a stack or as a container,
   through the new container form filled in from the template; **Save as template** on a

@@ -11,9 +11,10 @@ import {
   imageUpdatesQuery,
   updatesByRef,
 } from "../../../../api/queries";
-import { useContainerActions } from "../../../../features/containers/actions";
+import { useAllowedActions, useContainerActions } from "../../../../features/containers/actions";
 import { ContainersTable } from "../../../../features/containers/ContainersTable";
 import { ImageUpdatesContext } from "../../../../features/updates/context";
+import { useCan } from "../../../../lib/permissions";
 
 const envRoute = getRouteApi("/_app/env/$env");
 
@@ -31,6 +32,8 @@ function ContainersPage() {
   const list = useQuery(containersQuery(env, namespace));
   const updates = useQuery(imageUpdatesQuery(env, namespace));
   const { run, busy } = useContainerActions(env, namespace);
+  const can = useCan();
+  const allowed = useAllowedActions();
   const nerdctl = status.data?.runtime?.nerdctl;
   // Read-only mode (ADR-0011): the server would answer 503 nerdctl_incompatible.
   const readOnly = !!nerdctl && !nerdctl.compatible && !nerdctl.checkSkipped;
@@ -42,15 +45,17 @@ function ContainersPage() {
           <Title order={2}>Containers</Title>
           {list.isFetching && !list.isPending && <Loader size="xs" aria-label="Refreshing" />}
         </Group>
-        <Button
-          onClick={() =>
-            void navigate({ to: "/env/$env/containers/new", params: { env }, search: { ns } })
-          }
-          leftSection={<IconPlus size={16} />}
-          disabled={readOnly}
-        >
-          New container
-        </Button>
+        {can("containers:write") && (
+          <Button
+            onClick={() =>
+              void navigate({ to: "/env/$env/containers/new", params: { env }, search: { ns } })
+            }
+            leftSection={<IconPlus size={16} />}
+            disabled={readOnly}
+          >
+            New container
+          </Button>
+        )}
       </Group>
       {list.isPending && <Loader aria-label="Loading" />}
       {list.isError && (
@@ -62,11 +67,15 @@ function ContainersPage() {
         <ImageUpdatesContext.Provider value={updatesByRef(updates.data)}>
           <ContainersTable
             containers={list.data.containers}
-            actions={{
-              run,
-              busy,
-              disabled: readOnly ? "Read-only mode: host nerdctl is incompatible" : undefined,
-            }}
+            actions={
+              allowed.length > 0
+                ? {
+                    run,
+                    busy,
+                    disabled: readOnly ? "Read-only mode: host nerdctl is incompatible" : undefined,
+                  }
+                : undefined
+            }
           />
         </ImageUpdatesContext.Provider>
       )}

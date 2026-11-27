@@ -44,6 +44,7 @@ import {
 } from "../../features/schedules/kinds";
 import { ScheduleForm } from "../../features/schedules/ScheduleForm";
 import { ScheduleRuns } from "../../features/schedules/ScheduleRuns";
+import { useCan } from "../../lib/permissions";
 
 /** Scheduled jobs with their history (#82, ADR-0048). */
 export const Route = createFileRoute("/_app/schedules")({
@@ -51,6 +52,8 @@ export const Route = createFileRoute("/_app/schedules")({
 });
 
 function SchedulesPage() {
+  // Schedules are settings (ADR-0058): without settings:write they are only listed.
+  const write = useCan()("settings:write");
   const queryClient = useQueryClient();
   const jobs = useJobsPanel();
   const list = useQuery({
@@ -81,9 +84,11 @@ function SchedulesPage() {
     <Stack>
       <Group justify="space-between">
         <Title order={2}>Schedules</Title>
-        <Button leftSection={<IconPlus size={16} />} onClick={() => setEditing("new")}>
-          New schedule
-        </Button>
+        {write && (
+          <Button leftSection={<IconPlus size={16} />} onClick={() => setEditing("new")}>
+            New schedule
+          </Button>
+        )}
       </Group>
       {list.isPending && <Loader aria-label="Loading" />}
       {list.isError && <Alert color="red">{list.error.message}</Alert>}
@@ -163,36 +168,42 @@ function SchedulesPage() {
                         </ActionIcon>
                       </Menu.Target>
                       <Menu.Dropdown>
-                        <Menu.Item
-                          leftSection={<IconPlayerPlay size={16} />}
-                          onClick={() => run.mutate(s)}
-                        >
-                          Run now
-                        </Menu.Item>
+                        {write && (
+                          <Menu.Item
+                            leftSection={<IconPlayerPlay size={16} />}
+                            onClick={() => run.mutate(s)}
+                          >
+                            Run now
+                          </Menu.Item>
+                        )}
                         <Menu.Item
                           leftSection={<IconHistory size={16} />}
                           onClick={() => setHistory(s)}
                         >
                           History
                         </Menu.Item>
-                        <Menu.Item
-                          leftSection={<IconEdit size={16} />}
-                          onClick={() => setEditing(s)}
-                        >
-                          Edit…
-                        </Menu.Item>
-                        <Menu.Divider />
-                        <Menu.Item
-                          color="red"
-                          leftSection={<IconTrash size={16} />}
-                          onClick={() => {
-                            if (window.confirm(`Delete schedule ${s.name} and its history?`)) {
-                              remove.mutate(s);
-                            }
-                          }}
-                        >
-                          Delete
-                        </Menu.Item>
+                        {write && (
+                          <>
+                            <Menu.Item
+                              leftSection={<IconEdit size={16} />}
+                              onClick={() => setEditing(s)}
+                            >
+                              Edit…
+                            </Menu.Item>
+                            <Menu.Divider />
+                            <Menu.Item
+                              color="red"
+                              leftSection={<IconTrash size={16} />}
+                              onClick={() => {
+                                if (window.confirm(`Delete schedule ${s.name} and its history?`)) {
+                                  remove.mutate(s);
+                                }
+                              }}
+                            >
+                              Delete
+                            </Menu.Item>
+                          </>
+                        )}
                       </Menu.Dropdown>
                     </Menu>
                   </Table.Td>

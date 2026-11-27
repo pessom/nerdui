@@ -29,8 +29,8 @@ import {
 import { useState, type ReactNode } from "react";
 import {
   actionInfo,
-  actionOrder,
   canApply,
+  useAllowedActions,
   type ActionRequest,
   type ContainerAction,
 } from "./actions";
@@ -63,6 +63,8 @@ export function RowActions({
   request: (action: ContainerAction, containers: Container[]) => void;
 }) {
   const name = displayName(container);
+  const allowed = useAllowedActions();
+  if (allowed.length === 0) return null;
   if (actions.busy.has(container.id)) return <Loader size="xs" aria-label={`Working on ${name}`} />;
   return (
     <Menu position="bottom-end" withinPortal>
@@ -79,7 +81,7 @@ export function RowActions({
         </Tooltip>
       </Menu.Target>
       <Menu.Dropdown>
-        {actionOrder.map((a) => (
+        {allowed.map((a) => (
           <Menu.Item
             key={a}
             leftSection={icons[a]}
@@ -108,14 +110,15 @@ export function BulkActions({
   request: (action: ContainerAction, containers: Container[]) => void;
   onClear: () => void;
 }) {
-  if (selected.length === 0) return null;
+  const allowed = useAllowedActions();
+  if (selected.length === 0 || allowed.length === 0) return null;
   return (
     <Paper withBorder p="xs" mb="sm" role="toolbar" aria-label="Selected containers">
       <Group gap="xs" wrap="wrap">
         <Text size="sm" fw={500} mr="xs">
           {selected.length} selected
         </Text>
-        {actionOrder.map((a) => {
+        {allowed.map((a) => {
           const n = selected.filter((c) => canApply(a, c)).length;
           return (
             <Button

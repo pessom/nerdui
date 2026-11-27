@@ -10,6 +10,7 @@ import { ApiError, api, unwrap } from "../../api/client";
 import { keys } from "../../api/queries";
 import { useJobsPanel } from "../jobs/JobsContext";
 import { errorLine, type Schema } from "./composeSchema";
+import { useCan } from "../../lib/permissions";
 
 const StackFileEditor = lazy(() => import("./StackFileEditor"));
 const StackFileDiff = lazy(() => import("./StackFileDiff"));
@@ -50,6 +51,9 @@ export function StackFilePanel({
 }) {
   const queryClient = useQueryClient();
   const jobs = useJobsPanel();
+  const can = useCan();
+  // Without stacks:write the file is only shown (ADR-0058).
+  const editable = !fromGit && can("stacks:write");
   const file = useQuery({
     queryKey: fileKey(env, name, kind),
     queryFn: () =>
@@ -82,10 +86,10 @@ export function StackFilePanel({
   });
   const { mutate: check } = validate;
   useEffect(() => {
-    if (!file.data) return;
+    if (!file.data || !editable) return;
     const t = setTimeout(() => check(text), 600);
     return () => clearTimeout(t);
-  }, [text, file.data, check]);
+  }, [text, file.data, check, editable]);
 
   // Leaving the page with unsaved changes asks first.
   useEffect(() => {
@@ -174,7 +178,7 @@ export function StackFilePanel({
               unsaved changes
             </Badge>
           )}
-          {!result && !checkFailed && <Loader size="xs" aria-label="Checking" />}
+          {editable && !result && !checkFailed && <Loader size="xs" aria-label="Checking" />}
           {result?.valid && (
             <Badge size="sm" color="teal" variant="light" leftSection={<IconCheck size={12} />}>
               valid · {result.services.length} service{result.services.length === 1 ? "" : "s"}
@@ -186,7 +190,7 @@ export function StackFilePanel({
             </Badge>
           )}
         </Group>
-        {!fromGit && (
+        {editable && (
           <Group gap="xs">
             <Button variant="default" disabled={!dirty} onClick={() => setDraft(undefined)}>
               Revert
@@ -232,7 +236,7 @@ export function StackFilePanel({
           schema={schema.data}
           error={error}
           label={`${file.data.name} of ${name}`}
-          readOnly={fromGit}
+          readOnly={!editable}
         />
       </Suspense>
       {kind === "compose" && (
@@ -269,7 +273,7 @@ export function StackFilePanel({
               Save
             </Button>
             <Button
-              disabled={readOnly}
+              disabled={readOnly || !can("stacks:deploy")}
               loading={save.isPending && save.variables === true}
               onClick={() => save.mutate(true)}
             >

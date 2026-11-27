@@ -22,6 +22,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Suspense, lazy, useEffect, useState } from "react";
 import { ApiError, api, unwrap, unwrapEmpty } from "../../api/client";
 import type { components } from "../../api/schema";
+import { useCan } from "../../lib/permissions";
 
 const StackFileEditor = lazy(() => import("./StackFileEditor"));
 
@@ -58,6 +59,7 @@ export function StackFilesPanel({
   onOpenTab: (tab: "compose" | "env") => void;
 }) {
   const queryClient = useQueryClient();
+  const write = useCan()("stacks:write");
   const tree = useQuery({
     queryKey: treeKey(env, name),
     queryFn: () =>
@@ -79,7 +81,8 @@ export function StackFilesPanel({
         {tree.error.message}
       </Alert>
     );
-  const readOnly = tree.data.readOnly;
+  const fromGit = tree.data.readOnly;
+  const readOnly = fromGit || !write;
   const exists = selected && tree.data.entries.some((e) => e.path === selected && !e.dir);
 
   return (
@@ -118,7 +121,7 @@ export function StackFilesPanel({
               Only the first {tree.data.entries.length} entries are shown.
             </Text>
           )}
-          {readOnly && (
+          {fromGit && (
             <Text size="xs" c="dimmed">
               The files come from the Git repository: change them there and pull.
             </Text>

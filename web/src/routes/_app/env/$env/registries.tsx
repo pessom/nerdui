@@ -25,6 +25,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { api, unwrap, unwrapEmpty } from "../../../../api/client";
 import { envStatusQuery, keys, registriesQuery, type Registry } from "../../../../api/queries";
+import { useCan } from "../../../../lib/permissions";
 
 /** Registry logins of the host (#51, ADR-0019), shared with `nerdctl login`. */
 export const Route = createFileRoute("/_app/env/$env/registries")({
@@ -42,6 +43,7 @@ function RegistriesPage() {
   const status = useQuery(envStatusQuery(env));
   const nerdctl = status.data?.runtime?.nerdctl;
   const readOnly = !!nerdctl && !nerdctl.compatible && !nerdctl.checkSkipped;
+  const write = useCan()("registries:write");
   const [adding, { open, close }] = useDisclosure();
   const [leaving, setLeaving] = useState<Registry>();
 
@@ -49,11 +51,13 @@ function RegistriesPage() {
     <Stack>
       <Group justify="space-between">
         <Title order={2}>Registries</Title>
-        <Tooltip label="Read-only mode: host nerdctl is incompatible" disabled={!readOnly}>
-          <Button leftSection={<IconPlus size={16} />} onClick={open} disabled={readOnly}>
-            Log in to registry
-          </Button>
-        </Tooltip>
+        {write && (
+          <Tooltip label="Read-only mode: host nerdctl is incompatible" disabled={!readOnly}>
+            <Button leftSection={<IconPlus size={16} />} onClick={open} disabled={readOnly}>
+              Log in to registry
+            </Button>
+          </Tooltip>
+        )}
       </Group>
       <Text size="sm" c="dimmed">
         Logins are stored in the docker config of the user running nerdui (as with{" "}
@@ -100,15 +104,17 @@ function RegistriesPage() {
                   <Text size="sm">{r.username || "—"}</Text>
                 </Table.Td>
                 <Table.Td>
-                  <ActionIcon
-                    variant="subtle"
-                    color="gray"
-                    aria-label={`Log out of ${registryLabel(r.server)}`}
-                    disabled={readOnly}
-                    onClick={() => setLeaving(r)}
-                  >
-                    <IconLogout size={16} />
-                  </ActionIcon>
+                  {write && (
+                    <ActionIcon
+                      variant="subtle"
+                      color="gray"
+                      aria-label={`Log out of ${registryLabel(r.server)}`}
+                      disabled={readOnly}
+                      onClick={() => setLeaving(r)}
+                    >
+                      <IconLogout size={16} />
+                    </ActionIcon>
+                  )}
                 </Table.Td>
               </Table.Tr>
             ))}

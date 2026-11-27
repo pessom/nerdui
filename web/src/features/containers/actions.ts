@@ -6,6 +6,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, unwrap, unwrapEmpty, type components } from "../../api/client";
 import { keys } from "../../api/queries";
+import { useCan, type Permission } from "../../lib/permissions";
 import { displayName, type Container } from "./format";
 
 export type ContainerAction = components["schemas"]["ContainerActionName"];
@@ -39,6 +40,17 @@ export const actionOrder: ContainerAction[] = [
   "kill",
   "remove",
 ];
+
+/** The permission an action needs (ADR-0058): removing is a write, the rest operate. */
+export function actionPermission(action: ContainerAction): Permission {
+  return action === "remove" ? "containers:write" : "containers:operate";
+}
+
+/** The actions the caller may perform, in menu order. */
+export function useAllowedActions(): ContainerAction[] {
+  const can = useCan();
+  return actionOrder.filter((a) => can(actionPermission(a)));
+}
 
 /** Whether action applies to the container's state; mirrors the server's 409 checks. */
 export function canApply(action: ContainerAction, c: Container): boolean {

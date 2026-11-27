@@ -22,6 +22,7 @@ import { useJobsPanel } from "../jobs/JobsContext";
 import { formatTime, usePreferences } from "../preferences/context";
 import { GitAutoUpdate } from "./GitAutoUpdate";
 import { webURL } from "./gitUrl";
+import { useCan } from "../../lib/permissions";
 
 type GitInfo = NonNullable<StackT["git"]>;
 
@@ -64,6 +65,7 @@ export function GitStackPanel({
       notifications.show({ color: "red", title: "Cannot pull the stack", message: e.message }),
   });
   const browse = webURL(git.url);
+  const deploy = useCan()("stacks:deploy");
   const hint = readOnly ? "Read-only mode: host nerdctl is incompatible" : undefined;
 
   return (
@@ -92,44 +94,46 @@ export function GitStackPanel({
           </Text>
         </Stack>
         <Group gap="xs" wrap="nowrap">
-          <Tooltip label={hint} disabled={!readOnly}>
-            <Group gap={0} wrap="nowrap">
-              <Button
-                variant="default"
-                leftSection={<IconGitPullRequest size={16} />}
-                loading={pull.isPending}
-                disabled={readOnly}
-                onClick={() => pull.mutate({ redeploy: true })}
-                style={{ borderTopRightRadius: 0, borderBottomRightRadius: 0 }}
-              >
-                Pull and redeploy
-              </Button>
-              <Menu position="bottom-end">
-                <Menu.Target>
-                  <Button
-                    variant="default"
-                    aria-label="Pull options"
-                    disabled={readOnly}
-                    px={6}
-                    style={{ borderTopLeftRadius: 0, borderBottomLeftRadius: 0, borderLeft: 0 }}
-                  >
-                    <IconChevronDown size={14} />
-                  </Button>
-                </Menu.Target>
-                <Menu.Dropdown>
-                  <Menu.Item onClick={() => pull.mutate({})}>Pull only</Menu.Item>
-                  <Menu.Item onClick={() => pull.mutate({ redeploy: true, force: true })}>
-                    Pull and redeploy even if unchanged
-                  </Menu.Item>
-                  <Menu.Item
-                    onClick={() => pull.mutate({ redeploy: true, force: true, pull: true })}
-                  >
-                    Pull, pull images and redeploy
-                  </Menu.Item>
-                </Menu.Dropdown>
-              </Menu>
-            </Group>
-          </Tooltip>
+          {deploy && (
+            <Tooltip label={hint} disabled={!readOnly}>
+              <Group gap={0} wrap="nowrap">
+                <Button
+                  variant="default"
+                  leftSection={<IconGitPullRequest size={16} />}
+                  loading={pull.isPending}
+                  disabled={readOnly}
+                  onClick={() => pull.mutate({ redeploy: true })}
+                  style={{ borderTopRightRadius: 0, borderBottomRightRadius: 0 }}
+                >
+                  Pull and redeploy
+                </Button>
+                <Menu position="bottom-end">
+                  <Menu.Target>
+                    <Button
+                      variant="default"
+                      aria-label="Pull options"
+                      disabled={readOnly}
+                      px={6}
+                      style={{ borderTopLeftRadius: 0, borderBottomLeftRadius: 0, borderLeft: 0 }}
+                    >
+                      <IconChevronDown size={14} />
+                    </Button>
+                  </Menu.Target>
+                  <Menu.Dropdown>
+                    <Menu.Item onClick={() => pull.mutate({})}>Pull only</Menu.Item>
+                    <Menu.Item onClick={() => pull.mutate({ redeploy: true, force: true })}>
+                      Pull and redeploy even if unchanged
+                    </Menu.Item>
+                    <Menu.Item
+                      onClick={() => pull.mutate({ redeploy: true, force: true, pull: true })}
+                    >
+                      Pull, pull images and redeploy
+                    </Menu.Item>
+                  </Menu.Dropdown>
+                </Menu>
+              </Group>
+            </Tooltip>
+          )}
         </Group>
       </Group>
       {git.lastError && (
@@ -139,7 +143,7 @@ export function GitStackPanel({
           </Text>
         </Alert>
       )}
-      <GitAutoUpdate env={env} namespace={namespace} name={name} git={git} />
+      {deploy && <GitAutoUpdate env={env} namespace={namespace} name={name} git={git} />}
     </Paper>
   );
 }

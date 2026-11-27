@@ -26,6 +26,7 @@ import {
   RemoveNamespaceDialog,
 } from "../../../../features/namespaces/NamespaceDialogs";
 import { holders, type NamespaceSummary } from "../../../../features/namespaces/namespaces";
+import { useCan } from "../../../../lib/permissions";
 
 const envRoute = getRouteApi("/_app/env/$env");
 
@@ -44,6 +45,7 @@ function NamespacesPage() {
   const [removing, setRemoving] = useState<NamespaceSummary>();
   const nerdctl = status.data?.runtime?.nerdctl;
   const readOnly = !!nerdctl && !nerdctl.compatible && !nerdctl.checkSkipped;
+  const write = useCan()("namespaces:write");
   const defaultNs = status.data?.defaultNamespace ?? "default";
   const list = summary.data?.namespaces ?? [];
 
@@ -54,11 +56,13 @@ function NamespacesPage() {
           <Title order={2}>Namespaces</Title>
           {summary.isFetching && !summary.isPending && <Loader size="xs" aria-label="Refreshing" />}
         </Group>
-        <Tooltip label="Read-only mode: host nerdctl is incompatible" disabled={!readOnly}>
-          <Button leftSection={<IconPlus size={16} />} onClick={open} disabled={readOnly}>
-            Create namespace
-          </Button>
-        </Tooltip>
+        {write && (
+          <Tooltip label="Read-only mode: host nerdctl is incompatible" disabled={!readOnly}>
+            <Button leftSection={<IconPlus size={16} />} onClick={open} disabled={readOnly}>
+              Create namespace
+            </Button>
+          </Tooltip>
+        )}
       </Group>
       {summary.isPending && <Loader aria-label="Loading" />}
       {summary.isError && (
@@ -131,25 +135,27 @@ function NamespacesPage() {
                     </RouterAnchor>
                   </Table.Td>
                   <Table.Td>
-                    <Tooltip
-                      label={
-                        readOnly
-                          ? "Read-only mode"
-                          : held.length > 0
-                            ? `Not empty: ${held.join(", ")}`
-                            : "Remove"
-                      }
-                    >
-                      <ActionIcon
-                        variant="subtle"
-                        color="red"
-                        aria-label={`Remove ${n.name}`}
-                        disabled={readOnly}
-                        onClick={() => setRemoving(n)}
+                    {write && (
+                      <Tooltip
+                        label={
+                          readOnly
+                            ? "Read-only mode"
+                            : held.length > 0
+                              ? `Not empty: ${held.join(", ")}`
+                              : "Remove"
+                        }
                       >
-                        <IconTrash size={16} />
-                      </ActionIcon>
-                    </Tooltip>
+                        <ActionIcon
+                          variant="subtle"
+                          color="red"
+                          aria-label={`Remove ${n.name}`}
+                          disabled={readOnly}
+                          onClick={() => setRemoving(n)}
+                        >
+                          <IconTrash size={16} />
+                        </ActionIcon>
+                      </Tooltip>
+                    )}
                   </Table.Td>
                 </Table.Tr>
               );

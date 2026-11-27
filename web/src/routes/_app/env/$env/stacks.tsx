@@ -29,6 +29,7 @@ import { GitStackDialog } from "../../../../features/stacks/GitStackDialog";
 import { NewStackDialog } from "../../../../features/stacks/NewStackDialog";
 import { StackMode, StackStatus } from "../../../../features/stacks/StackStatus";
 import { StacksUpdateBadge } from "../../../../features/updates/StacksUpdateBadge";
+import { useCan } from "../../../../lib/permissions";
 
 const envRoute = getRouteApi("/_app/env/$env");
 
@@ -55,6 +56,7 @@ function StacksPage() {
   const [adopting, { open, close }] = useDisclosure();
   const [creating, newStack] = useDisclosure();
   const [cloning, gitStack] = useDisclosure();
+  const can = useCan();
 
   return (
     <MStack>
@@ -64,28 +66,36 @@ function StacksPage() {
           {list.isFetching && !list.isPending && <Loader size="xs" aria-label="Refreshing" />}
         </Group>
         <Group gap="xs">
-          <Button variant="default" leftSection={<IconFolderPlus size={16} />} onClick={open}>
-            Adopt existing
-          </Button>
-          <Button
-            variant="default"
-            leftSection={<IconBrandGit size={16} />}
-            onClick={gitStack.open}
-          >
-            From Git
-          </Button>
-          <Button
-            variant="default"
-            leftSection={<IconTemplate size={16} />}
-            onClick={() =>
-              void navigate({ to: "/env/$env/templates", params: { env }, search: { ns } })
-            }
-          >
-            From template
-          </Button>
-          <Button leftSection={<IconPlus size={16} />} onClick={newStack.open}>
-            New stack
-          </Button>
+          {can("stacks:write") && (
+            <>
+              <Button variant="default" leftSection={<IconFolderPlus size={16} />} onClick={open}>
+                Adopt existing
+              </Button>
+              <Button
+                variant="default"
+                leftSection={<IconBrandGit size={16} />}
+                onClick={gitStack.open}
+              >
+                From Git
+              </Button>
+            </>
+          )}
+          {(can("stacks:write") || can("containers:write")) && (
+            <Button
+              variant="default"
+              leftSection={<IconTemplate size={16} />}
+              onClick={() =>
+                void navigate({ to: "/env/$env/templates", params: { env }, search: { ns } })
+              }
+            >
+              From template
+            </Button>
+          )}
+          {can("stacks:write") && (
+            <Button leftSection={<IconPlus size={16} />} onClick={newStack.open}>
+              New stack
+            </Button>
+          )}
         </Group>
       </Group>
       <NewStackDialog env={env} namespace={namespace} opened={creating} onClose={newStack.close} />
