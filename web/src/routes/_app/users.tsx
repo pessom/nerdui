@@ -22,6 +22,7 @@ import { notifications } from "@mantine/notifications";
 import {
   IconDots,
   IconApi,
+  IconUserShield,
   IconKey,
   IconLinkOff,
   IconPlayerPlay,
@@ -37,9 +38,11 @@ import { api, unwrap, unwrapEmpty } from "../../api/client";
 import { keys, usersQuery, type UserDetail } from "../../api/queries";
 import { UserKeysModal } from "../../features/apikeys/UserKeysModal";
 import { CreateUserModal, ResetPasswordModal } from "../../features/users/PasswordDialogs";
+import { ChangeRoleModal, RolesSection } from "../../features/users/Roles";
+import { allows } from "../../lib/permissions";
 import { Time } from "../../components/Time";
 
-/** Local users (#74, ADR-0016). */
+/** Local users (#74, ADR-0016) and roles (#78, ADR-0058). */
 export const Route = createFileRoute("/_app/users")({
   component: UsersPage,
 });
@@ -56,6 +59,8 @@ function UsersPage() {
   const [creating, { open: openCreate, close: closeCreate }] = useDisclosure();
   const [resetting, setResetting] = useState<UserDetail>();
   const [keysOf, setKeysOf] = useState<UserDetail>();
+  const [roleOf, setRoleOf] = useState<UserDetail>();
+  const write = allows(session, "users:write");
   const [pending, setPending] = useState<Pending>();
 
   const mutate = useMutation({
@@ -87,9 +92,11 @@ function UsersPage() {
     <Stack>
       <Group justify="space-between">
         <Title order={2}>Users</Title>
-        <Button leftSection={<IconPlus size={16} />} onClick={openCreate}>
-          Add user
-        </Button>
+        {write && (
+          <Button leftSection={<IconPlus size={16} />} onClick={openCreate}>
+            Add user
+          </Button>
+        )}
       </Group>
       {users.isPending && <Loader aria-label="Loading" />}
       {users.isError && (
@@ -99,10 +106,11 @@ function UsersPage() {
       )}
       {users.data && (
         <Table.ScrollContainer minWidth={560}>
-          <Table highlightOnHover>
+          <Table highlightOnHover aria-label="Users">
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>Username</Table.Th>
+                <Table.Th>Role</Table.Th>
                 <Table.Th>Status</Table.Th>
                 <Table.Th>Created</Table.Th>
                 <Table.Th>Last sign-in</Table.Th>
@@ -117,6 +125,8 @@ function UsersPage() {
                   key={u.id}
                   user={u}
                   self={u.id === session.user.id}
+                  write={write}
+                  onRole={() => setRoleOf(u)}
                   onReset={() => setResetting(u)}
                   onKeys={() => setKeysOf(u)}
                   onAction={(kind) => setPending({ kind, user: u })}
@@ -130,6 +140,7 @@ function UsersPage() {
       <CreateUserModal opened={creating} onClose={closeCreate} />
       <ResetPasswordModal user={resetting} onClose={() => setResetting(undefined)} />
       <UserKeysModal user={keysOf} onClose={() => setKeysOf(undefined)} />
+      <ChangeRoleModal user={roleOf} onClose={() => setRoleOf(undefined)} />
       <Modal
         opened={!!pending}
         onClose={() => setPending(undefined)}
@@ -153,6 +164,7 @@ function UsersPage() {
           </Stack>
         )}
       </Modal>
+      <RolesSection />
     </Stack>
   );
 }
@@ -184,12 +196,16 @@ const confirmText = {
 function UserRow({
   user: u,
   self,
+  write,
+  onRole,
   onReset,
   onKeys,
   onAction,
 }: {
   user: UserDetail;
   self: boolean;
+  write: boolean;
+  onRole: () => void;
   onReset: () => void;
   onKeys: () => void;
   onAction: (kind: Pending["kind"]) => void;
@@ -207,6 +223,9 @@ function UserRow({
             </Badge>
           )}
         </Group>
+      </Table.Td>
+      <Table.Td>
+        <Text size="sm">{u.role}</Text>
       </Table.Td>
       <Table.Td>
         <Group gap={4}>
@@ -243,8 +262,12 @@ function UserRow({
         )}
       </Table.Td>
       <Table.Td>
-        {self ? (
-          <Tooltip label="Manage your own account from the user menu">
+        {self || !write ? (
+          <Tooltip
+            label={
+              self ? "Manage your own account from the user menu" : "Your role cannot change users"
+            }
+          >
             <ActionIcon
               variant="subtle"
               color="gray"
@@ -262,6 +285,9 @@ function UserRow({
               </ActionIcon>
             </Menu.Target>
             <Menu.Dropdown>
+              <Menu.Item leftSection={<IconUserShield size={16} />} onClick={onRole}>
+                Change role
+              </Menu.Item>
               <Menu.Item leftSection={<IconKey size={16} />} onClick={onReset}>
                 Set temporary password
               </Menu.Item>

@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/pessom/nerdui/internal/authz"
 	"github.com/pessom/nerdui/internal/store"
 	"github.com/pessom/nerdui/internal/store/db"
 )
@@ -73,6 +74,12 @@ func (s *Service) GetUser(ctx context.Context, id int64) (UserDetail, error) {
 // CreateUser adds an administrator with a temporary password that must be changed at the
 // first sign-in. An empty password is generated and returned; a given one is returned empty.
 func (s *Service) CreateUser(ctx context.Context, username, password string) (UserDetail, string, error) {
+	return s.CreateUserWithRole(ctx, username, password, RoleAdmin, nil)
+}
+
+// CreateUserWithRole adds a user with role, like CreateUser. can tells which actions the
+// caller may perform: the role may not have any other (ADR-0058); nil allows every role.
+func (s *Service) CreateUserWithRole(ctx context.Context, username, password, role string, can func(authz.Action) bool) (UserDetail, string, error) {
 	if !usernameRe.MatchString(username) {
 		return UserDetail{}, "", ErrInvalidUsername
 	}
@@ -87,8 +94,11 @@ func (s *Service) CreateUser(ctx context.Context, username, password string) (Us
 		} else if !store.IsNotFound(err) {
 			return err
 		}
+		if err := s.mayGrant(ctx, q, can, role); err != nil {
+			return err
+		}
 		u, err = q.CreateUser(ctx, db.CreateUserParams{
-			Username: username, PasswordHash: hash, Role: RoleAdmin, MustChangePassword: 1,
+			Username: username, PasswordHash: hash, Role: role, MustChangePassword: 1,
 			Now: s.opts.Now().Unix(),
 		})
 		return err
@@ -96,7 +106,7 @@ func (s *Service) CreateUser(ctx context.Context, username, password string) (Us
 	if err != nil {
 		return UserDetail{}, "", err
 	}
-	s.opts.Logger.Info("user created", "username", u.Username)
+	s.opts.Logger.Info("user created", "username", u.Username, "role", u.Role)
 	return toDetail(u), generated, nil
 }
 

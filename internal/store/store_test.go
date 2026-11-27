@@ -17,7 +17,7 @@ import (
 const now = int64(1_800_000_000)
 
 // latestVersion is the number of embedded migrations.
-const latestVersion = 21
+const latestVersion = 22
 
 func openTest(t *testing.T, dir string) *Store {
 	t.Helper()
@@ -204,10 +204,6 @@ func TestUsersAndSessions(t *testing.T) {
 	if !IsUniqueViolation(err) {
 		t.Fatalf("duplicate username: err = %v", err)
 	}
-	_, err = w.CreateUser(ctx, db.CreateUserParams{Username: "x", PasswordHash: "h", Role: "root", Now: now})
-	if err == nil {
-		t.Fatal("invalid role accepted")
-	}
 	if n, _ := r.CountUsers(ctx); n != 1 {
 		t.Errorf("CountUsers = %d", n)
 	}
@@ -356,5 +352,66 @@ func TestScheduleKindsMigration(t *testing.T) {
 	}
 	if runs, _ := s.Read().ListScheduleRuns(ctx, db.ListScheduleRunsParams{ScheduleID: 7, Limit: 10}); len(runs) != 0 {
 		t.Errorf("runs after delete: %v", runs)
+	}
+}
+
+// migrationsBefore returns the embedded migrations numbered below first, e.g. "00022".
+func migrationsBefore(t *testing.T, first string) fstest.MapFS {
+	t.Helper()
+	out := fstest.MapFS{}
+	entries, err := embedded.ReadDir("migrations")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		if e.Name() < first {
+			b, err := embedded.ReadFile("migrations/" + e.Name())
+			if err != nil {
+				t.Fatal(err)
+			}
+			out[e.Name()] = &fstest.MapFile{Data: b}
+		}
+	}
+	return out
+}
+
+func TestRolesMigration(t *testing.T) {
+	dir := t.TempDir()
+	ctx := context.Background()
+	s, err := open(ctx, dir, migrationsBefore(t, "00022"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, q := range []string{
+		"INSERT INTO users (id, username, password_hash, role, created_at, updated_at) VALUES (3, 'admin', 'h', 'admin', 1, 1)",
+		"INSERT INTO sessions (token_hash, user_id, csrf_token, created_at, last_seen_at, expires_at) VALUES (x'01', 3, 'c', 1, 1, 9999999999)",
+	} {
+		if _, err := s.writer.ExecContext(ctx, q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_ = s.Close()
+
+	s = openTest(t, dir)
+	u, err := s.Read().GetUserByID(ctx, 3)
+	if err != nil || u.Role != "admin" {
+		t.Fatalf("migrated user = %+v, %v", u, err)
+	}
+	if _, err := s.Read().GetSession(ctx, []byte{1}); err != nil {
+		t.Errorf("session lost: %v", err)
+	}
+	if _, err := s.Write().SetUserRole(ctx, db.SetUserRoleParams{ID: 3, Role: "deployers", Now: 2}); err != nil {
+		t.Errorf("custom role: %v", err)
+	}
+	v, err := s.Write().CreateUser(ctx, db.CreateUserParams{Username: "v", PasswordHash: "h", Role: "viewer", Now: 2})
+	if err != nil || v.Role != "viewer" {
+		t.Errorf("viewer = %+v, %v", v, err)
+	}
+	// Deleting a user still removes the sessions.
+	if _, err := s.Write().DeleteUser(ctx, 3); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Read().GetSession(ctx, []byte{1}); !IsNotFound(err) {
+		t.Errorf("session after delete: %v", err)
 	}
 }

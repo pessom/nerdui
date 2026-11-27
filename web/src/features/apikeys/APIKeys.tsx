@@ -6,7 +6,6 @@ import {
   Alert,
   Badge,
   Button,
-  Checkbox,
   Code,
   CopyButton,
   Group,
@@ -24,28 +23,12 @@ import { IconCheck, IconCopy, IconTrash } from "@tabler/icons-react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { api, unwrap, type components } from "../../api/client";
+import { PermissionPicker } from "../../components/PermissionPicker";
 import { Time } from "../../components/Time";
 
 export type APIKey = components["schemas"]["APIKey"];
 type Permission = components["schemas"]["Permission"];
 type Access = "read" | "chosen" | "full";
-
-/** Permissions a key can be limited to, by area (#80). */
-const permissionAreas: { area: string; permissions: Permission[] }[] = [
-  {
-    area: "Containers",
-    permissions: ["containers:read", "containers:operate", "containers:write", "containers:exec"],
-  },
-  { area: "Stacks", permissions: ["stacks:read", "stacks:deploy", "stacks:write"] },
-  { area: "Images", permissions: ["images:read", "images:write"] },
-  { area: "Volumes", permissions: ["volumes:read", "volumes:write"] },
-  { area: "Networks", permissions: ["networks:read", "networks:write"] },
-  { area: "Namespaces", permissions: ["namespaces:read", "namespaces:write"] },
-  { area: "System", permissions: ["system:read", "system:prune", "jobs:read"] },
-  { area: "Registries", permissions: ["registries:read", "registries:write"] },
-  { area: "Settings", permissions: ["settings:read", "settings:write", "audit:read"] },
-  { area: "Users", permissions: ["users:read", "users:write"] },
-];
 
 /** The access of a key in lists: read-only, full, or its permissions. */
 function accessBadge(k: APIKey) {
@@ -284,30 +267,7 @@ export function CreateAPIKeyModal({ opened, onClose }: { opened: boolean; onClos
               </Stack>
             </Radio.Group>
             {access === "chosen" && (
-              <Checkbox.Group
-                aria-label="Permissions"
-                value={permissions}
-                onChange={(v) => setPermissions(v as Permission[])}
-              >
-                <Table withRowBorders={false} verticalSpacing={4}>
-                  <Table.Tbody>
-                    {permissionAreas.map(({ area, permissions: list }) => (
-                      <Table.Tr key={area}>
-                        <Table.Td w={110}>
-                          <Text size="sm">{area}</Text>
-                        </Table.Td>
-                        <Table.Td>
-                          <Group gap="md">
-                            {list.map((p) => (
-                              <Checkbox key={p} value={p} label={p} size="xs" />
-                            ))}
-                          </Group>
-                        </Table.Td>
-                      </Table.Tr>
-                    ))}
-                  </Table.Tbody>
-                </Table>
-              </Checkbox.Group>
+              <PermissionPicker value={permissions} onChange={setPermissions} />
             )}
             <Select
               label="Expires"

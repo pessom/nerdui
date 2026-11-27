@@ -21,6 +21,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { api, unwrap } from "../../api/client";
 import type { components } from "../../api/schema";
+import { RoleSelect } from "../users/Roles";
 
 type Settings = components["schemas"]["OIDCSettings"];
 
@@ -56,6 +57,7 @@ function OIDCForm({ saved }: { saved: Settings }) {
     usernameClaim: saved.usernameClaim ?? "",
     groupsClaim: saved.groupsClaim ?? "",
     group: saved.group ?? "",
+    role: saved.role || "viewer",
     buttonLabel: saved.buttonLabel ?? "",
     redirectUrl: saved.redirectUrl ?? "",
   });
@@ -143,6 +145,14 @@ function OIDCForm({ saved }: { saved: Settings }) {
             value={form.group}
             onChange={set("group")}
           />
+          {form.group && (
+            <RoleSelect
+              label="Role of new accounts"
+              description="Given to accounts created at their first sign-in; change it later under Users."
+              value={form.role}
+              onChange={(role) => setForm((f) => ({ ...f, role }))}
+            />
+          )}
           <TextInput
             label="Username claim"
             description="Matched with nerdui usernames"

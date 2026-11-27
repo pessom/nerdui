@@ -85,7 +85,7 @@ func (q *Queries) DeleteUserPasskeys(ctx context.Context, userID int64) error {
 }
 
 const getUserByWebAuthnHandle = `-- name: GetUserByWebAuthnHandle :one
-SELECT id, username, password_hash, role, created_at, updated_at, disabled_at, must_change_password, last_login_at, mfa_secret, mfa_enabled, mfa_last_step, oidc_identity, webauthn_handle, passkey_count FROM users WHERE webauthn_handle = ?
+SELECT id, username, password_hash, created_at, updated_at, disabled_at, must_change_password, last_login_at, mfa_secret, mfa_enabled, mfa_last_step, oidc_identity, webauthn_handle, passkey_count, role FROM users WHERE webauthn_handle = ?
 `
 
 func (q *Queries) GetUserByWebAuthnHandle(ctx context.Context, webauthnHandle []byte) (User, error) {
@@ -95,7 +95,6 @@ func (q *Queries) GetUserByWebAuthnHandle(ctx context.Context, webauthnHandle []
 		&i.ID,
 		&i.Username,
 		&i.PasswordHash,
-		&i.Role,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DisabledAt,
@@ -107,6 +106,7 @@ func (q *Queries) GetUserByWebAuthnHandle(ctx context.Context, webauthnHandle []
 		&i.OidcIdentity,
 		&i.WebauthnHandle,
 		&i.PasskeyCount,
+		&i.Role,
 	)
 	return i, err
 }

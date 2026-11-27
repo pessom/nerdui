@@ -177,6 +177,7 @@ func PasswordChanged(next http.Handler) http.Handler {
 
 // Routes registers the authentication and user management endpoints under the API root.
 func (s *Service) Routes(r chi.Router, g *authz.Guard) {
+	s.guard = g
 	r.Method(http.MethodGet, "/setup", authz.Public(s.handleSetupStatus))
 	r.Method(http.MethodPost, "/setup", authz.Public(s.handleSetup))
 	r.Method(http.MethodPost, "/auth/login", authz.Public(s.handleLogin))
@@ -198,6 +199,7 @@ func (s *Service) Routes(r chi.Router, g *authz.Guard) {
 			s.mfaAdminRoutes(r, g)
 			s.oidcAdminRoutes(r, g)
 			s.userRoutes(r, g)
+			s.roleRoutes(r, g)
 			s.apiKeyRoutes(r, g)
 			s.preferenceRoutes(r, g)
 		})
@@ -211,12 +213,16 @@ type SessionResponse struct {
 	ExpiresAt time.Time `json:"expiresAt"`
 	// MFASetupRequired: two-factor authentication is required and the user has none yet (#75).
 	MFASetupRequired bool `json:"mfaSetupRequired"`
+	// Permissions are the actions the caller may perform (ADR-0058): the user's role, limited
+	// by the API key of the request. The UI hides the rest; the server checks every request.
+	Permissions []authz.Action `json:"permissions"`
 }
 
 func (s *Service) sessionResponse(r *http.Request, u User, csrf string, expires time.Time) SessionResponse {
 	return SessionResponse{
 		User: u, CSRFToken: csrf, ExpiresAt: expires,
 		MFASetupRequired: !u.MFAEnabled && !viaSSO(r) && s.RequireMFA(r.Context()),
+		Permissions:      s.permissions(r.Context(), u.Role),
 	}
 }
 
@@ -332,14 +338,18 @@ func (s *Service) writeAuthError(w http.ResponseWriter, err error) bool {
 		httpjson.WriteError(w, http.StatusConflict, httpjson.CodeConflict, err.Error())
 	case errors.Is(err, ErrUserDisabled):
 		httpjson.WriteError(w, http.StatusForbidden, httpjson.CodeForbidden, err.Error())
-	case errors.Is(err, ErrUserNotFound):
+	case errors.Is(err, ErrRoleAbove):
+		httpjson.WriteError(w, http.StatusForbidden, httpjson.CodeForbidden, err.Error())
+	case errors.Is(err, ErrUserNotFound), errors.Is(err, ErrRoleNotFound):
 		httpjson.WriteError(w, http.StatusNotFound, httpjson.CodeNotFound, err.Error())
 	case errors.Is(err, ErrSetupCompleted), errors.Is(err, ErrUsernameTaken),
 		errors.Is(err, ErrOwnAccount), errors.Is(err, ErrLastAdmin),
+		errors.Is(err, ErrRoleTaken), errors.Is(err, ErrRoleBuiltin), errors.Is(err, ErrRoleInUse),
 		errors.Is(err, ErrMFANotStarted), errors.Is(err, ErrMFANotEnabled), errors.Is(err, ErrMFAAlreadyEnabled):
 		httpjson.WriteError(w, http.StatusConflict, httpjson.CodeConflict, err.Error())
 	// A wrong current password is not 401: the session itself is valid.
 	case errors.Is(err, ErrWeakPassword), errors.Is(err, ErrInvalidUsername),
+		errors.Is(err, ErrRoleName), errors.Is(err, ErrRoleDescription),
 		errors.Is(err, ErrWrongPassword), errors.Is(err, ErrSamePassword):
 		httpjson.WriteError(w, http.StatusBadRequest, httpjson.CodeInvalidArgument, err.Error())
 	default:

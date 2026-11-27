@@ -159,6 +159,9 @@ func (s *Service) handleDeleteUserKey(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if !s.mayManageUser(w, r, id) {
+		return
+	}
 	if err := s.DeleteAPIKey(r.Context(), id, kid); err != nil {
 		s.writeKeyError(w, err)
 		return

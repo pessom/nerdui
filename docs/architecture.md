@@ -156,7 +156,7 @@ web/src/
 | v2 feature | Prepared by |
 | --- | --- |
 | Multiple hosts, agents (#69, #70) | environment registry, `Runtime` interfaces, WS framing |
-| RBAC, API keys, restricted roles (#78, #80, #102) | action catalog, `Authorizer`, `users.role` |
+| Roles per resource (namespaces, hosts) | roles (ADR-0058), `authz.Resource` passed to the `Authorizer` |
 | MFA, OIDC (#75, #76) | session issuance in `internal/auth` |
 | Scheduler, job history (#82) | `internal/jobs`, SQLite |
 | Git stacks (#37–#41) | stacks as directories |

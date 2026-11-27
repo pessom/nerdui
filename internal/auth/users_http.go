@@ -54,11 +54,15 @@ func (s *Service) handleCreateUser(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
+		Role     string `json:"role"`
 	}
 	if !httpjson.Decode(w, r, &req) {
 		return
 	}
-	u, generated, err := s.CreateUser(r.Context(), req.Username, req.Password)
+	if req.Role == "" {
+		req.Role = authz.RoleViewer
+	}
+	u, generated, err := s.CreateUserWithRole(r.Context(), req.Username, req.Password, req.Role, s.can(r))
 	if s.writeAuthError(w, err) {
 		return
 	}
@@ -72,18 +76,32 @@ func (s *Service) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		Disabled *bool `json:"disabled"`
+		Disabled *bool   `json:"disabled"`
+		Role     *string `json:"role"`
 	}
 	if !httpjson.Decode(w, r, &req) {
 		return
 	}
-	if req.Disabled == nil {
-		httpjson.WriteError(w, http.StatusBadRequest, httpjson.CodeInvalidArgument, "nothing to update: set disabled")
+	if req.Disabled == nil && req.Role == nil {
+		httpjson.WriteError(w, http.StatusBadRequest, httpjson.CodeInvalidArgument, "nothing to update: set disabled or role")
 		return
 	}
-	u, err := s.SetDisabled(r.Context(), actorID(r), id, *req.Disabled)
-	if s.writeAuthError(w, err) {
+	if !s.mayManageUser(w, r, id) {
 		return
+	}
+	var (
+		u   UserDetail
+		err error
+	)
+	if req.Role != nil {
+		if u, err = s.SetRole(r.Context(), actorID(r), s.can(r), id, *req.Role); s.writeAuthError(w, err) {
+			return
+		}
+	}
+	if req.Disabled != nil {
+		if u, err = s.SetDisabled(r.Context(), actorID(r), id, *req.Disabled); s.writeAuthError(w, err) {
+			return
+		}
 	}
 	httpjson.Write(w, http.StatusOK, u)
 }
@@ -99,6 +117,9 @@ func (s *Service) handleSetUserPassword(w http.ResponseWriter, r *http.Request) 
 	if !httpjson.Decode(w, r, &req) {
 		return
 	}
+	if !s.mayManageUser(w, r, id) {
+		return
+	}
 	generated, err := s.SetTemporaryPassword(r.Context(), actorID(r), id, req.Password)
 	if s.writeAuthError(w, err) {
 		return
@@ -110,6 +131,9 @@ func (s *Service) handleSetUserPassword(w http.ResponseWriter, r *http.Request) 
 func (s *Service) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	id, ok := userID(w, r)
 	if !ok {
+		return
+	}
+	if !s.mayManageUser(w, r, id) {
 		return
 	}
 	if s.writeAuthError(w, s.DeleteUser(r.Context(), actorID(r), id)) {

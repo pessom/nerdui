@@ -4,6 +4,7 @@
 package auth
 
 import (
+	"cmp"
 	"errors"
 	"html"
 	"net/http"
@@ -190,6 +191,10 @@ func (s *Service) handlePutOIDC(w http.ResponseWriter, r *http.Request) {
 	if !httpjson.Decode(w, r, &req) {
 		return
 	}
+	// Whoever sets the role of new accounts must have its actions (ADR-0058).
+	if err := s.mayGrant(r.Context(), s.store.Read(), s.can(r), cmp.Or(strings.TrimSpace(req.Role), authz.RoleViewer)); s.writeAuthError(w, err) {
+		return
+	}
 	c, err := s.SetOIDCSettings(r.Context(), req)
 	if errors.Is(err, ErrInvalidOIDC) {
 		httpjson.WriteError(w, http.StatusBadRequest, httpjson.CodeInvalidArgument, err.Error())
@@ -207,6 +212,9 @@ func (s *Service) handleUnlinkOIDC(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil {
 		s.writeAuthError(w, ErrUserNotFound)
+		return
+	}
+	if !s.mayManageUser(w, r, id) {
 		return
 	}
 	u, err := s.UnlinkOIDC(r.Context(), id)

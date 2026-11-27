@@ -53,6 +53,37 @@ export const session = {
   mfaSetupRequired: false,
 };
 
+const read = [
+  "jobs:read",
+  "containers:read",
+  "images:read",
+  "volumes:read",
+  "networks:read",
+  "stacks:read",
+  "namespaces:read",
+  "system:read",
+  "registries:read",
+];
+
+export const roles = [
+  { name: "admin", description: "Every action", builtin: true, permissions: [], users: 1 },
+  {
+    name: "operator",
+    description: "Start, stop, deploy",
+    builtin: true,
+    permissions: [...read, "containers:operate", "containers:exec", "stacks:deploy"],
+    users: 0,
+  },
+  { name: "viewer", description: "View", builtin: true, permissions: read, users: 0 },
+];
+
+/** A signed-in viewer (ADR-0058). */
+export const viewerSession = {
+  ...session,
+  user: { ...session.user, id: 5, username: "vera", role: "viewer" },
+  permissions: read,
+};
+
 export const version = {
   nerdui: {
     version: "v0.1.0",

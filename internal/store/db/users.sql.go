@@ -36,7 +36,7 @@ const createUser = `-- name: CreateUser :one
 
 INSERT INTO users (username, password_hash, role, must_change_password, created_at, updated_at)
 VALUES (?1, ?2, ?3, ?4, ?5, ?5)
-RETURNING id, username, password_hash, role, created_at, updated_at, disabled_at, must_change_password, last_login_at, mfa_secret, mfa_enabled, mfa_last_step, oidc_identity, webauthn_handle, passkey_count
+RETURNING id, username, password_hash, created_at, updated_at, disabled_at, must_change_password, last_login_at, mfa_secret, mfa_enabled, mfa_last_step, oidc_identity, webauthn_handle, passkey_count, role
 `
 
 type CreateUserParams struct {
@@ -62,7 +62,6 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.ID,
 		&i.Username,
 		&i.PasswordHash,
-		&i.Role,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DisabledAt,
@@ -74,6 +73,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.OidcIdentity,
 		&i.WebauthnHandle,
 		&i.PasskeyCount,
+		&i.Role,
 	)
 	return i, err
 }
@@ -91,7 +91,7 @@ func (q *Queries) DeleteUser(ctx context.Context, id int64) (int64, error) {
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, username, password_hash, role, created_at, updated_at, disabled_at, must_change_password, last_login_at, mfa_secret, mfa_enabled, mfa_last_step, oidc_identity, webauthn_handle, passkey_count FROM users WHERE id = ?
+SELECT id, username, password_hash, created_at, updated_at, disabled_at, must_change_password, last_login_at, mfa_secret, mfa_enabled, mfa_last_step, oidc_identity, webauthn_handle, passkey_count, role FROM users WHERE id = ?
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id int64) (User, error) {
@@ -101,7 +101,6 @@ func (q *Queries) GetUserByID(ctx context.Context, id int64) (User, error) {
 		&i.ID,
 		&i.Username,
 		&i.PasswordHash,
-		&i.Role,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DisabledAt,
@@ -113,12 +112,13 @@ func (q *Queries) GetUserByID(ctx context.Context, id int64) (User, error) {
 		&i.OidcIdentity,
 		&i.WebauthnHandle,
 		&i.PasskeyCount,
+		&i.Role,
 	)
 	return i, err
 }
 
 const getUserByOIDCIdentity = `-- name: GetUserByOIDCIdentity :one
-SELECT id, username, password_hash, role, created_at, updated_at, disabled_at, must_change_password, last_login_at, mfa_secret, mfa_enabled, mfa_last_step, oidc_identity, webauthn_handle, passkey_count FROM users WHERE oidc_identity = ?
+SELECT id, username, password_hash, created_at, updated_at, disabled_at, must_change_password, last_login_at, mfa_secret, mfa_enabled, mfa_last_step, oidc_identity, webauthn_handle, passkey_count, role FROM users WHERE oidc_identity = ?
 `
 
 func (q *Queries) GetUserByOIDCIdentity(ctx context.Context, oidcIdentity sql.NullString) (User, error) {
@@ -128,7 +128,6 @@ func (q *Queries) GetUserByOIDCIdentity(ctx context.Context, oidcIdentity sql.Nu
 		&i.ID,
 		&i.Username,
 		&i.PasswordHash,
-		&i.Role,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DisabledAt,
@@ -140,12 +139,13 @@ func (q *Queries) GetUserByOIDCIdentity(ctx context.Context, oidcIdentity sql.Nu
 		&i.OidcIdentity,
 		&i.WebauthnHandle,
 		&i.PasskeyCount,
+		&i.Role,
 	)
 	return i, err
 }
 
 const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT id, username, password_hash, role, created_at, updated_at, disabled_at, must_change_password, last_login_at, mfa_secret, mfa_enabled, mfa_last_step, oidc_identity, webauthn_handle, passkey_count FROM users WHERE username = ?
+SELECT id, username, password_hash, created_at, updated_at, disabled_at, must_change_password, last_login_at, mfa_secret, mfa_enabled, mfa_last_step, oidc_identity, webauthn_handle, passkey_count, role FROM users WHERE username = ?
 `
 
 func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User, error) {
@@ -155,7 +155,6 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 		&i.ID,
 		&i.Username,
 		&i.PasswordHash,
-		&i.Role,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.DisabledAt,
@@ -167,12 +166,13 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 		&i.OidcIdentity,
 		&i.WebauthnHandle,
 		&i.PasskeyCount,
+		&i.Role,
 	)
 	return i, err
 }
 
 const listUsers = `-- name: ListUsers :many
-SELECT id, username, password_hash, role, created_at, updated_at, disabled_at, must_change_password, last_login_at, mfa_secret, mfa_enabled, mfa_last_step, oidc_identity, webauthn_handle, passkey_count FROM users ORDER BY username
+SELECT id, username, password_hash, created_at, updated_at, disabled_at, must_change_password, last_login_at, mfa_secret, mfa_enabled, mfa_last_step, oidc_identity, webauthn_handle, passkey_count, role FROM users ORDER BY username
 `
 
 func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
@@ -188,7 +188,6 @@ func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 			&i.ID,
 			&i.Username,
 			&i.PasswordHash,
-			&i.Role,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.DisabledAt,
@@ -200,6 +199,7 @@ func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 			&i.OidcIdentity,
 			&i.WebauthnHandle,
 			&i.PasskeyCount,
+			&i.Role,
 		); err != nil {
 			return nil, err
 		}
@@ -261,6 +261,24 @@ type SetUserOIDCIdentityParams struct {
 
 func (q *Queries) SetUserOIDCIdentity(ctx context.Context, arg SetUserOIDCIdentityParams) (int64, error) {
 	result, err := q.db.ExecContext(ctx, setUserOIDCIdentity, arg.OidcIdentity, arg.Now, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+const setUserRole = `-- name: SetUserRole :execrows
+UPDATE users SET role = ?1, updated_at = ?2 WHERE id = ?3
+`
+
+type SetUserRoleParams struct {
+	Role string
+	Now  int64
+	ID   int64
+}
+
+func (q *Queries) SetUserRole(ctx context.Context, arg SetUserRoleParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, setUserRole, arg.Role, arg.Now, arg.ID)
 	if err != nil {
 		return 0, err
 	}

@@ -710,10 +710,63 @@ export interface paths {
         /**
          * Create a user with a temporary password
          * @description Requires `users:write`. Without `password`, one is generated and returned once in
-         *     `generatedPassword`. The user must change it at the first sign-in.
+         *     `generatedPassword`. The user must change it at the first sign-in. The caller must have
+         *     every permission of `role` (403 otherwise, ADR-0058); an unknown role is 404.
          */
         post: operations["createUser"];
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List roles
+         * @description Requires `users:read`. Built-in roles first, then custom roles by name (ADR-0058).
+         */
+        get: operations["listRoles"];
+        put?: never;
+        /**
+         * Create a custom role
+         * @description Requires `users:write` and every permission of the role.
+         */
+        post: operations["createRole"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/roles/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Change a custom role
+         * @description Requires `users:write` and every permission of the role before and after the change.
+         *     Users with the role get the new permissions at their next request. Built-in roles
+         *     cannot be changed (409).
+         */
+        put: operations["updateRole"];
+        post?: never;
+        /**
+         * Delete a custom role
+         * @description Requires `users:write`. A role that users have cannot be deleted (409).
+         */
+        delete: operations["deleteRole"];
         options?: never;
         head?: never;
         patch?: never;
@@ -745,9 +798,11 @@ export interface paths {
         options?: never;
         head?: never;
         /**
-         * Disable or enable a user
+         * Change the role of a user, or disable or enable them
          * @description Requires `users:write`. Disabling revokes the user's sessions. The caller's own account
-         *     and the last active administrator cannot be disabled (409).
+         *     cannot be changed, and the last active administrator cannot be disabled or lose the
+         *     admin role (409). The caller must have every permission of the user's current and new
+         *     role (403 otherwise, ADR-0058). This applies to every change of another user.
          */
         patch: operations["updateUser"];
         trace?: never;
@@ -4148,8 +4203,8 @@ export interface components {
             /** Format: int64 */
             id: number;
             username: string;
-            /** @enum {string} */
-            role: "admin";
+            /** @description admin, editor, operator, viewer or a custom role (ADR-0058) */
+            role: string;
             /**
              * @description A temporary password is pending: every other endpoint answers 403
              *     `password_change_required` until `POST /auth/password` succeeds.
@@ -4176,6 +4231,8 @@ export interface components {
             groupsClaim?: string;
             /** @description Required to sign in; its members without an account get one. Empty: only existing accounts */
             group?: string;
+            /** @description Role of accounts created at the first sign-in; default viewer (admin for settings saved before roles) */
+            role?: string;
             /** @description Default "Sign in with SSO" */
             buttonLabel?: string;
             /** @description Overrides the callback URL derived from the request */
@@ -4202,6 +4259,30 @@ export interface components {
             expiresAt: string;
             /** @description Two-factor authentication is required and the user has not set it up yet */
             mfaSetupRequired: boolean;
+            /**
+             * @description What the caller may do: the actions of the user's role, limited by the API key of the
+             *     request (ADR-0058). The UI hides the rest; the server checks every request.
+             */
+            permissions: components["schemas"]["Permission"][];
+        };
+        Role: {
+            name: string;
+            description: string;
+            /** @description admin */
+            builtin: boolean;
+            permissions: components["schemas"]["Permission"][];
+            /**
+             * Format: int64
+             * @description Users with the role
+             */
+            users: number;
+        };
+        RoleInput: {
+            /** @description Only when creating */
+            name?: string;
+            description?: string;
+            /** @description The caller must have each of them; jobs:read is always added */
+            permissions?: components["schemas"]["Permission"][];
         };
         MFAChallenge: {
             /** @constant */
@@ -6355,6 +6436,11 @@ export interface operations {
                 "application/json": {
                     username: string;
                     password?: string;
+                    /**
+                     * @description A built-in or custom role
+                     * @default viewer
+                     */
+                    role?: string;
                 };
             };
         };
@@ -6371,6 +6457,111 @@ export interface operations {
             400: components["responses"]["Error"];
             401: components["responses"]["Error"];
             403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    listRoles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Roles */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Role"][];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+        };
+    };
+    createRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleInput"];
+            };
+        };
+        responses: {
+            /** @description Created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Role"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    updateRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RoleInput"];
+            };
+        };
+        responses: {
+            /** @description Changed */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Role"];
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+        };
+    };
+    deleteRole: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
             409: components["responses"]["Error"];
         };
     };
@@ -6440,7 +6631,9 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
-                    disabled: boolean;
+                    disabled?: boolean;
+                    /** @description A built-in or custom role */
+                    role?: string;
                 };
             };
         };

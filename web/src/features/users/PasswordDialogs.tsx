@@ -22,6 +22,7 @@ import { useState, type FormEvent } from "react";
 import { api, unwrap } from "../../api/client";
 import { keys, type UserDetail } from "../../api/queries";
 import { MIN_PASSWORD, USERNAME_RE, tooShort } from "./password";
+import { RoleSelect } from "./Roles";
 
 type Mode = "generate" | "manual";
 
@@ -99,19 +100,21 @@ function GeneratedPassword({ username, password }: { username: string; password:
 export function CreateUserModal({ opened, onClose }: { opened: boolean; onClose: () => void }) {
   const queryClient = useQueryClient();
   const [username, setUsername] = useState("");
+  const [role, setRole] = useState("viewer");
   const [mode, setMode] = useState<Mode>("generate");
   const [password, setPassword] = useState("");
   const create = useMutation({
     mutationFn: () =>
       unwrap(
         api.POST("/api/v1/users", {
-          body: { username, ...(mode === "manual" ? { password } : {}) },
+          body: { username, role, ...(mode === "manual" ? { password } : {}) },
         }),
       ),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.users }),
   });
   const close = () => {
     setUsername("");
+    setRole("viewer");
     setMode("generate");
     setPassword("");
     create.reset();
@@ -143,9 +146,6 @@ export function CreateUserModal({ opened, onClose }: { opened: boolean; onClose:
         <form onSubmit={onSubmit}>
           <Stack>
             {create.error && <Alert color="red">{create.error.message}</Alert>}
-            <Text size="xs" c="dimmed">
-              Every user is an administrator until roles are available.
-            </Text>
             <TextInput
               label="Username"
               required
@@ -155,6 +155,7 @@ export function CreateUserModal({ opened, onClose }: { opened: boolean; onClose:
               error={badName ? "Letters, digits, '.', '_' or '-' (up to 64)" : undefined}
               onChange={(e) => setUsername(e.currentTarget.value)}
             />
+            <RoleSelect value={role} onChange={setRole} />
             <TemporaryPassword
               mode={mode}
               setMode={setMode}

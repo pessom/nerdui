@@ -31,7 +31,7 @@ func newServer(t *testing.T, e *env) *client {
 	t.Helper()
 	r := chi.NewRouter()
 	r.Route("/api/v1", func(r chi.Router) {
-		e.svc.Routes(r, authz.NewGuard(authz.AdminOnly{}, SubjectFromRequest, nil))
+		e.svc.Routes(r, authz.NewGuard(authz.Roles{Lookup: e.svc}, SubjectFromRequest, nil))
 		r.Group(func(r chi.Router) {
 			r.Use(e.svc.RequireSession, CSRF, PasswordChanged)
 			r.Post("/protected", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
@@ -189,7 +189,7 @@ func TestSecureCookieBehindProxy(t *testing.T) {
 	r := chi.NewRouter()
 	r.Use(proxy.Middleware(trusted))
 	r.Route("/api/v1", func(r chi.Router) {
-		e.svc.Routes(r, authz.NewGuard(authz.AdminOnly{}, SubjectFromRequest, nil))
+		e.svc.Routes(r, authz.NewGuard(authz.Roles{Lookup: e.svc}, SubjectFromRequest, nil))
 	})
 	srv := httptest.NewServer(r)
 	t.Cleanup(srv.Close)

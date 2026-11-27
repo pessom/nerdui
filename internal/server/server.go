@@ -62,7 +62,7 @@ type Config struct {
 	BasePath string
 	// Auth provides sessions and the authentication endpoints (required).
 	Auth *auth.Service
-	// Authorizer decides per-action access; defaults to authz.AdminOnly (ADR-0009).
+	// Authorizer decides per-action access; defaults to the roles of Auth (ADR-0058).
 	Authorizer authz.Authorizer
 	// Environments are the managed containerd hosts (required).
 	Environments *environment.Registry
@@ -122,7 +122,7 @@ func New(cfg Config) http.Handler {
 		cfg.Logger = slog.Default()
 	}
 	if cfg.Authorizer == nil {
-		cfg.Authorizer = authz.AdminOnly{}
+		cfg.Authorizer = authz.Roles{Lookup: cfg.Auth}
 	}
 	if cfg.Jobs == nil {
 		cfg.Jobs = jobs.NewManager()
