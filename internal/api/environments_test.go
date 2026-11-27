@@ -25,6 +25,7 @@ import (
 
 	"github.com/pessom/nerdui/internal/authz"
 	"github.com/pessom/nerdui/internal/environment"
+	"github.com/pessom/nerdui/internal/hostcheck"
 	"github.com/pessom/nerdui/internal/httpjson"
 	"github.com/pessom/nerdui/internal/jobs"
 	"github.com/pessom/nerdui/internal/runtime"
@@ -639,6 +640,38 @@ func TestGetEnvironment(t *testing.T) {
 	rec := do(t, newRouter(&fakeRuntime{}), "/api/v1/environments/remote", nil)
 	if rec.Code != http.StatusNotFound || !strings.Contains(rec.Body.String(), `"not_found"`) {
 		t.Errorf("unknown env: %d %s", rec.Code, rec.Body)
+	}
+}
+
+func TestEnvironmentWarnings(t *testing.T) {
+	root := t.TempDir()
+	for name, content := range map[string]string{
+		"sys/module/apparmor/parameters/enabled":                    "Y",
+		"proc/sys/kernel/apparmor_restrict_unprivileged_unconfined": "1",
+		"proc/sys/kernel/osrelease":                                 "7.0.0-1017-gcp",
+	} {
+		path := filepath.Join(root, name)
+		if err := os.MkdirAll(filepath.Dir(path), 0o750); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	admin := func(*http.Request) (authz.Subject, bool) { return authz.Subject{Role: authz.RoleAdmin}, true }
+	r := chi.NewRouter()
+	r.Route("/api/v1", func(r chi.Router) {
+		h := &Handler{
+			Envs:      environment.NewRegistry(environment.Local(&fakeRuntime{}, "default")),
+			Jobs:      jobs.NewManager(),
+			HostPaths: hostcheck.Paths{Proc: filepath.Join(root, "proc"), Sys: filepath.Join(root, "sys")},
+		}
+		h.Routes(r, authz.NewGuard(authz.AdminOnly{}, admin, nil))
+	})
+	var got EnvironmentStatus
+	do(t, r, "/api/v1/environments/local", &got)
+	if !slices.Equal(got.Warnings, []hostcheck.Warning{hostcheck.AppArmorSignals}) {
+		t.Errorf("warnings = %v", got.Warnings)
 	}
 }
 

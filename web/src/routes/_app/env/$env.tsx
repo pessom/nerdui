@@ -108,6 +108,7 @@ function EnvLayout() {
         runtime={status.data?.runtime}
         containerdDown={containerdDown}
         acme={version.data?.acme}
+        warnings={status.data?.warnings}
       />
       <Outlet />
     </>
