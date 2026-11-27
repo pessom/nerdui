@@ -158,7 +158,9 @@ function TemplatesPage() {
       ))}
       {list.data && shown.length === 0 && (
         <Text size="sm" c="dimmed">
-          No templates match.
+          {category === "mine" && !query.trim()
+            ? "You have no templates of your own yet. Save a stack as a template from its page, or create one with New template."
+            : "No templates match."}
         </Text>
       )}
       <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>

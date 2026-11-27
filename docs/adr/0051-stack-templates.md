@@ -25,8 +25,9 @@ compose.yaml, an .env.example and metadata.
   right above a line describe it) and a name, description, categories, logo and documentation
   link. A variable whose name looks like a password, secret, token or key is proposed as a
   secret.
-- Sources: a **built-in catalog** embedded in the binary (PostgreSQL, MariaDB, Redis, nginx,
-  Adminer, Uptime Kuma, Gitea, Vaultwarden, WordPress, Grafana, whoami), **registries** by URL
+- Sources: a **built-in catalog** embedded in the binary (PostgreSQL, Percona Server for MySQL,
+  Redis, nginx, Adminer, Uptime Kuma, Gitea, Vaultwarden, WordPress, Grafana, whoami; MariaDB
+  until 0.2), **registries** by URL
   in Arcane's `registry.json` format (`compose_url`, `env_url`, `icon_url`,
   `documentation_url`, `tags`, relative to the registry) or with the files inline, and
   **templates users save** in the database, also from an existing stack (its compose file, and

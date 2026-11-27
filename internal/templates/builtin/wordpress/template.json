@@ -1,6 +1,6 @@
 {
   "name": "WordPress",
-  "description": "WordPress with a MariaDB database.",
+  "description": "WordPress with a Percona Server for MySQL database.",
   "categories": [
     "web",
     "cms"

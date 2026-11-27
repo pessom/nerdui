@@ -15,6 +15,9 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
   Nobody can give a role or manage a user with permissions they do not have, and the last
   active administrator keeps the admin role (#78, #102, ADR-0058).
 - Single sign-on: a role for accounts created at the first sign-in (*Role of new accounts*).
+- Stack templates: Percona Server for MySQL replaces MariaDB in the built-in catalog, also as
+  the database of the WordPress template. Stacks deployed from the old templates keep running
+  unchanged. *Mine* explains how to add templates of your own when it is empty.
 
 ### Changed
 
