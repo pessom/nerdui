@@ -1543,6 +1543,37 @@ paths:
         "403": { $ref: "#/components/responses/Error" }
         "404": { $ref: "#/components/responses/Error" }
         "503": { $ref: "#/components/responses/Error" }
+  /api/v1/templates/container:
+    post:
+      tags: [stacks]
+      operationId: templateContainer
+      summary: A one-service template as a container's create request
+      description: |
+        Requires `containers:write` (ADR-0059). Loads the compose file with the variables given
+        (none from nerdui's environment) and converts its only service into the request of
+        `POST /environments/{env}/containers`; nothing is created. Named volumes become
+        `<name>-<volume>`. Settings that do not convert are listed in `unsupported`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [compose]
+              additionalProperties: false
+              properties:
+                compose: { type: string }
+                values: { type: object, additionalProperties: { type: string } }
+                name: { type: string, description: "Container name; default: container_name or the service name" }
+      responses:
+        "200":
+          description: The create request
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ContainerFromTemplate" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
   /api/v1/templates/{id}:
     parameters:
       - { name: id, in: path, required: true, schema: { type: string } }
@@ -3977,6 +4008,29 @@ paths:
         "409": { $ref: "#/components/responses/Error" }
         "500": { $ref: "#/components/responses/Error" }
         "503": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/containers/{id}/template:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - $ref: "#/components/parameters/Namespace"
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [containers]
+      operationId: getContainerTemplate
+      summary: A container's settings as a template
+      description: |
+        Requires `containers:read` (#19, ADR-0059). A one-service compose file and an
+        `.env.example` from the settings recreating would use; environment variables named like
+        secrets become variables without a value. Nothing is saved.
+      responses:
+        "200":
+          description: Template files
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/TemplateFromContainer" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
   /api/v1/environments/{env}/containers/{id}/spec:
     parameters:
       - $ref: "#/components/parameters/Env"
@@ -4695,6 +4749,23 @@ components:
         application/json:
           schema: { $ref: "#/components/schemas/Error" }
   schemas:
+    ContainerFromTemplate:
+      type: object
+      required: [spec, unsupported]
+      properties:
+        spec:
+          allOf: [{ $ref: "#/components/schemas/CreateContainerRequest" }]
+        unsupported:
+          type: array
+          items: { type: string }
+          description: Settings of the service a container from the form lacks
+    TemplateFromContainer:
+      type: object
+      required: [compose, env, unsupported]
+      properties:
+        compose: { type: string, description: One-service compose file }
+        env: { type: string, description: ".env.example: variables for the container's secrets, without values" }
+        unsupported: { type: array, items: { type: string }, description: Settings the template lacks }
     ContainerSpec:
       type: object
       required: [id, spec, unsupported, running]
@@ -4734,6 +4805,10 @@ components:
           properties:
             compose: { type: string }
             env: { type: string }
+            services:
+              type: array
+              items: { type: string }
+              description: Services of the compose file (detail only); with one, the template can also start a container (ADR-0059)
             variables:
               type: array
               items:

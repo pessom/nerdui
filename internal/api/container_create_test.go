@@ -13,6 +13,7 @@ import (
 
 	"github.com/pessom/nerdui/internal/authz"
 	"github.com/pessom/nerdui/internal/runtime"
+	"github.com/pessom/nerdui/internal/templates"
 )
 
 func TestContainerCommand(t *testing.T) {
@@ -79,6 +80,11 @@ func TestRecreateContainerJob(t *testing.T) {
 	var got runtime.ContainerSpec
 	if rec := do(t, newRouter(f), "/api/v1/environments/local/containers/web/spec", &got); rec.Code != http.StatusOK || got.Spec.Name != "web" || got.Unsupported == nil {
 		t.Fatalf("spec: %d %s", rec.Code, rec.Body)
+	}
+	var tpl templates.TemplateFromContainer
+	if rec := do(t, newRouter(f), "/api/v1/environments/local/containers/web/template", &tpl); rec.Code != http.StatusOK ||
+		!strings.Contains(tpl.Compose, "image: nginx:1") || tpl.Unsupported == nil {
+		t.Fatalf("template: %d %s", rec.Code, rec.Body)
 	}
 
 	url := srv.URL + "/api/v1/environments/local/containers/web/recreate"

@@ -1,7 +1,8 @@
-# Stack templates
+# Templates
 
 **Templates** (in the menu next to Stacks) deploys applications as new stacks
-([ADR-0051](adr/0051-stack-templates.md)). Templates come from three sources:
+([ADR-0051](adr/0051-stack-templates.md)), or as single containers
+([ADR-0059](adr/0059-container-templates.md)). Templates come from three sources:
 
 - the built-in catalog;
 - registries you add under **Registries**;
@@ -18,6 +19,18 @@ back to its template:
   [ADR-0049](adr/0049-stack-variables.md)). They are left out of `.env` and never shown again.
 - Leave a secret empty when the application does not need it.
 
+## Deploying as a container
+
+A template with one service (Uptime Kuma, nginx, Redis, whoami, …) can also start a plain
+container: choose **Container** in the deploy dialog, enter its name and the variables, then
+**Continue**. The new container form opens filled in, so you review every setting before
+**Create**:
+
+- Named volumes become `<container>-<volume>`, so each container keeps its own data.
+- Settings the form cannot express (other networks, `sysctls`, relative bind mounts such as
+  `./config`, …) are listed above the form; the container is created without them.
+- The values stay in the browser's memory; they are not put into the address bar.
+
 ## Saving your own
 
 On a stack's page, **Save as template** copies its compose file and its `.env`:
@@ -26,6 +39,11 @@ On a stack's page, **Save as template** copies its compose file and its `.env`:
 - Values of names that look like passwords, secrets, tokens or keys are emptied.
 - Edit both before saving.
 - **New template** on the Templates page starts from scratch.
+
+On a container's page, **Save as template** turns its settings into a one-service compose
+file (#19). Environment variables whose names look like passwords, secrets, tokens or keys
+become variables without a value in the `.env.example`; the template holds no secrets. The
+template can then start containers or stacks, also on other hosts.
 
 ## Template format
 

@@ -15,6 +15,8 @@ export type TemplateDraft = {
   description: string;
   compose: string;
   env: string;
+  /** Settings of the source the template lacks, e.g. of a container (ADR-0059). */
+  unsupported?: string[];
 };
 
 const mono = { input: { fontFamily: "var(--mantine-font-family-monospace)", fontSize: 13 } };
@@ -68,6 +70,11 @@ function Form({ draft, onClose }: { draft: TemplateDraft; onClose: () => void })
     <form onSubmit={submit}>
       <Stack>
         {save.isError && <Alert color="red">{save.error.message}</Alert>}
+        {!!draft.unsupported?.length && (
+          <Alert color="yellow" title="Not in the template">
+            {draft.unsupported.join("; ")}
+          </Alert>
+        )}
         <TextInput
           label="Name"
           required

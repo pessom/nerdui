@@ -13,6 +13,7 @@ import {
   Modal,
   PasswordInput,
   ScrollArea,
+  SegmentedControl,
   Stack,
   Table,
   Text,
@@ -23,6 +24,9 @@ import { useNavigate } from "@tanstack/react-router";
 import { useState, type FormEvent } from "react";
 import { api, unwrap } from "../../api/client";
 import { keys } from "../../api/queries";
+import { useCan } from "../../lib/permissions";
+import { fromRequest } from "../containers/create";
+import { setContainerDraft } from "../containers/draft";
 import { useJobsPanel } from "../jobs/JobsContext";
 import {
   renderEnv,
@@ -32,7 +36,10 @@ import {
   type TemplateSummary,
 } from "./templates";
 
-/** Deploys a template as a new stack (#33): fills its variables, secrets become variables. */
+/**
+ * Deploys a template as a new stack (#33): fills its variables, secrets become variables. A
+ * template with one service can instead fill in the new container form (ADR-0059).
+ */
 export function DeployTemplateDialog({
   env,
   namespace,
@@ -111,6 +118,27 @@ function Form({
   );
   const [deploy, setDeploy] = useState(true);
   const [showCompose, setShowCompose] = useState(false);
+  const can = useCan();
+  const canContainer = (template.services ?? []).length === 1 && can("containers:write");
+  const canStack = can("stacks:write");
+  const [as, setAs] = useState<"stack" | "container">(canStack ? "stack" : "container");
+  const container = useMutation({
+    mutationFn: () =>
+      unwrap(
+        api.POST("/api/v1/templates/container", {
+          body: { compose: template.compose, values, name },
+        }),
+      ),
+    onSuccess: (c) => {
+      setContainerDraft({
+        form: fromRequest(c.spec),
+        origin: `template ${template.name}`,
+        unsupported: c.unsupported,
+      });
+      onClose();
+      void navigate({ to: "/env/$env/containers/new", params: { env }, search: { ns: namespace } });
+    },
+  });
   const create = useMutation({
     mutationFn: async () => {
       const stack = await unwrap(
@@ -148,8 +176,10 @@ function Form({
   });
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    create.mutate();
+    if (as === "container") container.mutate();
+    else create.mutate();
   };
+  const failed = as === "container" ? container.error : create.error;
   return (
     <form onSubmit={submit}>
       <Stack>
@@ -159,13 +189,24 @@ function Form({
             Documentation
           </Anchor>
         )}
-        {create.isError && (
+        {failed && (
           <Alert color="red" title="Cannot deploy">
-            {create.error.message}
+            {failed.message}
           </Alert>
         )}
+        {canContainer && canStack && (
+          <SegmentedControl
+            aria-label="Deploy as"
+            value={as}
+            onChange={(v) => setAs(v as "stack" | "container")}
+            data={[
+              { value: "stack", label: "Stack" },
+              { value: "container", label: "Container" },
+            ]}
+          />
+        )}
         <TextInput
-          label="Stack name"
+          label={as === "container" ? "Container name" : "Stack name"}
           description={`In namespace ${namespace}`}
           required
           value={name}
@@ -177,7 +218,7 @@ function Form({
               <Table.Tr>
                 <Table.Th>Variable</Table.Th>
                 <Table.Th>Value</Table.Th>
-                <Table.Th>Secret</Table.Th>
+                {as === "stack" && <Table.Th>Secret</Table.Th>}
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
@@ -208,7 +249,7 @@ function Form({
                         <TextInput {...props} />
                       )}
                     </Table.Td>
-                    <Table.Td>
+                    <Table.Td display={as === "stack" ? undefined : "none"}>
                       <Checkbox
                         aria-label={`${v.name} is secret`}
                         checked={!!secret[v.name]}
@@ -225,8 +266,9 @@ function Form({
           </Table>
         )}
         <Text size="xs" c="dimmed">
-          Values go to the stack&apos;s .env; secrets are stored encrypted as variables of the stack
-          and never shown again.
+          {as === "container"
+            ? "The values fill in the new container form, where you review every setting before creating it."
+            : "Values go to the stack's .env; secrets are stored encrypted as variables of the stack and never shown again."}
         </Text>
         <Anchor
           component="button"
@@ -241,17 +283,19 @@ function Form({
             <Code block>{template.compose}</Code>
           </ScrollArea.Autosize>
         </Collapse>
-        <Checkbox
-          label="Deploy now (nerdctl compose up)"
-          checked={deploy}
-          onChange={(e) => setDeploy(e.currentTarget.checked)}
-        />
+        {as === "stack" && (
+          <Checkbox
+            label="Deploy now (nerdctl compose up)"
+            checked={deploy}
+            onChange={(e) => setDeploy(e.currentTarget.checked)}
+          />
+        )}
         <Group justify="flex-end">
           <Button variant="default" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" loading={create.isPending}>
-            {deploy ? "Create and deploy" : "Create stack"}
+          <Button type="submit" loading={create.isPending || container.isPending}>
+            {as === "container" ? "Continue" : deploy ? "Create and deploy" : "Create stack"}
           </Button>
         </Group>
       </Stack>

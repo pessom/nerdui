@@ -24,6 +24,7 @@ func (h *Handler) templateRoutes(r chi.Router, g *authz.Guard) {
 	r.Method(http.MethodPost, "/templates", g.Protect(authz.StacksWrite, h.createTemplate))
 	r.Method(http.MethodPut, "/templates/{id}", g.Protect(authz.StacksWrite, h.updateTemplate))
 	r.Method(http.MethodDelete, "/templates/{id}", g.Protect(authz.StacksWrite, h.deleteTemplate))
+	r.Method(http.MethodPost, "/templates/container", g.Protect(authz.ContainersWrite, h.templateContainer))
 	r.Method(http.MethodGet, "/template-registries", g.Protect(authz.SettingsRead, h.getTemplateRegistries))
 	r.Method(http.MethodPut, "/template-registries", g.Protect(authz.SettingsWrite, h.putTemplateRegistries))
 }
@@ -114,4 +115,27 @@ func (h *Handler) putTemplateRegistries(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	httpjson.Write(w, http.StatusOK, map[string]any{"urls": urls})
+}
+
+// POST /api/v1/templates/container {compose, values, name}: the only service of a template
+// as the create request of a container (ADR-0059). Nothing is created.
+func (h *Handler) templateContainer(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Compose string            `json:"compose"`
+		Values  map[string]string `json:"values"`
+		Name    string            `json:"name"`
+	}
+	if !httpjson.Decode(w, r, &req) {
+		return
+	}
+	if len(req.Compose) > templates.MaxFile {
+		httpjson.WriteError(w, http.StatusBadRequest, httpjson.CodeInvalidArgument, "the compose file is too large")
+		return
+	}
+	c, err := templates.ToContainer(r.Context(), req.Compose, req.Values, req.Name)
+	if err != nil {
+		httpjson.WriteErr(w, r, h.Logger, err)
+		return
+	}
+	httpjson.Write(w, http.StatusOK, c)
 }
