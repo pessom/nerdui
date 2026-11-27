@@ -1,0 +1,22 @@
+services:
+  mysql:
+    image: percona/percona-server:${PERCONA_VERSION:-8.4}
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?set MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-app}
+      MYSQL_USER: ${MYSQL_USER:-app}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?set MYSQL_PASSWORD}
+    ports:
+      - "${PORT:-3306}:3306"
+    volumes:
+      - data:/var/lib/mysql
+    healthcheck:
+      # 0 once the server answers on TCP, also with "access denied"; the temporary server of
+      # the first start listens on no port.
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "--silent"]
+      interval: 10s
+      start_period: 60s
+      retries: 5
+volumes:
+  data:

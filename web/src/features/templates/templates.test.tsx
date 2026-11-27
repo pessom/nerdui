@@ -48,6 +48,17 @@ describe("template catalog", () => {
   beforeEach(() => vi.stubGlobal("WebSocket", SilentWebSocket));
   afterEach(() => vi.unstubAllGlobals());
 
+  it("explains an empty Mine", async () => {
+    fakeApi({
+      ...signedIn,
+      "GET /api/v1/templates": () => json(200, { templates: [postgres], errors: [] }),
+    });
+    renderApp("/env/local/templates");
+    expect(await screen.findByRole("article", { name: "PostgreSQL" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("radio", { name: "Mine" }));
+    expect(screen.getByText(/no templates of your own yet/)).toBeInTheDocument();
+  });
+
   it("filters, deploys a template with a secret and opens the stack", async () => {
     const { calls } = fakeApi({
       ...signedIn,

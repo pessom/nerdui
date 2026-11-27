@@ -1,0 +1,8 @@
+{
+  "name": "Percona Server for MySQL",
+  "description": "MySQL-compatible database server by Percona.",
+  "categories": [
+    "database"
+  ],
+  "documentation": "https://hub.docker.com/r/percona/percona-server"
+}
