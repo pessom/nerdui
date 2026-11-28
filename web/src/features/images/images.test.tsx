@@ -10,6 +10,7 @@ import { saveUrl } from "./archive";
 import { displayName, matchesUsage, shortID } from "./format";
 
 const img = (over: Partial<Image>): Image => ({
+  namespace: "default",
   name: "docker.io/library/nginx:1.27",
   repository: "nginx",
   tag: "1.27",

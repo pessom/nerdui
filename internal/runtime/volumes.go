@@ -46,9 +46,11 @@ type Volumes interface {
 
 // Volume is a named volume. Keep in sync with api/openapi.yaml.
 type Volume struct {
-	Name       string            `json:"name"`
-	Mountpoint string            `json:"mountpoint"`
-	Labels     map[string]string `json:"labels"`
+	Name       string `json:"name"`
+	Mountpoint string `json:"mountpoint"`
+	// Namespace is the containerd namespace of the volume.
+	Namespace string            `json:"namespace"`
+	Labels    map[string]string `json:"labels"`
 	// Anonymous volumes were created for a container without a name (`-v /data`).
 	Anonymous bool `json:"anonymous"`
 	// CreatedAt is the modification time of the volume directory (nerdctl keeps no date).

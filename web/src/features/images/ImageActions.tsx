@@ -28,6 +28,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { api, unwrap, unwrapEmpty } from "../../api/client";
 import { keys, type Image } from "../../api/queries";
+import { byNamespace } from "../../lib/namespace";
 import { useCan } from "../../lib/permissions";
 import { displayName } from "./format";
 
@@ -127,7 +128,7 @@ export function TagDialog({
       ),
     onSuccess: () => {
       notifications.show({ color: "teal", message: `Tagged ${target.trim()}` });
-      void queryClient.invalidateQueries({ queryKey: keys.images(env, namespace) });
+      void queryClient.invalidateQueries({ queryKey: keys.imageLists(env) });
       close();
     },
   });
@@ -166,13 +167,11 @@ export function TagDialog({
 /** Confirms and removes one or more image references, like `nerdctl rmi`. */
 export function RemoveImagesDialog({
   env,
-  namespace,
   images,
   onClose,
   onRemoved,
 }: {
   env: string;
-  namespace: string;
   images: Image[];
   onClose: () => void;
   onRemoved?: (names: string[]) => void;
@@ -181,13 +180,20 @@ export function RemoveImagesDialog({
   const [force, setForce] = useState(false);
   const used = images.filter((i) => i.containers > 0);
   const remove = useMutation({
-    mutationFn: () =>
-      unwrap(
-        api.POST("/api/v1/environments/{env}/images/remove", {
-          params: { path: { env }, query: { namespace } },
-          body: { references: images.map((i) => i.name), force },
-        }),
-      ),
+    // With all namespaces listed (#276), one request per namespace of the selection.
+    mutationFn: async () => {
+      const results = [];
+      for (const [ns, group] of byNamespace(images)) {
+        const r = await unwrap(
+          api.POST("/api/v1/environments/{env}/images/remove", {
+            params: { path: { env }, query: { namespace: ns } },
+            body: { references: group.map((i) => i.name), force },
+          }),
+        );
+        results.push(...r.results);
+      }
+      return { results };
+    },
     onSuccess: ({ results }) => {
       const ok = results.filter((r) => r.ok);
       const failed = results.filter((r) => !r.ok);
@@ -206,7 +212,7 @@ export function RemoveImagesDialog({
           autoClose: false,
         });
       }
-      void queryClient.invalidateQueries({ queryKey: keys.images(env, namespace) });
+      void queryClient.invalidateQueries({ queryKey: keys.imageLists(env) });
       close();
     },
   });

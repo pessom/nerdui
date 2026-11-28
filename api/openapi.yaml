@@ -2288,7 +2288,7 @@ paths:
       description: |
         Requires `images:read` (#42). One entry per stored reference; sizes cover every platform
         in the store. Filtering and sorting are done by clients (ADR-0006). Live updates: refetch
-        on events from `/events/stream`.
+        on events from `/events/stream`. `namespace=*` lists every namespace; each item has its `namespace` (#276).
       responses:
         "200":
           description: Images
@@ -2748,7 +2748,9 @@ paths:
         Requires `stacks:read` (#24, ADR-0008). Stacks in --stacks-dir (`managed`), registered
         external directories (`external`) and compose projects known only from container labels
         (`unmanaged`). Status compares the services of the compose file (loaded like
-        `nerdctl compose`) with the running containers of the project.
+        `nerdctl compose`) with the running containers of the project. `namespace=*` lists every namespace; each item has its `namespace` (#276).
+        Stack definitions belong to no namespace: with `namespace=*` a stack shows in the
+        namespaces where it has containers, or once in the default namespace when it has none.
       responses:
         "200":
           description: Stacks sorted by name, unmanaged last
@@ -3620,7 +3622,7 @@ paths:
       summary: CNI networks of a namespace
       description: |
         Requires `networks:read` (#60, ADR-0024). With the containers attached to each network;
-        addresses are reported for running containers.
+        addresses are reported for running containers. `namespace=*` lists every namespace; each item has its `namespace` (#276).
       responses:
         "200":
           description: Networks sorted by name
@@ -3693,7 +3695,7 @@ paths:
       description: |
         Requires `volumes:read` (#57). nerdctl's named volumes with the containers (running or
         not) that mount them. `size=true` walks every volume on disk, like
-        `nerdctl volume ls --size`.
+        `nerdctl volume ls --size`. `namespace=*` lists every namespace; each item has its `namespace` (#276).
       parameters:
         - name: size
           in: query
@@ -5759,8 +5761,9 @@ components:
               error: { type: string, description: Init error (also for skipped plugins) }
     Image:
       type: object
-      required: [name, repository, tag, digest, createdAt, platforms, size, contentSize, containers, labels]
+      required: [name, namespace, repository, tag, digest, createdAt, platforms, size, contentSize, containers, labels]
       properties:
+        namespace: { type: string, description: containerd namespace }
         name: { type: string, examples: ["docker.io/library/nginx:1.27"] }
         repository:
           type: string
@@ -6154,8 +6157,9 @@ components:
         tooBig: { type: boolean, description: Larger than 1 MiB; not shown or edited }
     Stack:
       type: object
-      required: [name, mode, status, services, containers, running]
+      required: [name, namespace, mode, status, services, containers, running]
       properties:
+        namespace: { type: string, description: containerd namespace }
         name: { type: string }
         mode: { type: string, enum: [managed, external, git, unmanaged] }
         path: { type: string }
@@ -6257,8 +6261,9 @@ components:
         conflicts: { type: array, items: { type: string } }
     Network:
       type: object
-      required: [name, driver, labels, ipam, internal, default, removable, containers]
+      required: [name, namespace, driver, labels, ipam, internal, default, removable, containers]
       properties:
+        namespace: { type: string, description: containerd namespace }
         name: { type: string }
         id: { type: string }
         driver: { type: string, examples: [bridge, macvlan, ipvlan] }
@@ -6303,8 +6308,9 @@ components:
         labels: { type: object, additionalProperties: { type: string } }
     Volume:
       type: object
-      required: [name, mountpoint, labels, anonymous, containers]
+      required: [name, namespace, mountpoint, labels, anonymous, containers]
       properties:
+        namespace: { type: string, description: containerd namespace }
         name: { type: string }
         mountpoint: { type: string }
         labels: { type: object, additionalProperties: { type: string } }

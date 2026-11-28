@@ -75,12 +75,18 @@ describe("events page", () => {
         calls.some((c) => c.path.endsWith("/events") && c.query.get("kind") === "container"),
       ).toBe(true),
     );
-    fireEvent.click(screen.getByLabelText("All namespaces"));
+    // <All namespaces> in the namespace selector (#276).
+    await router.navigate({
+      to: "/env/$env/events",
+      params: { env: "local" },
+      search: { ns: "*" },
+    });
     await waitFor(() =>
       expect(
         calls.some((c) => c.path.endsWith("/events") && c.query.get("namespace") === "*"),
       ).toBe(true),
     );
+    expect(await screen.findByRole("columnheader", { name: "Namespace" })).toBeInTheDocument();
     const search = screen.getByLabelText("Filter by object");
     fireEvent.change(search, { target: { value: "web" } });
     fireEvent.keyDown(search, { key: "Enter" });

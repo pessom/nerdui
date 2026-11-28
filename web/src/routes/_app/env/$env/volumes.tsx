@@ -28,6 +28,7 @@ import { CreateVolumeDialog, RemoveVolumeDialog } from "../../../../features/vol
 import { VolumeBrowser } from "../../../../features/volumes/VolumeBrowser";
 import { VolumeBackupsDialog } from "../../../../features/volumes/VolumeBackupsDialog";
 import { Time } from "../../../../components/Time";
+import { ALL_NAMESPACES, CHOOSE_NAMESPACE } from "../../../../lib/namespace";
 import { useCan } from "../../../../lib/permissions";
 
 const envRoute = getRouteApi("/_app/env/$env");
@@ -45,13 +46,21 @@ function VolumesPage() {
   const list = useQuery(volumesQuery(env, namespace));
   const [withSizes, setWithSizes] = useState(false);
   const sizes = useQuery({ ...volumesQuery(env, namespace, true), enabled: withSizes });
-  const sizeOf = new Map(sizes.data?.volumes.map((v) => [v.name, v.size]));
+  // With all namespaces (#276), the same name can exist in several.
+  const allNamespaces = namespace === ALL_NAMESPACES;
+  const volumeKey = (v: Volume) => `${v.namespace}/${v.name}`;
+  const sizeOf = new Map(sizes.data?.volumes.map((v) => [volumeKey(v), v.size]));
   const [creating, { open, close }] = useDisclosure();
   const [removing, setRemoving] = useState<Volume>();
-  const [browsing, setBrowsing] = useState<string>();
-  const [backingUp, setBackingUp] = useState<string>();
+  const [browsing, setBrowsing] = useState<Volume>();
+  const [backingUp, setBackingUp] = useState<Volume>();
   const nerdctl = status.data?.runtime?.nerdctl;
   const readOnly = !!nerdctl && !nerdctl.compatible && !nerdctl.checkSkipped;
+  const createBlocked = readOnly
+    ? "Read-only mode: host nerdctl is incompatible"
+    : allNamespaces
+      ? CHOOSE_NAMESPACE
+      : undefined;
   // Browsing, backups and changes run a helper container: volumes:write (ADR-0058).
   const write = useCan()("volumes:write");
   // Same filter as on the Images page; a volume is used when containers mount it.
@@ -91,8 +100,12 @@ function VolumesPage() {
             Calculate sizes
           </Button>
           {write && (
-            <Tooltip label="Read-only mode: host nerdctl is incompatible" disabled={!readOnly}>
-              <Button leftSection={<IconPlus size={16} />} onClick={open} disabled={readOnly}>
+            <Tooltip label={createBlocked} disabled={!createBlocked}>
+              <Button
+                leftSection={<IconPlus size={16} />}
+                onClick={open}
+                disabled={!!createBlocked}
+              >
                 Create volume
               </Button>
             </Tooltip>
@@ -115,6 +128,7 @@ function VolumesPage() {
           <Table.Thead>
             <Table.Tr>
               <Table.Th>Name</Table.Th>
+              {allNamespaces && <Table.Th>Namespace</Table.Th>}
               <Table.Th>Used by</Table.Th>
               <Table.Th>Size</Table.Th>
               <Table.Th>Created</Table.Th>
@@ -124,20 +138,22 @@ function VolumesPage() {
           <Table.Tbody>
             {shown.length === 0 && (
               <Table.Tr>
-                <Table.Td colSpan={5}>
+                <Table.Td colSpan={allNamespaces ? 6 : 5}>
                   <Text c="dimmed" ta="center" py="md">
                     {usage === "all" || all.length === 0
-                      ? "No volumes in this namespace."
+                      ? allNamespaces
+                        ? "No volumes."
+                        : "No volumes in this namespace."
                       : `No ${usage} volumes.`}
                   </Text>
                 </Table.Td>
               </Table.Tr>
             )}
             {shown.map((v) => {
-              const size = sizeOf.get(v.name);
+              const size = sizeOf.get(volumeKey(v));
               const used = v.containers.length > 0;
               return (
-                <Table.Tr key={v.name}>
+                <Table.Tr key={volumeKey(v)}>
                   <Table.Td>
                     <Group gap={6} wrap="nowrap">
                       <Text
@@ -162,6 +178,13 @@ function VolumesPage() {
                       </Text>
                     )}
                   </Table.Td>
+                  {allNamespaces && (
+                    <Table.Td>
+                      <Badge variant="outline" color="gray" size="sm">
+                        {v.namespace}
+                      </Badge>
+                    </Table.Td>
+                  )}
                   <Table.Td>
                     {used ? (
                       <Group gap={6}>
@@ -170,7 +193,7 @@ function VolumesPage() {
                             key={c.id}
                             to="/env/$env/containers/$id"
                             params={{ env, id: c.id }}
-                            search={{ ns: namespace }}
+                            search={{ ns: v.namespace }}
                             size="sm"
                             title={c.id}
                           >
@@ -198,7 +221,7 @@ function VolumesPage() {
                             variant="subtle"
                             color="gray"
                             aria-label={`Browse ${v.name}`}
-                            onClick={() => setBrowsing(v.name)}
+                            onClick={() => setBrowsing(v)}
                           >
                             <IconFolderOpen size={16} />
                           </ActionIcon>
@@ -208,7 +231,7 @@ function VolumesPage() {
                             variant="subtle"
                             color="gray"
                             aria-label={`Backups of ${v.name}`}
-                            onClick={() => setBackingUp(v.name)}
+                            onClick={() => setBackingUp(v)}
                           >
                             <IconArchive size={16} />
                           </ActionIcon>
@@ -244,20 +267,20 @@ function VolumesPage() {
       <CreateVolumeDialog env={env} namespace={namespace} opened={creating} onClose={close} />
       <VolumeBrowser
         env={env}
-        namespace={namespace}
-        volume={browsing}
+        namespace={browsing?.namespace ?? namespace}
+        volume={browsing?.name}
         onClose={() => setBrowsing(undefined)}
       />
       <VolumeBackupsDialog
         env={env}
-        namespace={namespace}
-        volume={backingUp}
+        namespace={backingUp?.namespace ?? namespace}
+        volume={backingUp?.name}
         readOnly={readOnly}
         onClose={() => setBackingUp(undefined)}
       />
       <RemoveVolumeDialog
         env={env}
-        namespace={namespace}
+        namespace={removing?.namespace ?? namespace}
         volume={removing}
         onClose={() => setRemoving(undefined)}
       />

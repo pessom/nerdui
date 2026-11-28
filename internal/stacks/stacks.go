@@ -206,6 +206,8 @@ func (s *Service) Definitions(ctx context.Context) ([]Definition, error) {
 type Stack struct {
 	Name string `json:"name"`
 	Mode string `json:"mode"`
+	// Namespace is the containerd namespace of the stack.
+	Namespace string `json:"namespace"`
 	// Path is the stack directory and ComposeFile the file name in it (empty when unmanaged).
 	Path        string `json:"path,omitempty"`
 	ComposeFile string `json:"composeFile,omitempty"`

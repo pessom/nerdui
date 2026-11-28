@@ -200,7 +200,7 @@ export function RemoveNetworkDialog({
       ),
     onSuccess: (_, name) => {
       notifications.show({ message: `Network ${name} removed` });
-      void queryClient.invalidateQueries({ queryKey: keys.networks(env, namespace) });
+      void queryClient.invalidateQueries({ queryKey: keys.networkLists(env) });
       close();
     },
   });

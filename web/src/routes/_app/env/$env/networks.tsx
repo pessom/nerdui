@@ -27,6 +27,7 @@ import {
   RemoveNetworkDialog,
 } from "../../../../features/networks/NetworkDialogs";
 import { NetworkTopology } from "../../../../features/networks/NetworkTopology";
+import { ALL_NAMESPACES, CHOOSE_NAMESPACE, byNamespace } from "../../../../lib/namespace";
 import { useCan } from "../../../../lib/permissions";
 
 const envRoute = getRouteApi("/_app/env/$env");
@@ -55,6 +56,13 @@ function NetworksPage() {
   const nerdctl = status.data?.runtime?.nerdctl;
   const readOnly = !!nerdctl && !nerdctl.compatible && !nerdctl.checkSkipped;
   const write = useCan()("networks:write");
+  // With all namespaces (#276), each network row acts in its own namespace.
+  const allNamespaces = namespace === ALL_NAMESPACES;
+  const createBlocked = readOnly
+    ? "Read-only mode: host nerdctl is incompatible"
+    : allNamespaces
+      ? CHOOSE_NAMESPACE
+      : undefined;
 
   return (
     <Stack>
@@ -64,8 +72,8 @@ function NetworksPage() {
           {list.isFetching && !list.isPending && <Loader size="xs" aria-label="Refreshing" />}
         </Group>
         {write && (
-          <Tooltip label="Read-only mode: host nerdctl is incompatible" disabled={!readOnly}>
-            <Button leftSection={<IconPlus size={16} />} onClick={open} disabled={readOnly}>
+          <Tooltip label={createBlocked} disabled={!createBlocked}>
+            <Button leftSection={<IconPlus size={16} />} onClick={open} disabled={!!createBlocked}>
               Create network
             </Button>
           </Tooltip>
@@ -87,14 +95,24 @@ function NetworksPage() {
           {list.error.message}
         </Alert>
       )}
-      {list.data && view === "topology" && (
-        <NetworkTopology env={env} namespace={namespace} networks={list.data.networks} />
-      )}
+      {list.data &&
+        view === "topology" &&
+        (allNamespaces ? (
+          [...byNamespace(list.data.networks)].map(([n, networks]) => (
+            <Stack key={n} gap="xs">
+              <Title order={4}>{n}</Title>
+              <NetworkTopology env={env} namespace={n} networks={networks} />
+            </Stack>
+          ))
+        ) : (
+          <NetworkTopology env={env} namespace={namespace} networks={list.data.networks} />
+        ))}
       {list.data && view === "table" && (
         <Table striped verticalSpacing="xs">
           <Table.Thead>
             <Table.Tr>
               <Table.Th>Name</Table.Th>
+              {allNamespaces && <Table.Th>Namespace</Table.Th>}
               <Table.Th>Driver</Table.Th>
               <Table.Th>Subnet</Table.Th>
               <Table.Th>Containers</Table.Th>
@@ -104,7 +122,7 @@ function NetworksPage() {
           <Table.Tbody>
             {list.data.networks.length === 0 && (
               <Table.Tr>
-                <Table.Td colSpan={5}>
+                <Table.Td colSpan={allNamespaces ? 6 : 5}>
                   <Text c="dimmed" ta="center" py="md">
                     No networks yet. nerdctl creates the default bridge network with the first
                     container.
@@ -115,7 +133,7 @@ function NetworksPage() {
             {list.data.networks.map((n) => {
               const blocked = removeBlocked(n);
               return (
-                <Table.Tr key={n.name}>
+                <Table.Tr key={`${n.namespace}/${n.name}`}>
                   <Table.Td>
                     <Group gap={6} wrap="nowrap">
                       <Text size="sm" fw={500} title={n.file || undefined}>
@@ -140,6 +158,13 @@ function NetworksPage() {
                       </Text>
                     )}
                   </Table.Td>
+                  {allNamespaces && (
+                    <Table.Td>
+                      <Badge variant="outline" color="gray" size="sm">
+                        {n.namespace}
+                      </Badge>
+                    </Table.Td>
+                  )}
                   <Table.Td>
                     <Text size="sm">{n.driver || "—"}</Text>
                     {n.parent && (
@@ -176,7 +201,7 @@ function NetworksPage() {
                         <RouterAnchor
                           to="/env/$env/containers/$id"
                           params={{ env, id: c.id }}
-                          search={{ ns: namespace }}
+                          search={{ ns: n.namespace }}
                           size="sm"
                           c={c.running ? undefined : "dimmed"}
                           title={c.id}
@@ -213,7 +238,7 @@ function NetworksPage() {
       <CreateNetworkDialog env={env} namespace={namespace} opened={creating} onClose={close} />
       <RemoveNetworkDialog
         env={env}
-        namespace={namespace}
+        namespace={removing?.namespace ?? namespace}
         network={removing}
         onClose={() => setRemoving(undefined)}
       />

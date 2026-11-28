@@ -4,6 +4,7 @@
 package api
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -16,19 +17,18 @@ import (
 //
 //	GET /api/v1/environments/{env}/volumes?namespace=&size=true
 //
-// size=true walks every volume on disk; the UI asks for it on demand.
+// size=true walks every volume on disk; the UI asks for it on demand. namespace "*" lists every
+// namespace (#276).
 func (h *Handler) listVolumes(w http.ResponseWriter, r *http.Request) {
-	ns, err := Namespace(r)
-	if err != nil {
-		httpjson.WriteErr(w, r, h.Logger, err)
-		return
-	}
 	size, err := boolParam(r.URL.Query().Get("size"))
 	if err != nil {
 		httpjson.WriteError(w, http.StatusBadRequest, httpjson.CodeInvalidArgument, "size: "+err.Error())
 		return
 	}
-	list, err := EnvFrom(r.Context()).Runtime.Volumes().List(r.Context(), ns, size)
+	volumes := EnvFrom(r.Context()).Runtime.Volumes()
+	ns, list, err := listNamespaces(r,
+		func(ctx context.Context, ns string) ([]runtime.Volume, error) { return volumes.List(ctx, ns, size) },
+		func(v *runtime.Volume, ns string) { v.Namespace = ns })
 	if err != nil {
 		httpjson.WriteErr(w, r, h.Logger, err)
 		return
@@ -59,6 +59,7 @@ func (h *Handler) createVolume(w http.ResponseWriter, r *http.Request) {
 		h.writeActionErr(w, r, err)
 		return
 	}
+	v.Namespace = ns
 	httpjson.Write(w, http.StatusCreated, v)
 }
 

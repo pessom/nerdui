@@ -14,6 +14,7 @@ const old = "c".repeat(64);
 
 const networks = [
   {
+    namespace: "default",
     name: "bridge",
     driver: "bridge",
     labels: {},
@@ -24,6 +25,7 @@ const networks = [
     containers: [{ id: web, name: "web", running: true, ips: ["10.4.0.5"] }],
   },
   {
+    namespace: "default",
     name: "backend",
     driver: "bridge",
     labels: {},
@@ -38,6 +40,7 @@ const networks = [
     ],
   },
   {
+    namespace: "default",
     name: "empty",
     driver: "macvlan",
     labels: {},

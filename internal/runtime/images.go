@@ -36,6 +36,8 @@ type Image struct {
 	// Size is the unpacked size on disk (snapshots); ContentSize the stored blobs.
 	Size        int64 `json:"size"`
 	ContentSize int64 `json:"contentSize"`
+	// Namespace is the containerd namespace of the image.
+	Namespace string `json:"namespace"`
 	// Containers is the number of containers of the namespace created from this image.
 	Containers int               `json:"containers"`
 	Labels     map[string]string `json:"labels"`

@@ -13,7 +13,12 @@ import {
 } from "../../../api/queries";
 import { RuntimeBanners } from "../../../components/RuntimeBanners";
 import { useEnvEvents } from "../../../hooks/useEnvEvents";
-import { ALL_NAMESPACES, rememberNamespace, rememberedNamespace } from "../../../lib/namespace";
+import {
+  ALL_NAMESPACES,
+  ALL_NAMESPACE_PAGES,
+  rememberNamespace,
+  rememberedNamespace,
+} from "../../../lib/namespace";
 
 /**
  * Environment scope (ADR-0006): /env/$env?ns=<namespace>. Hosts the environment and
@@ -42,8 +47,8 @@ function EnvLayout() {
     page === `${envPath}/registries` ||
     page === `${envPath}/settings` ||
     page === `${envPath}/ports`;
-  // Only the container list can show every namespace (#276).
-  const allAllowed = page === `${envPath}/containers`;
+  // Lists can show every namespace (#276); creation and detail pages work in one.
+  const allAllowed = ALL_NAMESPACE_PAGES.some((p) => page === `${envPath}/${p}`);
   const leavingAll = ns === ALL_NAMESPACES && !allAllowed;
 
   const envs = useQuery(environmentsQuery);

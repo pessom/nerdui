@@ -4,7 +4,7 @@
 import { Alert, Button, Group, Loader, Title, Tooltip } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { IconDownload, IconFileImport, IconHammer } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi } from "@tanstack/react-router";
 import { useState } from "react";
 import {
@@ -22,6 +22,7 @@ import { ImageJobDialog } from "../../../../features/images/ImageJobDialog";
 import { ImageLoadDialog } from "../../../../features/images/ImageLoadDialog";
 import { downloadImages } from "../../../../features/images/archive";
 import { CheckUpdatesButton } from "../../../../features/updates/CheckUpdatesButton";
+import { ALL_NAMESPACES, CHOOSE_NAMESPACE, byNamespace } from "../../../../lib/namespace";
 import { useCan } from "../../../../lib/permissions";
 import { ImageUpdatesContext } from "../../../../features/updates/context";
 
@@ -38,7 +39,19 @@ function ImagesPage() {
   const status = useQuery(envStatusQuery(env));
   const namespace = ns ?? status.data?.defaultNamespace ?? "default";
   const list = useQuery(imagesQuery(env, namespace));
-  const updates = useQuery(imageUpdatesQuery(env, namespace));
+  // With all namespaces (#276), actions work in the namespace of each image.
+  const all = namespace === ALL_NAMESPACES;
+  const updateNamespaces = all
+    ? [...new Set((list.data?.images ?? []).map((i) => i.namespace))].sort()
+    : [namespace];
+  const updates = useQueries({
+    queries: updateNamespaces.map((n) => imageUpdatesQuery(env, n)),
+    combine: (results) => ({
+      byRef: new Map(results.flatMap((r) => [...updatesByRef(r.data)])),
+      // The check covers the whole environment: any namespace reports its state.
+      overview: results[0]?.data,
+    }),
+  });
   const [pulling, { open, close }] = useDisclosure();
   const [loading, loadDialog] = useDisclosure();
   const [building, buildDialog] = useDisclosure();
@@ -50,6 +63,12 @@ function ImagesPage() {
   // Read-only mode (ADR-0011): the server would answer 503 nerdctl_incompatible.
   const readOnly = !!nerdctl && !nerdctl.compatible && !nerdctl.checkSkipped;
   const write = useCan()("images:write");
+  // Pulling, building and loading go to one namespace.
+  const createBlocked = readOnly
+    ? "Read-only mode: host nerdctl is incompatible"
+    : all
+      ? CHOOSE_NAMESPACE
+      : undefined;
 
   return (
     <>
@@ -59,31 +78,35 @@ function ImagesPage() {
           {list.isFetching && !list.isPending && <Loader size="xs" aria-label="Refreshing" />}
         </Group>
         <Group gap="sm">
-          {updates.data && <CheckUpdatesButton env={env} overview={updates.data} />}
+          {updates.overview && <CheckUpdatesButton env={env} overview={updates.overview} />}
           {write && (
             <>
-              <Tooltip label="Read-only mode: host nerdctl is incompatible" disabled={!readOnly}>
+              <Tooltip label={createBlocked} disabled={!createBlocked}>
                 <Button
                   variant="default"
                   leftSection={<IconHammer size={16} />}
                   onClick={buildDialog.open}
-                  disabled={readOnly}
+                  disabled={!!createBlocked}
                 >
                   Build
                 </Button>
               </Tooltip>
-              <Tooltip label="Read-only mode: host nerdctl is incompatible" disabled={!readOnly}>
+              <Tooltip label={createBlocked} disabled={!createBlocked}>
                 <Button
                   variant="default"
                   leftSection={<IconFileImport size={16} />}
                   onClick={loadDialog.open}
-                  disabled={readOnly}
+                  disabled={!!createBlocked}
                 >
                   Load
                 </Button>
               </Tooltip>
-              <Tooltip label="Read-only mode: host nerdctl is incompatible" disabled={!readOnly}>
-                <Button leftSection={<IconDownload size={16} />} onClick={open} disabled={readOnly}>
+              <Tooltip label={createBlocked} disabled={!createBlocked}>
+                <Button
+                  leftSection={<IconDownload size={16} />}
+                  onClick={open}
+                  disabled={!!createBlocked}
+                >
                   Pull image
                 </Button>
               </Tooltip>
@@ -114,29 +137,24 @@ function ImagesPage() {
         key={pushing?.name ?? ""}
         kind="push"
         env={env}
-        namespace={namespace}
+        namespace={pushing?.namespace ?? namespace}
         opened={!!pushing}
         initialReference={pushing?.name ?? ""}
         onClose={() => setPushing(undefined)}
       />
       <ImageHistoryDialog
         env={env}
-        namespace={namespace}
+        namespace={history?.namespace ?? namespace}
         image={history}
         onClose={() => setHistory(undefined)}
       />
       <TagDialog
         env={env}
-        namespace={namespace}
+        namespace={tagging?.namespace ?? namespace}
         image={tagging}
         onClose={() => setTagging(undefined)}
       />
-      <RemoveImagesDialog
-        env={env}
-        namespace={namespace}
-        images={removing}
-        onClose={() => setRemoving([])}
-      />
+      <RemoveImagesDialog env={env} images={removing} onClose={() => setRemoving([])} />
       {list.isPending && <Loader aria-label="Loading" />}
       {list.isError && (
         <Alert color="red" title="Cannot list images">
@@ -144,20 +162,25 @@ function ImagesPage() {
         </Alert>
       )}
       {list.data && (
-        <ImageUpdatesContext.Provider value={updatesByRef(updates.data)}>
+        <ImageUpdatesContext.Provider value={updates.byRef}>
           <ImagesTable
             images={list.data.images}
+            allNamespaces={all}
             actions={{
               history: setHistory,
               tag: setTagging,
               push: setPushing,
               remove: setRemoving,
-              save: (imgs) =>
-                downloadImages(
-                  env,
-                  namespace,
-                  imgs.map((i) => i.name),
-                ),
+              // One archive per namespace of the selection.
+              save: (imgs) => {
+                for (const [ns, group] of byNamespace(imgs)) {
+                  downloadImages(
+                    env,
+                    ns,
+                    group.map((i) => i.name),
+                  );
+                }
+              },
               disabled: readOnly ? "Read-only mode: host nerdctl is incompatible" : undefined,
             }}
           />

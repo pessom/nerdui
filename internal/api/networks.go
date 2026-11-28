@@ -15,13 +15,11 @@ import (
 // listNetworks returns the CNI networks of a namespace with their containers (#60):
 //
 //	GET /api/v1/environments/{env}/networks?namespace=
+//
+// namespace "*" lists every namespace (#276).
 func (h *Handler) listNetworks(w http.ResponseWriter, r *http.Request) {
-	ns, err := Namespace(r)
-	if err != nil {
-		httpjson.WriteErr(w, r, h.Logger, err)
-		return
-	}
-	list, err := EnvFrom(r.Context()).Runtime.Networks().List(r.Context(), ns)
+	ns, list, err := listNamespaces(r, EnvFrom(r.Context()).Runtime.Networks().List,
+		func(n *runtime.Network, ns string) { n.Namespace = ns })
 	if err != nil {
 		httpjson.WriteErr(w, r, h.Logger, err)
 		return
@@ -49,6 +47,7 @@ func (h *Handler) createNetwork(w http.ResponseWriter, r *http.Request) {
 		h.writeActionErr(w, r, err)
 		return
 	}
+	n.Namespace = ns
 	h.log().Info("network created", "environment", EnvFrom(r.Context()).ID, "namespace", ns, "network", n.Name, "driver", n.Driver)
 	httpjson.Write(w, http.StatusCreated, n)
 }

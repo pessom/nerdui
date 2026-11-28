@@ -96,6 +96,15 @@ const columns = col.columns([
       );
     },
   }),
+  col.accessor("namespace", {
+    header: "Namespace",
+    sortFn: "alphanumeric",
+    cell: ({ getValue }) => (
+      <Badge variant="outline" color="gray" size="sm">
+        {getValue()}
+      </Badge>
+    ),
+  }),
   col.accessor((i) => shortID(i.digest), {
     id: "id",
     header: "ID",
@@ -155,12 +164,18 @@ const columns = col.columns([
   }),
 ]);
 
+/** Identifies an image across namespaces: a reference can exist in several. */
+const rowKey = (i: Image) => `${i.namespace}/${i.name}`;
+
 /** Image list (#42): search, used/unused filter, sorting; actions and bulk removal (#44). */
 export function ImagesTable({
   images,
+  allNamespaces = false,
   actions,
 }: {
   images: Image[];
+  /** Images of every namespace are listed: show the namespace column (#276). */
+  allNamespaces?: boolean;
   /** Tag, push and remove; without them the table is read-only. */
   actions?: ImageActionHandlers;
 }) {
@@ -177,8 +192,12 @@ export function ImagesTable({
     features,
     columns,
     data,
-    getRowId: (i) => i.name,
-    state: { sorting, globalFilter: search, columnVisibility },
+    getRowId: rowKey,
+    state: {
+      sorting,
+      globalFilter: search,
+      columnVisibility: { ...columnVisibility, namespace: allNamespaces },
+    },
     onSortingChange: setSorting,
     onGlobalFilterChange: setSearch,
     globalFilterFn: (row, _columnId, value: string) =>
@@ -188,10 +207,10 @@ export function ImagesTable({
   const used = images.filter((i) => i.containers > 0).length;
   const total = images.reduce((sum, i) => sum + i.size, 0);
   // Selection survives refetches; removed images drop out of it.
-  const selected = images.filter((i) => selectedNames.has(i.name));
+  const selected = images.filter((i) => selectedNames.has(rowKey(i)));
   const visible = rows.map((r) => r.original);
-  const allVisible = visible.length > 0 && visible.every((i) => selectedNames.has(i.name));
-  const someVisible = visible.some((i) => selectedNames.has(i.name));
+  const allVisible = visible.length > 0 && visible.every((i) => selectedNames.has(rowKey(i)));
+  const someVisible = visible.some((i) => selectedNames.has(rowKey(i)));
   const toggle = (names: string[], on: boolean) =>
     setSelectedNames((prev) => {
       const next = new Set(prev);
@@ -277,12 +296,7 @@ export function ImagesTable({
                       disabled={!selectable}
                       checked={allVisible}
                       indeterminate={someVisible && !allVisible}
-                      onChange={(e) =>
-                        toggle(
-                          visible.map((i) => i.name),
-                          e.currentTarget.checked,
-                        )
-                      }
+                      onChange={(e) => toggle(visible.map(rowKey), e.currentTarget.checked)}
                     />
                   </Table.Th>
                 )}
@@ -336,7 +350,9 @@ export function ImagesTable({
                 <Table.Td colSpan={table.getVisibleLeafColumns().length + extraCols}>
                   <Text c="dimmed" ta="center" py="md">
                     {images.length === 0
-                      ? "No images in this namespace."
+                      ? allNamespaces
+                        ? "No images."
+                        : "No images in this namespace."
                       : "No images match the filters."}
                   </Text>
                 </Table.Td>
@@ -345,19 +361,15 @@ export function ImagesTable({
             {rows.map((row) => (
               <Table.Tr
                 key={row.id}
-                bg={
-                  selectedNames.has(row.original.name)
-                    ? "var(--mantine-primary-color-light)"
-                    : undefined
-                }
+                bg={selectedNames.has(row.id) ? "var(--mantine-primary-color-light)" : undefined}
               >
                 {actions && (
                   <Table.Td>
                     <Checkbox
                       aria-label={`Select ${displayName(row.original)}`}
                       disabled={!selectable}
-                      checked={selectedNames.has(row.original.name)}
-                      onChange={(e) => toggle([row.original.name], e.currentTarget.checked)}
+                      checked={selectedNames.has(row.id)}
+                      onChange={(e) => toggle([row.id], e.currentTarget.checked)}
                     />
                   </Table.Td>
                 )}

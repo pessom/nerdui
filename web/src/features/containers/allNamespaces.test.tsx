@@ -83,19 +83,12 @@ describe("containers of all namespaces (#276)", () => {
 
   it("goes back to one namespace on other pages", async () => {
     localStorage.setItem("nerdui.namespace.local", "k8s.io");
-    const { calls } = fakeApi({
+    fakeApi({
       ...signedIn,
-      [`GET ${base}`]: () => json(200, { namespace: "*", containers: [] }),
-      "GET /api/v1/environments/local/images": (c) =>
-        json(200, { namespace: c.query.get("namespace"), images: [] }),
+      "GET /api/v1/templates": () => json(200, { templates: [] }),
     });
-    const { router } = renderApp("/env/local/images?ns=*");
+    const { router } = renderApp("/env/local/templates?ns=*");
     await waitFor(() => expect(router.state.location.search).toEqual({ ns: "k8s.io" }));
-    await waitFor(() =>
-      expect(
-        calls.filter((c) => c.path.endsWith("/images")).map((c) => c.query.get("namespace")),
-      ).toEqual(["k8s.io"]),
-    );
   });
 });
 

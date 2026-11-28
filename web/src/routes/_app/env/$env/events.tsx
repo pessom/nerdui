@@ -9,7 +9,6 @@ import {
   Loader,
   SegmentedControl,
   Stack,
-  Switch,
   Table,
   Text,
   TextInput,
@@ -22,6 +21,7 @@ import { useState } from "react";
 import { api, unwrap } from "../../../../api/client";
 import { envStatusQuery, keys } from "../../../../api/queries";
 import { RouterAnchor } from "../../../../components/RouterAnchor";
+import { ALL_NAMESPACES } from "../../../../lib/namespace";
 import {
   eventColor,
   eventDetails,
@@ -53,10 +53,11 @@ function EventsPage() {
   const status = useQuery(envStatusQuery(env));
   const namespace = ns ?? status.data?.defaultNamespace ?? "default";
   const [kind, setKind] = useState("");
-  const [allNamespaces, setAllNamespaces] = useState(false);
   const [objectInput, setObjectInput] = useState("");
   const [object, setObject] = useState("");
-  const queryNs = allNamespaces ? "*" : namespace;
+  // Every namespace through the selector's <All namespaces> (#276).
+  const allNamespaces = namespace === ALL_NAMESPACES;
+  const queryNs = namespace;
 
   const events = useInfiniteQuery({
     queryKey: [...keys.env(env), "events", queryNs, kind, object],
@@ -98,11 +99,6 @@ function EventsPage() {
           onKeyDown={(e) => e.key === "Enter" && setObject(objectInput.trim())}
           onBlur={() => setObject(objectInput.trim())}
         />
-        <Switch
-          label="All namespaces"
-          checked={allNamespaces}
-          onChange={(e) => setAllNamespaces(e.currentTarget.checked)}
-        />
       </Group>
       {!recording && (
         <Alert color="gray" title="Event history is disabled">
@@ -129,7 +125,7 @@ function EventsPage() {
           <Table.Tbody>
             {rows.length === 0 && (
               <Table.Tr>
-                <Table.Td colSpan={5}>
+                <Table.Td colSpan={allNamespaces ? 5 : 4}>
                   <Text c="dimmed" ta="center" py="md">
                     No events recorded yet.
                   </Text>
@@ -143,7 +139,17 @@ function EventsPage() {
                     {new Date(e.ts).toLocaleString()}
                   </Text>
                 </Table.Td>
-                {allNamespaces && <Table.Td>{e.namespace || "—"}</Table.Td>}
+                {allNamespaces && (
+                  <Table.Td>
+                    {e.namespace ? (
+                      <Badge variant="outline" color="gray" size="sm">
+                        {e.namespace}
+                      </Badge>
+                    ) : (
+                      "—"
+                    )}
+                  </Table.Td>
+                )}
                 <Table.Td>
                   <Badge variant="light" color={eventColor(e)}>
                     {eventLabel(e)}
@@ -154,7 +160,7 @@ function EventsPage() {
                     <RouterAnchor
                       to="/env/$env/containers/$id"
                       params={{ env, id: e.objectId }}
-                      search={{ ns: e.namespace || namespace }}
+                      search={{ ns: e.namespace || (allNamespaces ? undefined : namespace) }}
                       size="sm"
                       ff="monospace"
                       title={e.objectId}

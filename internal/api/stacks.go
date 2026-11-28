@@ -53,18 +53,40 @@ func (h *Handler) stackList(ctx context.Context, env *environment.Environment, n
 // listStacks returns the stacks of a namespace with their status (#24, ADR-0008):
 //
 //	GET /api/v1/environments/{env}/stacks?namespace=
+//
+// namespace "*" lists every namespace (#276).
 func (h *Handler) listStacks(w http.ResponseWriter, r *http.Request) {
-	ns, err := Namespace(r)
+	env := EnvFrom(r.Context())
+	ns, list, err := listNamespaces(r,
+		func(ctx context.Context, ns string) ([]stacks.Stack, error) { return h.stackList(ctx, env, ns) },
+		func(s *stacks.Stack, ns string) { s.Namespace = ns })
 	if err != nil {
 		httpjson.WriteErr(w, r, h.Logger, err)
 		return
 	}
-	list, err := h.stackList(r.Context(), EnvFrom(r.Context()), ns)
-	if err != nil {
-		httpjson.WriteErr(w, r, h.Logger, err)
-		return
+	if ns == AllNamespaces {
+		list = deployedStacks(list, env.DefaultNamespace)
 	}
 	httpjson.Write(w, http.StatusOK, map[string]any{"namespace": ns, "stacks": list})
+}
+
+// deployedStacks keeps, of the stacks of every namespace, those with containers. Stack
+// definitions are not bound to a namespace, so each one would otherwise repeat in all of them;
+// one without containers anywhere stays once, in the default namespace.
+func deployedStacks(list []stacks.Stack, defaultNS string) []stacks.Stack {
+	deployed := map[string]bool{}
+	for _, s := range list {
+		if s.Containers > 0 {
+			deployed[s.Name] = true
+		}
+	}
+	out := []stacks.Stack{}
+	for _, s := range list {
+		if s.Containers > 0 || (!deployed[s.Name] && s.Namespace == defaultNS) {
+			out = append(out, s)
+		}
+	}
+	return out
 }
 
 // getStack returns one stack with its services and containers (#24):
@@ -84,6 +106,7 @@ func (h *Handler) getStack(w http.ResponseWriter, r *http.Request) {
 	name := chi.URLParam(r, "name")
 	for _, s := range list {
 		if s.Name == name {
+			s.Namespace = ns
 			httpjson.Write(w, http.StatusOK, s)
 			return
 		}
