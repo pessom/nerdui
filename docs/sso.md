@@ -40,9 +40,51 @@ nerdui's two-factor authentication, also when it is required for every user.
 
 The sign-in page then shows a button for the provider.
 
+## Provider presets
+
+The **Provider** list at the top of the card has settings for popular providers (#99). Choosing
+one fills the *empty* issuer URL, scopes, button label and, where the provider needs it, the
+username claim; fields you already filled are kept, and the card offers to replace them with
+the provider's values. The client ID and the client secret are never changed. A part of the
+issuer in angle brackets, e.g. `<tenant-id>`, is selected and marked until you replace it.
+*Custom* changes nothing. Each preset shows where to create the client and links to the
+provider's documentation; register the redirect URI from the card in every case.
+
+Every preset uses the scopes `openid` (always sent) plus the ones listed below.
+
+### Google
+
+- Issuer: `https://accounts.google.com`; scopes `profile email`.
+- Client: Google Cloud console → *APIs & Services → Credentials → Create credentials → OAuth
+  client ID*, type *Web application*, with the redirect URI as an authorized redirect URI.
+- Google sends no `preferred_username` and no groups; the preset sets the username claim to
+  `email`. nerdui usernames allow letters, digits, `.`, `_` and `-` only, so an address with
+  `@` cannot match a nerdui account: front Google with dex or Authentik to sign in with
+  usernames.
+
+### Microsoft Entra ID
+
+- Issuer: `https://login.microsoftonline.com/<tenant-id>/v2.0`, with the *Directory (tenant)
+  ID* from the app registration's *Overview*; scopes `profile email`.
+- Client: Entra admin center → *App registrations → New registration*, platform *Web* with the
+  redirect URI; add a client secret under *Certificates & secrets*.
+- `preferred_username` is the user principal name (`user@domain`), which cannot be a nerdui
+  username; the `groups` claim (added under *Token configuration*) lists group object IDs, so
+  enter the group's object ID as the group.
+
+### GitLab (gitlab.com or self-managed)
+
+- Issuer: `https://gitlab.com`, or your instance's URL, e.g. `https://gitlab.example.com`;
+  scopes `profile email`.
+- Client: *User settings*, a group's *Settings* or the *Admin area* → *Applications → Add new
+  application*, confidential, with the scopes `openid`, `profile` and `email`.
+- `preferred_username` is the GitLab username. `groups` (full group paths, e.g.
+  `team/nerdui-admins`) comes from the userinfo endpoint, which nerdui asks when the ID token
+  lacks it.
+
 ### Keycloak
 
-- Issuer: `https://keycloak.example.com/realms/<realm>`.
+- Issuer: `https://keycloak.example.com/realms/<realm>`; scopes `profile email`.
 - Client: *Client authentication* on, *Standard flow* on, valid redirect URI as above.
 - Groups: add a *Group Membership* mapper to the client's dedicated scope with token claim name
   `groups` and *Full group path* off, so the claim lists `nerdui-admins`, not
@@ -51,16 +93,56 @@ The sign-in page then shows a button for the provider.
 ### Authentik
 
 - Create an OAuth2/OpenID provider and an application; issuer:
-  `https://authentik.example.com/application/o/<application-slug>/`.
+  `https://authentik.example.com/application/o/<application-slug>/` (with the trailing slash);
+  scopes `profile email`.
 - The `groups` claim is in the default `profile` scope.
 
-### Google
+### Authelia
 
-- Issuer: `https://accounts.google.com`; create an OAuth client ID of type *Web application*.
-- Google sends no `preferred_username` and no groups: set the username claim to `email` and
-  create nerdui users named after the email addresses (letters, digits, `.`, `_`, `-` only, so
-  an address with `@` cannot be a nerdui username — use a provider that has usernames instead,
-  or front Google with dex or Authentik).
+- Issuer: Authelia's URL, e.g. `https://auth.example.com`; scopes `profile email groups`.
+- Client: add it under `identity_providers.oidc.clients` in Authelia's configuration with the
+  redirect URI and the scopes `openid`, `profile`, `email`, `groups`; the client secret is
+  stored hashed there.
+
+### Okta
+
+- Issuer: the org authorization server `https://<okta-domain>` (e.g.
+  `https://example.okta.com`), or a custom one, `https://<okta-domain>/oauth2/default`;
+  scopes `profile email`.
+- Client: Admin console → *Applications → Create App Integration*, *OIDC*, *Web Application*.
+- `preferred_username` is the Okta login, often an email address. For groups, add a `groups`
+  claim to the ID token (a groups claim filter of the app or of the authorization server).
+
+### Auth0
+
+- Issuer: your Auth0 domain with a trailing slash, e.g. `https://example.eu.auth0.com/`, or
+  your custom domain; scopes `profile email`.
+- Client: *Applications → Create Application → Regular Web Application*; add the redirect URI
+  to *Allowed Callback URLs*.
+- Auth0 sends no `preferred_username`: the preset sets the username claim to `nickname`.
+  Groups need an Action that adds a claim; enter its name as the groups claim.
+
+### Zitadel
+
+- Issuer: your instance's domain, e.g. `https://example-abc123.zitadel.cloud` or your custom
+  domain; scopes `profile email`.
+- Client: in a project, *New → Web* application, authentication method *Basic Auth* (client secret)
+  or *PKCE*, with the redirect URI.
+- Zitadel sends project roles as an object, not a groups list: leave the group empty and create
+  the users in nerdui.
+
+### Dex
+
+- Issuer: the `issuer` value of Dex's configuration, e.g. `https://dex.example.com/dex`;
+  scopes `profile email groups`.
+- Client: a `staticClients` entry with the redirect URI in `redirectURIs` and a secret.
+
+### GitHub (not supported directly)
+
+GitHub signs users in with plain OAuth 2.0, not OpenID Connect (no ID token and no discovery
+document), so nerdui cannot use it directly and there is no preset. Put an OpenID Connect
+bridge in front of it: dex with its GitHub connector (groups from GitHub organizations and
+teams), Authentik, or Keycloak with GitHub as an identity provider, and choose that one.
 
 ## Troubleshooting
 

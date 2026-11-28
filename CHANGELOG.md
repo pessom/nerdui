@@ -10,6 +10,11 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 ### Added
 
 - Volumes: a usage filter (All / Used / Unused) like on the Images page.
+- Single sign-on: a *Provider* list with settings for Google, Microsoft Entra ID, GitLab,
+  Keycloak, Authentik, Authelia, Okta, Auth0, Zitadel and dex fills the empty issuer URL, scopes
+  and button label, shows where to create the client and links to the provider's documentation;
+  typed values and the client secret are kept. GitHub needs an OpenID Connect bridge such as dex
+  (#99).
 - Networks: a _Topology_ view next to the table draws networks and the containers attached
   to them, with each container's address on every network; a container on several networks
   is linked to each, and a click opens its page (#61).
