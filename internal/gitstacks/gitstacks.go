@@ -130,6 +130,17 @@ func (s *Service) Check(ctx context.Context, req CreateRequest) (CreateRequest, 
 	return req, nil
 }
 
+// Clone clones a repository into dir (which must not exist) for another use than a stack, an
+// image build (#45): the same URL checks, credentials and known hosts as Git stacks.
+func (s *Service) Clone(ctx context.Context, dir, url, ref string, credentialID *int64) (gitrepo.Commit, error) {
+	o, err := s.options(ctx, url, ref, credentialID)
+	if err != nil {
+		return gitrepo.Commit{}, err
+	}
+	c, _, err := gitrepo.Clone(ctx, dir, o)
+	return c, err
+}
+
 // options builds the clone options with the credential of id; SSH needs a key credential, since
 // host keys are checked against the stored ones.
 func (s *Service) options(ctx context.Context, url, ref string, credentialID *int64) (gitrepo.Options, error) {

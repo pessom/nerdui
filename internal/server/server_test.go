@@ -418,6 +418,8 @@ func TestRouteAuthorization(t *testing.T) {
 		"POST /api/v1/environments/{env}/images/load":                           "images:write",
 		"POST /api/v1/environments/{env}/images/pull":                           "images:write",
 		"POST /api/v1/environments/{env}/images/push":                           "images:write",
+		"GET /api/v1/environments/{env}/images/builder":                         "images:read",
+		"POST /api/v1/environments/{env}/images/build":                          "images:write",
 		"POST /api/v1/environments/{env}/images/tag":                            "images:write",
 		"POST /api/v1/environments/{env}/images/remove":                         "images:write",
 		"GET /api/v1/environments/{env}/registries":                             "registries:read",

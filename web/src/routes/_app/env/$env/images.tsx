@@ -3,7 +3,7 @@
 
 import { Alert, Button, Group, Loader, Title, Tooltip } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { IconDownload, IconFileImport } from "@tabler/icons-react";
+import { IconDownload, IconFileImport, IconHammer } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi } from "@tanstack/react-router";
 import { useState } from "react";
@@ -14,6 +14,7 @@ import {
   updatesByRef,
   type Image,
 } from "../../../../api/queries";
+import { BuildImageDialog } from "../../../../features/images/BuildImageDialog";
 import { ImagesTable } from "../../../../features/images/ImagesTable";
 import { RemoveImagesDialog, TagDialog } from "../../../../features/images/ImageActions";
 import { ImageHistoryDialog } from "../../../../features/images/ImageHistoryDialog";
@@ -40,6 +41,7 @@ function ImagesPage() {
   const updates = useQuery(imageUpdatesQuery(env, namespace));
   const [pulling, { open, close }] = useDisclosure();
   const [loading, loadDialog] = useDisclosure();
+  const [building, buildDialog] = useDisclosure();
   const [history, setHistory] = useState<Image>();
   const [tagging, setTagging] = useState<Image>();
   const [pushing, setPushing] = useState<Image>();
@@ -60,6 +62,16 @@ function ImagesPage() {
           {updates.data && <CheckUpdatesButton env={env} overview={updates.data} />}
           {write && (
             <>
+              <Tooltip label="Read-only mode: host nerdctl is incompatible" disabled={!readOnly}>
+                <Button
+                  variant="default"
+                  leftSection={<IconHammer size={16} />}
+                  onClick={buildDialog.open}
+                  disabled={readOnly}
+                >
+                  Build
+                </Button>
+              </Tooltip>
               <Tooltip label="Read-only mode: host nerdctl is incompatible" disabled={!readOnly}>
                 <Button
                   variant="default"
@@ -85,6 +97,12 @@ function ImagesPage() {
         namespace={namespace}
         opened={pulling}
         onClose={close}
+      />
+      <BuildImageDialog
+        env={env}
+        namespace={namespace}
+        opened={building}
+        onClose={buildDialog.close}
       />
       <ImageLoadDialog
         env={env}

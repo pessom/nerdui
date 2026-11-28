@@ -268,6 +268,7 @@ func runServe(ctx context.Context, cfg config.Config, logOut io.Writer) error {
 			EventHistory: eventHistory, DisableExec: cfg.DisableExec, Settings: st.Write(),
 			Stacks:        stackService,
 			GitStacks:     gitStacks,
+			BuildDir:      filepath.Join(cfg.DataDir, "builds"),
 			GitAuto:       gitAuto,
 			Webhooks:      incoming,
 			ImageUpdates:  imageUpdates,
