@@ -1,0 +1,13 @@
+services:
+  phoenix:
+    image: arizephoenix/phoenix:${VERSION:-version-22}
+    restart: unless-stopped
+    environment:
+      PHOENIX_WORKING_DIR: /mnt/data
+    ports:
+      - "${PORT:-6006}:6006"
+      - "${OTLP_PORT:-4317}:4317"
+    volumes:
+      - data:/mnt/data
+volumes:
+  data:

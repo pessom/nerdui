@@ -1,0 +1,8 @@
+{
+  "name": "Ollama",
+  "description": "Runs large language models locally behind an HTTP API. Uses the CPU; for a GPU, pass the GPU to the container (NVIDIA Container Toolkit or AMD ROCm).",
+  "categories": [
+    "ai"
+  ],
+  "documentation": "https://docs.ollama.com/docker"
+}

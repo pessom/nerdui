@@ -1,0 +1,10 @@
+services:
+  ollama:
+    image: ollama/ollama:${VERSION:-0.40.19}
+    restart: unless-stopped
+    ports:
+      - "${PORT:-11434}:11434"
+    volumes:
+      - models:/root/.ollama
+volumes:
+  models:

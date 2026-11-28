@@ -1,0 +1,14 @@
+services:
+  localai:
+    image: localai/localai:${VERSION:-v3.12.1}
+    restart: unless-stopped
+    environment:
+      MODELS_PATH: /models
+    ports:
+      - "${PORT:-8141}:8080"
+    volumes:
+      - models:/models
+      - backends:/backends
+volumes:
+  models:
+  backends:

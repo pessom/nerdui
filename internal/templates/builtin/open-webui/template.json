@@ -1,0 +1,8 @@
+{
+  "name": "Open WebUI",
+  "description": "Chat interface for language models, with Ollama to run them locally (on the CPU; for a GPU, pass it to the ollama container). The first account created becomes the administrator.",
+  "categories": [
+    "ai"
+  ],
+  "documentation": "https://docs.openwebui.com"
+}

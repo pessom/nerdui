@@ -1,0 +1,21 @@
+services:
+  open-webui:
+    image: openwebui/open-webui:${VERSION:-0.13}
+    restart: unless-stopped
+    depends_on:
+      - ollama
+    environment:
+      OLLAMA_BASE_URL: http://ollama:11434
+      WEBUI_SECRET_KEY: ${WEBUI_SECRET_KEY:?set WEBUI_SECRET_KEY}
+    ports:
+      - "${PORT:-8140}:8080"
+    volumes:
+      - data:/app/backend/data
+  ollama:
+    image: ollama/ollama:${OLLAMA_VERSION:-0.40.19}
+    restart: unless-stopped
+    volumes:
+      - models:/root/.ollama
+volumes:
+  data:
+  models:

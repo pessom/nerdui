@@ -1,0 +1,28 @@
+services:
+  litellm:
+    image: litellm/litellm:${VERSION:-lts}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      LITELLM_MASTER_KEY: ${MASTER_API_KEY:?set MASTER_API_KEY}
+      DATABASE_URL: postgresql://litellm:${DB_PASSWORD:?set DB_PASSWORD}@db:5432/litellm
+      STORE_MODEL_IN_DB: "True"
+    ports:
+      - "${PORT:-4000}:4000"
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: litellm
+      POSTGRES_USER: litellm
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
+    volumes:
+      - db:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U litellm"]
+      interval: 10s
+      retries: 5
+volumes:
+  db:

@@ -1,0 +1,9 @@
+{
+  "name": "Weaviate",
+  "description": "Vector database with hybrid search, protected by an API key; bring your own vectors (no vectorizer module is enabled).",
+  "categories": [
+    "ai",
+    "database"
+  ],
+  "documentation": "https://docs.weaviate.io/deploy/installation-guides/docker-installation"
+}

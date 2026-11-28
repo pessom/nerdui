@@ -1,0 +1,9 @@
+{
+  "name": "Arize Phoenix",
+  "description": "Tracing and evaluation of LLM applications: receives OpenTelemetry traces and shows prompts, responses, latency and cost.",
+  "categories": [
+    "ai",
+    "monitoring"
+  ],
+  "documentation": "https://arize.com/docs/phoenix/self-hosting/deployment-options/docker"
+}

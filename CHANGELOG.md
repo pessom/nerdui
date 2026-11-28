@@ -36,6 +36,12 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
   maintained are replaced by their successors (Eclipse Temurin for OpenJDK, `jenkins/jenkins`,
   `hashicorp/vault`). A new *sandbox* category keeps base and language images (Alpine, Ubuntu,
   Python, Node.js, Go, Rust, Haskell, R, Java, …) running to work in them from the terminal.
+- Templates for AI and LLM applications in a new *ai* category: Ollama, Open WebUI (with
+  Ollama), LocalAI, LobeChat, AnythingLLM, Flowise, Langflow, n8n, LiteLLM (with PostgreSQL),
+  Arize Phoenix, the vector databases Qdrant, Chroma, Weaviate and pgvector, the search engines
+  SearXNG, Meilisearch and Typesense, speech to text with Whisper ASR and Wyoming Whisper, text
+  to speech with OpenAI Edge TTS and embeddings with Infinity. They run on the CPU; a GPU has
+  to be passed to the container.
 - A warning on the host's pages when AppArmor on Linux 7 (Ubuntu 26.04) blocks signals inside
   containers: images that switch user with `gosu` (MySQL, MariaDB, Percona, PostgreSQL and
   others) hang at start there. docs/deployment.md explains the check and the ways out

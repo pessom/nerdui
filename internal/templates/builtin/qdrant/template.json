@@ -1,0 +1,9 @@
+{
+  "name": "Qdrant",
+  "description": "Vector database for similarity search, with a web dashboard at /dashboard.",
+  "categories": [
+    "ai",
+    "database"
+  ],
+  "documentation": "https://qdrant.tech/documentation/guides/installation/"
+}

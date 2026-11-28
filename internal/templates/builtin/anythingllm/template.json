@@ -1,0 +1,8 @@
+{
+  "name": "AnythingLLM",
+  "description": "Chat with your documents: retrieval-augmented generation with a built-in vector database, agents and many model providers (Ollama, OpenAI, Anthropic and others).",
+  "categories": [
+    "ai"
+  ],
+  "documentation": "https://docs.anythingllm.com/installation-docker/local-docker"
+}

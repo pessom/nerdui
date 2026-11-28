@@ -1,0 +1,8 @@
+{
+  "name": "LobeChat",
+  "description": "Chat interface for OpenAI, Ollama and other model providers, protected by an access code; conversations are kept in the browser.",
+  "categories": [
+    "ai"
+  ],
+  "documentation": "https://lobehub.com/docs/self-hosting/platform/docker"
+}

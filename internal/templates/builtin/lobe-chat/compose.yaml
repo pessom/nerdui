@@ -1,0 +1,10 @@
+services:
+  lobe-chat:
+    image: lobehub/lobe-chat:${VERSION:-1.143.3}
+    restart: unless-stopped
+    environment:
+      ACCESS_CODE: ${ACCESS_PASSWORD:?set ACCESS_PASSWORD}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OLLAMA_PROXY_URL: ${OLLAMA_PROXY_URL:-}
+    ports:
+      - "${PORT:-3210}:3210"

@@ -1,0 +1,8 @@
+{
+  "name": "OpenAI Edge TTS",
+  "description": "OpenAI-compatible text to speech API (/v1/audio/speech) on top of Microsoft Edge online voices; needs Internet access.",
+  "categories": [
+    "ai"
+  ],
+  "documentation": "https://hub.docker.com/r/travisvn/openai-edge-tts"
+}

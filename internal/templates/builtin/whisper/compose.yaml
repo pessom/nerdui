@@ -1,0 +1,13 @@
+services:
+  whisper:
+    image: onerahmet/openai-whisper-asr-webservice:${VERSION:-v2.0.0}
+    restart: unless-stopped
+    environment:
+      ASR_MODEL: ${ASR_MODEL:-base}
+      ASR_ENGINE: ${ASR_ENGINE:-faster_whisper}
+    ports:
+      - "${PORT:-8147}:9000"
+    volumes:
+      - cache:/root/.cache
+volumes:
+  cache:
