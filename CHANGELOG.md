@@ -7,6 +7,18 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 
 ## [Unreleased]
 
+## [0.3.0-alpha.1] - 2026-11-28
+
+First pre-release of 0.3, still for one host. Highlights:
+
+- roles: built-in and custom, with pages showing only what a role allows;
+- building images with BuildKit from a Dockerfile, a Git repository or an archive;
+- templates for single containers and about 160 more built-in templates, including AI and LLM
+  applications and a sandbox category;
+- containers of all namespaces in one list, a network topology view, a usage filter for
+  volumes, single sign-on provider presets;
+- a warning when AppArmor on Linux 7 blocks containers.
+
 ### Added
 
 - Volumes: a usage filter (All / Used / Unused) like on the Images page.
@@ -72,9 +84,30 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
   administrators. Single sign-on settings saved from now on give new accounts `viewer` by
   default.
 
+### Fixed
+
+- Recreating a container could leave the previous one running next to the new one when
+  something (a containerd restart applying the restart policy) started it again meanwhile; it
+  is now stopped again and removed.
+
+### Known limitations
+
+- One host per nerdui instance; multiple environments and remote agents are planned (#69, #70).
+- Rootless containerd is not supported.
+- The container image is experimental (#145); install the binary with systemd.
+- On Linux 7 with AppArmor (Ubuntu 26.04), images that signal their own processes (`gosu`
+  entrypoints such as MySQL or MongoDB, Elasticsearch, the first start of InfluxDB) hang or
+  fail until the host setting is changed: see "AppArmor on Linux 7" in docs/deployment.md.
+- Single sign-on with Google or Microsoft Entra ID directly does not sign users in yet: their
+  usernames contain `@`, which nerdui usernames cannot. Put dex or Authentik in front.
+- Building images needs `buildctl` and a running `buildkitd` on the host.
+
 ### Upgrade notes
 
-- Database migration 22 (roles) is applied on start.
+- Database migration 22 (roles) is applied on start, with a backup. Existing users keep the
+  `admin` role.
+- The built-in MariaDB template is replaced by Percona Server for MySQL; stacks deployed from
+  it keep running unchanged.
 
 ## [0.2.0] - 2026-11-26
 
@@ -575,7 +608,8 @@ First preview release: manage containers on one Linux host with containerd and n
 - Every user is an administrator; roles are planned (#78).
 - The container image is experimental (#145); install the binary with systemd.
 
-[Unreleased]: https://github.com/pessom/nerdui/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/pessom/nerdui/compare/v0.3.0-alpha.1...HEAD
+[0.3.0-alpha.1]: https://github.com/pessom/nerdui/compare/v0.2.0...v0.3.0-alpha.1
 [0.2.0]: https://github.com/pessom/nerdui/compare/v0.2.0-alpha.2...v0.2.0
 [0.2.0-alpha.2]: https://github.com/pessom/nerdui/compare/v0.2.0-alpha.1...v0.2.0-alpha.2
 [0.2.0-alpha.1]: https://github.com/pessom/nerdui/compare/v0.1.1...v0.2.0-alpha.1
