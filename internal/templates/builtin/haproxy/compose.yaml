@@ -1,0 +1,47 @@
+services:
+  haproxy:
+    image: haproxy:${VERSION:-3.4}-alpine
+    restart: unless-stopped
+    # Starts as root to write the first configuration; HAProxy then runs as haproxy.
+    user: root
+    environment:
+      BACKEND: ${BACKEND:-127.0.0.1:8080}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        f=/usr/local/etc/haproxy/haproxy.cfg
+        if [ ! -f "$$f" ]; then
+          cat > "$$f" <<EOF
+        global
+          user haproxy
+          group haproxy
+          log stdout format raw local0
+        defaults
+          mode http
+          log global
+          option httplog
+          timeout connect 5s
+          timeout client 30s
+          timeout server 30s
+          default-server init-addr last,libc,none
+        frontend stats
+          bind :8404
+          stats enable
+          stats uri /
+        frontend web
+          bind :80
+          default_backend app
+        backend app
+          server app $$BACKEND check
+        EOF
+        fi
+        exec haproxy -W -db -f "$$f"
+    ports:
+      - "${PORT:-8103}:80"
+      - "${STATS_PORT:-8404}:8404"
+    volumes:
+      - config:/usr/local/etc/haproxy
+volumes:
+  config:

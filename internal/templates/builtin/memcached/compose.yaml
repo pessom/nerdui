@@ -1,0 +1,7 @@
+services:
+  memcached:
+    image: memcached:${VERSION:-1.6}-alpine
+    restart: unless-stopped
+    command: ["memcached", "-m", "${MEMORY_MB:-64}"]
+    ports:
+      - "${PORT:-11211}:11211"

@@ -1,0 +1,15 @@
+services:
+  bonita:
+    image: bonita:${VERSION:-2026.2}
+    restart: unless-stopped
+    environment:
+      TENANT_LOGIN: ${TENANT_LOGIN:-install}
+      TENANT_PASSWORD: ${TENANT_PASSWORD:?set TENANT_PASSWORD}
+      PLATFORM_LOGIN: ${PLATFORM_LOGIN:-platformAdmin}
+      PLATFORM_PASSWORD: ${PLATFORM_PASSWORD:?set PLATFORM_PASSWORD}
+    ports:
+      - "${PORT:-8120}:8080"
+    volumes:
+      - data:/opt/bonita
+volumes:
+  data:

@@ -1,0 +1,11 @@
+services:
+  jenkins:
+    image: jenkins/jenkins:${VERSION:-lts-jdk21}
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8110}:8080"
+      - "${AGENT_PORT:-50000}:50000"
+    volumes:
+      - home:/var/jenkins_home
+volumes:
+  home:

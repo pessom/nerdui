@@ -1,0 +1,13 @@
+services:
+  convertigo:
+    image: convertigo:${VERSION:-8.4}
+    restart: unless-stopped
+    environment:
+      CONVERTIGO_ADMIN_USER: ${ADMIN_USER:-admin}
+      CONVERTIGO_ADMIN_PASSWORD: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD}
+    ports:
+      - "${PORT:-28080}:28080"
+    volumes:
+      - workspace:/workspace
+volumes:
+  workspace:

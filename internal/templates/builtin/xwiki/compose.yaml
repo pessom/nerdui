@@ -1,0 +1,32 @@
+services:
+  xwiki:
+    image: xwiki:${VERSION:-lts}-postgres-tomcat
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_DATABASE: xwiki
+      DB_USER: xwiki
+      DB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
+    ports:
+      - "${PORT:-8117}:8080"
+    volumes:
+      - data:/usr/local/xwiki
+  db:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: xwiki
+      POSTGRES_USER: xwiki
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
+    volumes:
+      - db:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U xwiki"]
+      interval: 10s
+      retries: 5
+volumes:
+  data:
+  db:

@@ -26,6 +26,16 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 - Stack templates: Percona Server for MySQL replaces MariaDB in the built-in catalog, also as
   the database of the WordPress template. Stacks deployed from the old templates keep running
   unchanged. *Mine* explains how to add templates of your own when it is empty.
+- About 120 more built-in templates: MySQL, MongoDB (also with Mongo Express), CouchDB,
+  Cassandra, Neo4j, ArangoDB, ClickHouse, Elasticsearch (also with Kibana), Logstash, Fluentd,
+  InfluxDB with Telegraf, Chronograf, Kapacitor, RabbitMQ, NATS, ZooKeeper, Mosquitto,
+  Memcached, Spark, Storm, Flink, Apache httpd, Caddy, Traefik, HAProxy, Varnish, Hitch, Kong,
+  KrakenD, Tomcat, Jetty, TomEE, Liberty, Jenkins, SonarQube, the registry, Vault, Consul,
+  Nextcloud, ownCloud, Ghost, Drupal, Joomla, Backdrop, MediaWiki, XWiki, Matomo, Odoo,
+  EspoCRM, Redmine, Friendica, Rocket.Chat, TeamSpeak, ZNC, Eggdrop and others; images no longer
+  maintained are replaced by their successors (Eclipse Temurin for OpenJDK, `jenkins/jenkins`,
+  `hashicorp/vault`). A new *sandbox* category keeps base and language images (Alpine, Ubuntu,
+  Python, Node.js, Go, Rust, Haskell, R, Java, …) running to work in them from the terminal.
 - A warning on the host's pages when AppArmor on Linux 7 (Ubuntu 26.04) blocks signals inside
   containers: images that switch user with `gosu` (MySQL, MariaDB, Percona, PostgreSQL and
   others) hang at start there. docs/deployment.md explains the check and the ways out

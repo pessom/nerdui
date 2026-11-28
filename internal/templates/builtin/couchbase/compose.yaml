@@ -1,0 +1,11 @@
+services:
+  couchbase:
+    image: couchbase:${VERSION:-community}
+    restart: unless-stopped
+    ports:
+      - "8091-8097:8091-8097"
+      - "11210:11210"
+    volumes:
+      - data:/opt/couchbase/var
+volumes:
+  data:

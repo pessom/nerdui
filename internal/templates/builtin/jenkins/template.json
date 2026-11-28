@@ -1,0 +1,8 @@
+{
+  "name": "Jenkins",
+  "description": "Automation server for CI/CD; the first administrator password is in the log.",
+  "categories": [
+    "development"
+  ],
+  "documentation": "https://hub.docker.com/r/jenkins/jenkins"
+}

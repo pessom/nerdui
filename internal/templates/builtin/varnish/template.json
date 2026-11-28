@@ -1,0 +1,9 @@
+{
+  "name": "Varnish Cache",
+  "description": "HTTP cache in front of a web server; change default.vcl in the vcl volume.",
+  "categories": [
+    "proxy",
+    "cache"
+  ],
+  "documentation": "https://hub.docker.com/_/varnish"
+}

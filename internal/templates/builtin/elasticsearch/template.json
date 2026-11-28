@@ -1,0 +1,9 @@
+{
+  "name": "Elasticsearch",
+  "description": "Search and analytics engine, a single node with a password.",
+  "categories": [
+    "search",
+    "database"
+  ],
+  "documentation": "https://hub.docker.com/_/elasticsearch"
+}

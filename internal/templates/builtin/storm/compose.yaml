@@ -1,0 +1,31 @@
+services:
+  ui:
+    image: storm:${VERSION:-3.2}
+    restart: unless-stopped
+    command: storm ui
+    depends_on:
+      - nimbus
+    ports:
+      - "${PORT:-8133}:8080"
+  nimbus:
+    image: storm:${VERSION:-3.2}
+    restart: unless-stopped
+    command: storm nimbus
+    depends_on:
+      - zookeeper
+    volumes:
+      - nimbus:/data
+  supervisor:
+    image: storm:${VERSION:-3.2}
+    restart: unless-stopped
+    command: storm supervisor
+    depends_on:
+      - nimbus
+  zookeeper:
+    image: zookeeper:3.9
+    restart: unless-stopped
+    volumes:
+      - zookeeper:/data
+volumes:
+  nimbus:
+  zookeeper:

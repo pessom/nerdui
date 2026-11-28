@@ -1,0 +1,8 @@
+{
+  "name": "Logstash",
+  "description": "Log pipeline; the default pipeline receives Beats on 5044 and prints events, change it in the pipeline volume.",
+  "categories": [
+    "logging"
+  ],
+  "documentation": "https://hub.docker.com/_/logstash"
+}

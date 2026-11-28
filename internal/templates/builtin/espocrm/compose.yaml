@@ -1,0 +1,47 @@
+services:
+  espocrm:
+    image: espocrm:${VERSION:-10}-apache
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ESPOCRM_DATABASE_PLATFORM: Mysql
+      ESPOCRM_DATABASE_HOST: db
+      ESPOCRM_DATABASE_USER: espocrm
+      ESPOCRM_DATABASE_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
+      ESPOCRM_DATABASE_NAME: espocrm
+      ESPOCRM_ADMIN_USERNAME: ${ADMIN_USER:-admin}
+      ESPOCRM_ADMIN_PASSWORD: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD}
+      ESPOCRM_SITE_URL: ${URL:-http://localhost:8136}
+    ports:
+      - "${PORT:-8136}:80"
+    volumes:
+      - espocrm:/var/www/html
+  # Scheduled jobs of EspoCRM.
+  daemon:
+    image: espocrm:${VERSION:-10}-apache
+    restart: unless-stopped
+    entrypoint: docker-daemon.sh
+    depends_on:
+      - espocrm
+    volumes:
+      - espocrm:/var/www/html
+  db:
+    image: percona/percona-server:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: espocrm
+      MYSQL_USER: espocrm
+      MYSQL_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
+      MYSQL_RANDOM_ROOT_PASSWORD: "1"
+    volumes:
+      - db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "--silent"]
+      interval: 10s
+      start_period: 60s
+      retries: 5
+volumes:
+  espocrm:
+  db:

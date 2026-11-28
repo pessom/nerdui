@@ -1,0 +1,9 @@
+services:
+  phpmyadmin:
+    image: phpmyadmin:${VERSION:-5}
+    restart: unless-stopped
+    environment:
+      PMA_ARBITRARY: "1"
+      UPLOAD_LIMIT: ${UPLOAD_LIMIT:-64M}
+    ports:
+      - "${PORT:-8112}:80"

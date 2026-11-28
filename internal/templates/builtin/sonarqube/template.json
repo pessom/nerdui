@@ -1,0 +1,8 @@
+{
+  "name": "SonarQube",
+  "description": "Code quality and security analysis (Community Build, embedded database for evaluation).",
+  "categories": [
+    "development"
+  ],
+  "documentation": "https://hub.docker.com/_/sonarqube"
+}

@@ -1,0 +1,13 @@
+services:
+  varnish:
+    image: varnish:${VERSION:-9}
+    restart: unless-stopped
+    environment:
+      VARNISH_SIZE: ${CACHE_SIZE:-256M}
+      VARNISH_BACKEND_HOST: ${BACKEND:-http://localhost:8080}
+    ports:
+      - "${PORT:-8104}:80"
+    volumes:
+      - vcl:/etc/varnish
+volumes:
+  vcl:

@@ -1,0 +1,10 @@
+services:
+  gradle:
+    image: gradle:${VERSION:-9-jdk21}
+    restart: unless-stopped
+    command: ["sh", "-c", "trap 'exit 0' TERM INT; while :; do sleep 3600 & wait $$!; done"]
+    working_dir: /work
+    volumes:
+      - work:/work
+volumes:
+  work:

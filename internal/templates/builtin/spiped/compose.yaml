@@ -1,0 +1,19 @@
+services:
+  spiped:
+    image: spiped:${VERSION:-1}
+    restart: unless-stopped
+    environment:
+      TARGET: ${TARGET:-[127.0.0.1]:25}
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        [ -s /spiped/key ] || dd if=/dev/urandom bs=32 count=1 of=/spiped/key 2> /dev/null
+        exec spiped -F -d -s '[0.0.0.0]:8025' -t "$$TARGET" -k /spiped/key
+    ports:
+      - "${PORT:-8025}:8025"
+    volumes:
+      - key:/spiped
+volumes:
+  key:

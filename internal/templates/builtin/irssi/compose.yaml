@@ -1,0 +1,9 @@
+services:
+  irssi:
+    image: irssi:${VERSION:-1}
+    restart: unless-stopped
+    command: ["sh", "-c", "trap 'exit 0' TERM INT; while :; do sleep 3600 & wait $$!; done"]
+    volumes:
+      - config:/home/user/.irssi
+volumes:
+  config:

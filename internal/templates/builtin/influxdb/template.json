@@ -1,0 +1,9 @@
+{
+  "name": "InfluxDB",
+  "description": "Time series database, version 2 with its web interface.",
+  "categories": [
+    "database",
+    "monitoring"
+  ],
+  "documentation": "https://hub.docker.com/_/influxdb"
+}

@@ -1,0 +1,8 @@
+{
+  "name": "Odoo",
+  "description": "Business applications: CRM, accounting, inventory, website; with PostgreSQL.",
+  "categories": [
+    "productivity"
+  ],
+  "documentation": "https://hub.docker.com/_/odoo"
+}

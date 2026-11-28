@@ -1,0 +1,50 @@
+services:
+  znc:
+    image: znc:${VERSION:-1.10}
+    restart: unless-stopped
+    environment:
+      ZNC_USER: ${ZNC_USER:-admin}
+      ZNC_PASSWORD: ${ZNC_PASSWORD:?set ZNC_PASSWORD}
+    # Writes a first configuration with one administrator, then starts ZNC.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        c=/znc-data/configs/znc.conf
+        if [ ! -f "$$c" ]; then
+          mkdir -p /znc-data/configs
+          salt=$$(head -c 12 /dev/urandom | od -An -tx1 | tr -d ' \n')
+          hash=$$(printf '%s%s' "$$ZNC_PASSWORD" "$$salt" | sha256sum | cut -d' ' -f1)
+          cat > "$$c" <<EOF
+        Version = 1.10
+        <Listener web>
+          Port = 6501
+          IPv4 = true
+          IPv6 = false
+          SSL = false
+        </Listener>
+        LoadModule = webadmin
+        <User $$ZNC_USER>
+          <Pass password>
+            Method = sha256
+            Hash = $$hash
+            Salt = $$salt
+          </Pass>
+          Admin = true
+          Nick = $$ZNC_USER
+          AltNick = $${ZNC_USER}_
+          Ident = $$ZNC_USER
+          RealName = $$ZNC_USER
+          LoadModule = chansaver
+          LoadModule = controlpanel
+        </User>
+        EOF
+        fi
+        exec /entrypoint.sh
+    ports:
+      - "${PORT:-6501}:6501"
+    volumes:
+      - data:/znc-data
+volumes:
+  data:

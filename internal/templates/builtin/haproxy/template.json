@@ -1,0 +1,8 @@
+{
+  "name": "HAProxy",
+  "description": "Load balancer and proxy; the configuration is created in the config volume at the first start, change it there.",
+  "categories": [
+    "proxy"
+  ],
+  "documentation": "https://hub.docker.com/_/haproxy"
+}

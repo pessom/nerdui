@@ -1,0 +1,8 @@
+{
+  "name": "Chronograf",
+  "description": "Web interface for InfluxDB and Kapacitor: add the connection on the first visit.",
+  "categories": [
+    "monitoring"
+  ],
+  "documentation": "https://hub.docker.com/_/chronograf"
+}

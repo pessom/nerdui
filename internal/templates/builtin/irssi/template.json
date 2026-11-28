@@ -1,0 +1,9 @@
+{
+  "name": "Irssi",
+  "description": "Terminal IRC client: open the Terminal tab and run irssi; its settings are kept in a volume.",
+  "categories": [
+    "communication",
+    "sandbox"
+  ],
+  "documentation": "https://hub.docker.com/_/irssi"
+}

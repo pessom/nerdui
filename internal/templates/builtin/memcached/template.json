@@ -1,0 +1,8 @@
+{
+  "name": "Memcached",
+  "description": "In-memory cache, without authentication: publish it only on a trusted network.",
+  "categories": [
+    "cache"
+  ],
+  "documentation": "https://hub.docker.com/_/memcached"
+}

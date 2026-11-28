@@ -1,0 +1,14 @@
+services:
+  caddy:
+    image: caddy:${VERSION:-2}-alpine
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8102}:80"
+    volumes:
+      - site:/usr/share/caddy
+      - data:/data
+      - config:/config
+volumes:
+  site:
+  data:
+  config:

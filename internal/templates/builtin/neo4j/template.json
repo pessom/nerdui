@@ -1,0 +1,8 @@
+{
+  "name": "Neo4j",
+  "description": "Graph database with the Neo4j Browser.",
+  "categories": [
+    "database"
+  ],
+  "documentation": "https://hub.docker.com/_/neo4j"
+}

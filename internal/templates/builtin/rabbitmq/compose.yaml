@@ -1,0 +1,15 @@
+services:
+  rabbitmq:
+    image: rabbitmq:${VERSION:-4}-management-alpine
+    restart: unless-stopped
+    hostname: rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-admin}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:?set RABBITMQ_PASSWORD}
+    ports:
+      - "${AMQP_PORT:-5672}:5672"
+      - "${WEB_PORT:-15672}:15672"
+    volumes:
+      - data:/var/lib/rabbitmq
+volumes:
+  data:

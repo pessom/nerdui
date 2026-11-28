@@ -1,0 +1,13 @@
+services:
+  fluentd:
+    image: fluentd:${VERSION:-v1.19-1}
+    restart: unless-stopped
+    ports:
+      - "${PORT:-24224}:24224"
+      - "${PORT:-24224}:24224/udp"
+    volumes:
+      - config:/fluentd/etc
+      - logs:/fluentd/log
+volumes:
+  config:
+  logs:

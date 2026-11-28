@@ -1,0 +1,8 @@
+{
+  "name": "ZNC",
+  "description": "IRC bouncer that stays connected for you; sign in to the web interface with the user below.",
+  "categories": [
+    "communication"
+  ],
+  "documentation": "https://hub.docker.com/_/znc"
+}

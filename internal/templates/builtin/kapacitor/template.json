@@ -1,0 +1,8 @@
+{
+  "name": "Kapacitor",
+  "description": "Alerting and stream processing for InfluxDB 1.x data.",
+  "categories": [
+    "monitoring"
+  ],
+  "documentation": "https://hub.docker.com/_/kapacitor"
+}

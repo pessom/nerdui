@@ -1,0 +1,19 @@
+services:
+  influxdb:
+    image: influxdb:${VERSION:-2}
+    restart: unless-stopped
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: ${INFLUX_USER:-admin}
+      DOCKER_INFLUXDB_INIT_PASSWORD: ${INFLUX_PASSWORD:?set INFLUX_PASSWORD}
+      DOCKER_INFLUXDB_INIT_ORG: ${INFLUX_ORG:-nerdui}
+      DOCKER_INFLUXDB_INIT_BUCKET: ${INFLUX_BUCKET:-default}
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ${INFLUX_TOKEN:?set INFLUX_TOKEN}
+    ports:
+      - "${PORT:-8086}:8086"
+    volumes:
+      - data:/var/lib/influxdb2
+      - config:/etc/influxdb2
+volumes:
+  data:
+  config:

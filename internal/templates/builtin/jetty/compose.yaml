@@ -1,0 +1,10 @@
+services:
+  jetty:
+    image: jetty:${VERSION:-12}-jre21
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8106}:8080"
+    volumes:
+      - webapps:/var/lib/jetty/webapps
+volumes:
+  webapps:

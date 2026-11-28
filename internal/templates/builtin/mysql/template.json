@@ -1,0 +1,8 @@
+{
+  "name": "MySQL",
+  "description": "Relational database server by Oracle.",
+  "categories": [
+    "database"
+  ],
+  "documentation": "https://hub.docker.com/_/mysql"
+}

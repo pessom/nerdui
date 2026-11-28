@@ -1,0 +1,8 @@
+{
+  "name": "Apache Spark",
+  "description": "Cluster computing: a standalone master and one worker.",
+  "categories": [
+    "analytics"
+  ],
+  "documentation": "https://hub.docker.com/_/spark"
+}

@@ -1,0 +1,10 @@
+services:
+  tomcat:
+    image: tomcat:${VERSION:-11.0}
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8105}:8080"
+    volumes:
+      - webapps:/usr/local/tomcat/webapps
+volumes:
+  webapps:

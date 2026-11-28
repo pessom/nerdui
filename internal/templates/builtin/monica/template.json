@@ -1,0 +1,8 @@
+{
+  "name": "Monica",
+  "description": "Personal relationship manager: contacts, notes, reminders; with Percona Server.",
+  "categories": [
+    "productivity"
+  ],
+  "documentation": "https://hub.docker.com/_/monica"
+}

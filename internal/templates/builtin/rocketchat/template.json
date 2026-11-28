@@ -1,0 +1,8 @@
+{
+  "name": "Rocket.Chat",
+  "description": "Team chat, with MongoDB as a single-node replica set; create the administrator on the first visit.",
+  "categories": [
+    "communication"
+  ],
+  "documentation": "https://hub.docker.com/r/rocketchat/rocket.chat"
+}

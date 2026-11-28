@@ -1,0 +1,8 @@
+{
+  "name": "Rust",
+  "description": "Sandbox with Rust with cargo: the container keeps running, work in it in the Terminal tab; files in /work are kept.",
+  "categories": [
+    "sandbox"
+  ],
+  "documentation": "https://hub.docker.com/_/rust"
+}

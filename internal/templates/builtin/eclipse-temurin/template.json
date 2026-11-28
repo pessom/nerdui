@@ -1,0 +1,8 @@
+{
+  "name": "Eclipse Temurin",
+  "description": "Sandbox with the OpenJDK by Adoptium; replaces the openjdk, java and adoptopenjdk images: the container keeps running, work in it in the Terminal tab; files in /work are kept.",
+  "categories": [
+    "sandbox"
+  ],
+  "documentation": "https://hub.docker.com/_/eclipse-temurin"
+}

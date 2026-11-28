@@ -1,0 +1,20 @@
+services:
+  eggdrop:
+    image: eggdrop:${VERSION:-1.10}
+    restart: unless-stopped
+    environment:
+      NICK: ${NICK:?set NICK}
+      SERVER: ${SERVER:-irc.libera.chat}
+      LISTEN: "3333"
+    # The image starts the bot in terminal mode, which exits at the end of its input: give it
+    # an input that never ends.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - tail -f /dev/null | /home/eggdrop/eggdrop/entrypoint.sh eggdrop.conf
+    ports:
+      - "${PORT:-3333}:3333"
+    volumes:
+      - data:/home/eggdrop/eggdrop/data
+volumes:
+  data:

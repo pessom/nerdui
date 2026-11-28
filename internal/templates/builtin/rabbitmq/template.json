@@ -1,0 +1,8 @@
+{
+  "name": "RabbitMQ",
+  "description": "Message broker with the management interface.",
+  "categories": [
+    "messaging"
+  ],
+  "documentation": "https://hub.docker.com/_/rabbitmq"
+}

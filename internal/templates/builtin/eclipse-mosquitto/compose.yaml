@@ -1,0 +1,28 @@
+services:
+  mosquitto:
+    image: eclipse-mosquitto:${VERSION:-2}
+    restart: unless-stopped
+    environment:
+      MQTT_USER: ${MQTT_USER:-mqtt}
+      MQTT_PASSWORD: ${MQTT_PASSWORD:?set MQTT_PASSWORD}
+    # Writes a configuration with a password file at every start, then runs the broker. The
+    # files are at the paths of the Debian package, the only ones the AppArmor profile of
+    # mosquitto on Ubuntu hosts lets it open.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -e
+        mkdir -p /etc/mosquitto /var/lib/mosquitto
+        printf 'listener 1883\nallow_anonymous false\npassword_file /etc/mosquitto/passwd\npersistence true\npersistence_location /var/lib/mosquitto/\n' > /etc/mosquitto/mosquitto.conf
+        rm -f /etc/mosquitto/passwd
+        mosquitto_passwd -b -c /etc/mosquitto/passwd "$$MQTT_USER" "$$MQTT_PASSWORD"
+        chown -R mosquitto:mosquitto /etc/mosquitto /var/lib/mosquitto
+        chmod 0700 /etc/mosquitto/passwd
+        exec mosquitto -c /etc/mosquitto/mosquitto.conf
+    ports:
+      - "${PORT:-1883}:1883"
+    volumes:
+      - data:/var/lib/mosquitto
+volumes:
+  data:

@@ -1,0 +1,9 @@
+{
+  "name": "phpMyAdmin",
+  "description": "Web interface for MySQL, Percona and MariaDB servers: enter the server on the sign-in page.",
+  "categories": [
+    "database",
+    "tools"
+  ],
+  "documentation": "https://hub.docker.com/_/phpmyadmin"
+}

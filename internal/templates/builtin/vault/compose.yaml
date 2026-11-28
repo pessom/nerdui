@@ -1,0 +1,14 @@
+services:
+  vault:
+    image: hashicorp/vault:${VERSION:-2.2}
+    restart: unless-stopped
+    command: ["server"]
+    environment:
+      SKIP_SETCAP: "true"
+      VAULT_LOCAL_CONFIG: '{"storage": {"file": {"path": "/vault/file"}}, "listener": [{"tcp": {"address": "0.0.0.0:8200", "tls_disable": true}}], "ui": true, "disable_mlock": true, "api_addr": "http://127.0.0.1:8200"}'
+    ports:
+      - "${PORT:-8200}:8200"
+    volumes:
+      - data:/vault/file
+volumes:
+  data:

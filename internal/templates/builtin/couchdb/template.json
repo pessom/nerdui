@@ -1,0 +1,8 @@
+{
+  "name": "CouchDB",
+  "description": "Document database with an HTTP API and the Fauxton web interface (/_utils).",
+  "categories": [
+    "database"
+  ],
+  "documentation": "https://hub.docker.com/_/couchdb"
+}

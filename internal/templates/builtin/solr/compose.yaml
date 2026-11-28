@@ -1,0 +1,11 @@
+services:
+  solr:
+    image: solr:${VERSION:-9}
+    restart: unless-stopped
+    command: ["solr-precreate", "${CORE:-app}"]
+    ports:
+      - "${PORT:-8983}:8983"
+    volumes:
+      - data:/var/solr
+volumes:
+  data:

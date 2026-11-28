@@ -262,7 +262,11 @@ On Linux 7 with AppArmor and `kernel.apparmor_restrict_unprivileged_unconfined=1
 Ubuntu 26.04), AppArmor denies signals between the processes of a container. Images whose
 entrypoint switches user with `gosu` (MySQL, MariaDB, Percona, PostgreSQL and many others) then
 never start: the container runs, its log stops after *Switching to dedicated user*, and `gosu`
-spins at 100% CPU. nerdui shows a warning on the host's pages when it finds these settings
+spins at 100% CPU. Other programs that signal their own processes fail the same way:
+Elasticsearch, Kibana and Logstash stop at boot (*Unable to attach entitlement agent*), and the
+first start of InfluxDB cannot finish its setup. On Ubuntu, the host's own AppArmor profiles can
+also apply inside containers: Mosquitto, for one, may only open files at the paths of the Debian
+package (the built-in template uses them). nerdui shows a warning on the host's pages when it finds these settings
 ([ADR-0060](adr/0060-host-warnings.md)).
 
 Check the kernel log:

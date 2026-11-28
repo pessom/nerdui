@@ -1,0 +1,36 @@
+services:
+  ghost:
+    image: ghost:${VERSION:-6}-alpine
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      url: ${URL:-http://localhost:2368}
+      database__client: mysql
+      database__connection__host: db
+      database__connection__user: ghost
+      database__connection__password: ${DB_PASSWORD:?set DB_PASSWORD}
+      database__connection__database: ghost
+    ports:
+      - "${PORT:-2368}:2368"
+    volumes:
+      - content:/var/lib/ghost/content
+  db:
+    image: percona/percona-server:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ghost
+      MYSQL_USER: ghost
+      MYSQL_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
+      MYSQL_RANDOM_ROOT_PASSWORD: "1"
+    volumes:
+      - db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "--silent"]
+      interval: 10s
+      start_period: 60s
+      retries: 5
+volumes:
+  content:
+  db:

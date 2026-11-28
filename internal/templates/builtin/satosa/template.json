@@ -1,0 +1,9 @@
+{
+  "name": "SATOSA",
+  "description": "Proxy between SAML2 and OpenID Connect; the first start writes an example configuration with self-signed keys into the config volume.",
+  "categories": [
+    "security",
+    "proxy"
+  ],
+  "documentation": "https://hub.docker.com/_/satosa"
+}

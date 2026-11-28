@@ -1,0 +1,9 @@
+{
+  "name": "Elasticsearch with Kibana",
+  "description": "Elasticsearch and Kibana to explore and visualize its data; sign in as elastic.",
+  "categories": [
+    "search",
+    "analytics"
+  ],
+  "documentation": "https://hub.docker.com/_/kibana"
+}

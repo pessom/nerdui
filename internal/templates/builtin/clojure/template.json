@@ -1,0 +1,8 @@
+{
+  "name": "Clojure",
+  "description": "Sandbox with Clojure with Leiningen: the container keeps running, work in it in the Terminal tab; files in /work are kept.",
+  "categories": [
+    "sandbox"
+  ],
+  "documentation": "https://hub.docker.com/_/clojure"
+}

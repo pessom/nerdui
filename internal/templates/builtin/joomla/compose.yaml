@@ -1,0 +1,34 @@
+services:
+  joomla:
+    image: joomla:${VERSION:-5}-apache
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      JOOMLA_DB_HOST: db
+      JOOMLA_DB_USER: joomla
+      JOOMLA_DB_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
+      JOOMLA_DB_NAME: joomla
+    ports:
+      - "${PORT:-8114}:80"
+    volumes:
+      - joomla:/var/www/html
+  db:
+    image: percona/percona-server:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: joomla
+      MYSQL_USER: joomla
+      MYSQL_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD}
+      MYSQL_RANDOM_ROOT_PASSWORD: "1"
+    volumes:
+      - db:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "--silent"]
+      interval: 10s
+      start_period: 60s
+      retries: 5
+volumes:
+  joomla:
+  db:

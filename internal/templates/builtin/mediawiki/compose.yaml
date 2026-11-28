@@ -1,0 +1,12 @@
+services:
+  mediawiki:
+    image: mediawiki:${VERSION:-1.43}
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8116}:80"
+    volumes:
+      - images:/var/www/html/images
+      - data:/var/www/data
+volumes:
+  images:
+  data:

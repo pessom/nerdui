@@ -1,0 +1,9 @@
+{
+  "name": "API Firewall",
+  "description": "Proxy that checks requests and responses against an OpenAPI specification (by Wallarm); put openapi.yaml into the specs volume, until then it only logs.",
+  "categories": [
+    "security",
+    "proxy"
+  ],
+  "documentation": "https://hub.docker.com/_/api-firewall"
+}

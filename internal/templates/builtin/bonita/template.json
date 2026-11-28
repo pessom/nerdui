@@ -1,0 +1,9 @@
+{
+  "name": "Bonita",
+  "description": "Business process automation platform (embedded database for evaluation).",
+  "categories": [
+    "productivity",
+    "java"
+  ],
+  "documentation": "https://hub.docker.com/_/bonita"
+}

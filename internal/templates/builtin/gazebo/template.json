@@ -1,0 +1,8 @@
+{
+  "name": "Gazebo Classic",
+  "description": "Sandbox with the Gazebo Classic 11 robot simulator server (end of life since 2025): the container keeps running, work in it in the Terminal tab; files in /work are kept.",
+  "categories": [
+    "sandbox"
+  ],
+  "documentation": "https://hub.docker.com/_/gazebo"
+}

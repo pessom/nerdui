@@ -1,0 +1,8 @@
+{
+  "name": "PyPy",
+  "description": "Sandbox with Python on the PyPy JIT: the container keeps running, work in it in the Terminal tab; files in /work are kept.",
+  "categories": [
+    "sandbox"
+  ],
+  "documentation": "https://hub.docker.com/_/pypy"
+}

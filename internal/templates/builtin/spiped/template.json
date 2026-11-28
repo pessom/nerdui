@@ -1,0 +1,9 @@
+{
+  "name": "spiped",
+  "description": "Encrypted, authenticated pipe: decrypts connections and forwards them to a target; copy the key from the key volume to the client side.",
+  "categories": [
+    "security",
+    "tools"
+  ],
+  "documentation": "https://hub.docker.com/_/spiped"
+}

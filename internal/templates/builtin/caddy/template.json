@@ -1,0 +1,9 @@
+{
+  "name": "Caddy",
+  "description": "Web server with automatic HTTPS; serves the files of the site volume.",
+  "categories": [
+    "web",
+    "proxy"
+  ],
+  "documentation": "https://hub.docker.com/_/caddy"
+}

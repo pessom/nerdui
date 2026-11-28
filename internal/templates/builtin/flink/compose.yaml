@@ -1,0 +1,19 @@
+services:
+  jobmanager:
+    image: flink:${VERSION:-2.3}
+    restart: unless-stopped
+    command: jobmanager
+    environment:
+      FLINK_PROPERTIES: "jobmanager.rpc.address: jobmanager"
+    ports:
+      - "${PORT:-8113}:8081"
+  taskmanager:
+    image: flink:${VERSION:-2.3}
+    restart: unless-stopped
+    command: taskmanager
+    depends_on:
+      - jobmanager
+    environment:
+      FLINK_PROPERTIES: |
+        jobmanager.rpc.address: jobmanager
+        taskmanager.numberOfTaskSlots: ${SLOTS:-2}

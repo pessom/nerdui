@@ -1,0 +1,10 @@
+services:
+  httpd:
+    image: httpd:${VERSION:-2.4}-alpine
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8101}:80"
+    volumes:
+      - html:/usr/local/apache2/htdocs
+volumes:
+  html:

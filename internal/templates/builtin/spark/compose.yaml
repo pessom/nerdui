@@ -1,0 +1,14 @@
+services:
+  master:
+    image: spark:${VERSION:-4.3.0}
+    restart: unless-stopped
+    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.master.Master"]
+    ports:
+      - "${UI_PORT:-8132}:8080"
+      - "${PORT:-7077}:7077"
+  worker:
+    image: spark:${VERSION:-4.3.0}
+    restart: unless-stopped
+    command: ["/opt/spark/bin/spark-class", "org.apache.spark.deploy.worker.Worker", "spark://master:7077"]
+    depends_on:
+      - master

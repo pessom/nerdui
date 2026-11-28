@@ -1,0 +1,11 @@
+services:
+  liberty:
+    image: websphere-liberty:${VERSION:-full-java17-openj9}
+    restart: unless-stopped
+    ports:
+      - "${PORT:-9081}:9080"
+      - "${TLS_PORT:-9444}:9443"
+    volumes:
+      - dropins:/config/dropins
+volumes:
+  dropins:

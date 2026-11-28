@@ -1,0 +1,8 @@
+{
+  "name": "RethinkDB",
+  "description": "Realtime document database.",
+  "categories": [
+    "database"
+  ],
+  "documentation": "https://hub.docker.com/_/rethinkdb"
+}

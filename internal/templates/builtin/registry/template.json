@@ -1,0 +1,9 @@
+{
+  "name": "Docker Registry",
+  "description": "Private image registry (Distribution), without authentication: publish it only on a trusted network.",
+  "categories": [
+    "development",
+    "tools"
+  ],
+  "documentation": "https://hub.docker.com/_/registry"
+}

@@ -1,0 +1,8 @@
+{
+  "name": "Apache Flink",
+  "description": "Stream processing: a job manager and a task manager.",
+  "categories": [
+    "analytics"
+  ],
+  "documentation": "https://hub.docker.com/_/flink"
+}

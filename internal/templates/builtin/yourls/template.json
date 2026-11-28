@@ -1,0 +1,9 @@
+{
+  "name": "YOURLS",
+  "description": "URL shortener with statistics, with Percona Server; the admin interface is at /admin.",
+  "categories": [
+    "tools",
+    "web"
+  ],
+  "documentation": "https://hub.docker.com/_/yourls"
+}

@@ -1,0 +1,8 @@
+{
+  "name": "KrakenD",
+  "description": "API gateway; define the endpoints in krakend.json in the config volume.",
+  "categories": [
+    "proxy"
+  ],
+  "documentation": "https://hub.docker.com/_/krakend"
+}

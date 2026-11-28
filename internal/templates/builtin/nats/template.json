@@ -1,0 +1,8 @@
+{
+  "name": "NATS",
+  "description": "Messaging server with JetStream persistence.",
+  "categories": [
+    "messaging"
+  ],
+  "documentation": "https://hub.docker.com/_/nats"
+}

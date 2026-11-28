@@ -1,0 +1,27 @@
+services:
+  api-firewall:
+    image: api-firewall:${VERSION:-0.9.6}
+    restart: unless-stopped
+    environment:
+      APIFW_URL: http://0.0.0.0:8088
+      APIFW_SERVER_URL: ${BACKEND:-http://127.0.0.1:8080}
+      APIFW_REQUEST_VALIDATION: ${REQUEST_VALIDATION:-LOG_ONLY}
+      APIFW_RESPONSE_VALIDATION: ${RESPONSE_VALIDATION:-LOG_ONLY}
+    # Uses openapi.yaml from the specs volume, or an empty specification until there is one.
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        spec=/opt/resources/openapi.yaml
+        if [ ! -f "$$spec" ]; then
+          spec=/tmp/openapi.yaml
+          printf 'openapi: 3.0.0\ninfo:\n  title: API\n  version: "1"\npaths: {}\n' > "$$spec"
+        fi
+        export APIFW_API_SPECS="$$spec"
+        exec api-firewall
+    ports:
+      - "${PORT:-8139}:8088"
+    volumes:
+      - specs:/opt/resources
+volumes:
+  specs:

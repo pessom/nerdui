@@ -1,0 +1,15 @@
+services:
+  orientdb:
+    image: orientdb:${VERSION:-3.2}
+    restart: unless-stopped
+    environment:
+      ORIENTDB_ROOT_PASSWORD: ${ORIENTDB_ROOT_PASSWORD:?set ORIENTDB_ROOT_PASSWORD}
+    ports:
+      - "${BINARY_PORT:-2424}:2424"
+      - "${HTTP_PORT:-2480}:2480"
+    volumes:
+      - databases:/orientdb/databases
+      - backup:/orientdb/backup
+volumes:
+  databases:
+  backup:
