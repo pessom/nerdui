@@ -1,0 +1,17 @@
+services:
+  langflow:
+    image: langflowai/langflow:${VERSION:-1.13.4}
+    restart: unless-stopped
+    environment:
+      LANGFLOW_CONFIG_DIR: /app/data/langflow
+      LANGFLOW_SAVE_DB_IN_CONFIG_DIR: "true"
+      LANGFLOW_AUTO_LOGIN: "False"
+      LANGFLOW_SUPERUSER: ${LANGFLOW_SUPERUSER:-admin}
+      LANGFLOW_SUPERUSER_PASSWORD: ${LANGFLOW_SUPERUSER_PASSWORD:?set LANGFLOW_SUPERUSER_PASSWORD}
+      LANGFLOW_SECRET_KEY: ${LANGFLOW_SECRET_KEY:?set LANGFLOW_SECRET_KEY}
+    ports:
+      - "${PORT:-7860}:7860"
+    volumes:
+      - data:/app/data
+volumes:
+  data:

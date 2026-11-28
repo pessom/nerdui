@@ -1,0 +1,13 @@
+services:
+  qdrant:
+    image: qdrant/qdrant:${VERSION:-v1.20}
+    restart: unless-stopped
+    environment:
+      QDRANT__SERVICE__API_KEY: ${API_KEY:?set API_KEY}
+    ports:
+      - "${PORT:-6333}:6333"
+      - "${GRPC_PORT:-6334}:6334"
+    volumes:
+      - data:/qdrant/storage
+volumes:
+  data:

@@ -1,0 +1,15 @@
+services:
+  flowise:
+    image: flowiseai/flowise:${VERSION:-3.1.3}
+    restart: unless-stopped
+    environment:
+      DATABASE_PATH: /home/node/.flowise
+      SECRETKEY_PATH: /home/node/.flowise
+      LOG_PATH: /home/node/.flowise/logs
+      BLOB_STORAGE_PATH: /home/node/.flowise/storage
+    ports:
+      - "${PORT:-8143}:3000"
+    volumes:
+      - data:/home/node
+volumes:
+  data:

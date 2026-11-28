@@ -1,0 +1,8 @@
+{
+  "name": "LocalAI",
+  "description": "OpenAI-compatible API that runs language, image and audio models locally on the CPU; install models from its gallery in the web interface.",
+  "categories": [
+    "ai"
+  ],
+  "documentation": "https://localai.io/basics/container/"
+}

@@ -1,0 +1,9 @@
+{
+  "name": "Wyoming Whisper",
+  "description": "Speech to text over the Wyoming protocol for Home Assistant voice assistants.",
+  "categories": [
+    "ai",
+    "iot"
+  ],
+  "documentation": "https://github.com/rhasspy/wyoming-faster-whisper"
+}

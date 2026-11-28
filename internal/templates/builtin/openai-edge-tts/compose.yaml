@@ -1,0 +1,9 @@
+services:
+  openai-edge-tts:
+    image: travisvn/openai-edge-tts:${VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      API_KEY: ${API_KEY:?set API_KEY}
+      PORT: "5050"
+    ports:
+      - "${PORT:-5050}:5050"

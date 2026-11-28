@@ -1,0 +1,9 @@
+{
+  "name": "Flowise",
+  "description": "Build LLM applications and agents with a visual drag-and-drop editor.",
+  "categories": [
+    "ai",
+    "development"
+  ],
+  "documentation": "https://docs.flowiseai.com/getting-started"
+}

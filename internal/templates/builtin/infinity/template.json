@@ -1,0 +1,8 @@
+{
+  "name": "Infinity",
+  "description": "OpenAI-compatible API for embeddings and reranking with models from Hugging Face, on the CPU.",
+  "categories": [
+    "ai"
+  ],
+  "documentation": "https://michaelfeil.github.io/infinity/"
+}

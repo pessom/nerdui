@@ -1,0 +1,9 @@
+{
+  "name": "Typesense",
+  "description": "Typo-tolerant search engine with vector and semantic search.",
+  "categories": [
+    "ai",
+    "search"
+  ],
+  "documentation": "https://typesense.org/docs/guide/install-typesense.html"
+}

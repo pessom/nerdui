@@ -1,0 +1,11 @@
+services:
+  infinity:
+    image: michaelf34/infinity:${VERSION:-0.0.80-cpu}
+    restart: unless-stopped
+    command: ["v2", "--model-id", "${MODEL:-BAAI/bge-small-en-v1.5}", "--port", "7997"]
+    ports:
+      - "${PORT:-7997}:7997"
+    volumes:
+      - cache:/app/.cache
+volumes:
+  cache:

@@ -1,0 +1,11 @@
+services:
+  wyoming-whisper:
+    image: rhasspy/wyoming-whisper:${VERSION:-3.9.1}
+    restart: unless-stopped
+    command: ["--model", "${MODEL:-tiny-int8}", "--language", "${LANGUAGE:-en}"]
+    ports:
+      - "${PORT:-10300}:10300"
+    volumes:
+      - data:/data
+volumes:
+  data:

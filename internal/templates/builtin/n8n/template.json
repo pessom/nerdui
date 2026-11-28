@@ -1,0 +1,9 @@
+{
+  "name": "n8n",
+  "description": "Workflow automation with AI agent nodes and hundreds of integrations. Served over plain HTTP; put it behind an HTTPS proxy before exposing it.",
+  "categories": [
+    "ai",
+    "productivity"
+  ],
+  "documentation": "https://docs.n8n.io/hosting/installation/docker/"
+}

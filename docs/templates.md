@@ -4,9 +4,9 @@
 ([ADR-0051](adr/0051-stack-templates.md)), or as single containers
 ([ADR-0059](adr/0059-container-templates.md)). Templates come from three sources:
 
-- the built-in catalog: about 130 applications by category (databases, caches,
+- the built-in catalog: about 150 applications by category (databases, caches,
   messaging, web servers and proxies, CMS, productivity, monitoring, logging, search,
-  development, communication) and *sandbox* templates;
+  development, communication, AI) and *sandbox* templates;
 - registries you add under **Registries**;
 - templates you saved, shown as *Mine*.
 

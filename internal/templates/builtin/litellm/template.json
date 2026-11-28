@@ -1,0 +1,8 @@
+{
+  "name": "LiteLLM",
+  "description": "OpenAI-compatible proxy in front of 100+ model providers, with virtual keys, budgets and an admin interface at /ui (sign in as admin with the master key); models are added there and kept in PostgreSQL.",
+  "categories": [
+    "ai"
+  ],
+  "documentation": "https://docs.litellm.ai/docs/proxy/docker_quick_start"
+}

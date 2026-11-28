@@ -1,0 +1,12 @@
+services:
+  anythingllm:
+    image: mintplexlabs/anythingllm:${VERSION:-1.20}
+    restart: unless-stopped
+    environment:
+      STORAGE_DIR: /app/server/storage
+    ports:
+      - "${PORT:-8142}:3001"
+    volumes:
+      - storage:/app/server/storage
+volumes:
+  storage:

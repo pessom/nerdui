@@ -1,0 +1,9 @@
+{
+  "name": "SearXNG",
+  "description": "Private metasearch engine; also the web search backend of Open WebUI, which needs the json format enabled under search.formats in /etc/searxng/settings.yml.",
+  "categories": [
+    "ai",
+    "search"
+  ],
+  "documentation": "https://docs.searxng.org/admin/installation-docker.html"
+}

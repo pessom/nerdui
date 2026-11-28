@@ -1,0 +1,9 @@
+{
+  "name": "Langflow",
+  "description": "Build AI agents and retrieval-augmented generation flows in a visual editor and serve them as an API.",
+  "categories": [
+    "ai",
+    "development"
+  ],
+  "documentation": "https://docs.langflow.org/deployment-docker"
+}

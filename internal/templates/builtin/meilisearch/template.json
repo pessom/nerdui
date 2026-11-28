@@ -1,0 +1,9 @@
+{
+  "name": "Meilisearch",
+  "description": "Fast full-text and hybrid search engine with a search-as-you-type API.",
+  "categories": [
+    "ai",
+    "search"
+  ],
+  "documentation": "https://www.meilisearch.com/docs/guides/docker"
+}

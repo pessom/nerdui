@@ -1,0 +1,9 @@
+{
+  "name": "PostgreSQL with pgvector",
+  "description": "PostgreSQL 18 with the pgvector extension for vector similarity search; enable it in a database with CREATE EXTENSION vector.",
+  "categories": [
+    "ai",
+    "database"
+  ],
+  "documentation": "https://github.com/pgvector/pgvector"
+}
