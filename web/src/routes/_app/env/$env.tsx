@@ -54,7 +54,7 @@ function EnvLayout() {
   const events = useEnvEvents(env, namespace);
 
   const nsOptions = [
-    ...(allAllowed ? [{ value: ALL_NAMESPACES, label: "All namespaces" }] : []),
+    ...(allAllowed ? [{ value: ALL_NAMESPACES, label: "<All namespaces>" }] : []),
     ...Array.from(
       new Set(
         [...(namespaces.data?.namespaces ?? []), namespace].filter((n) => n !== ALL_NAMESPACES),

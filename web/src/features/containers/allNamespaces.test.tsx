@@ -51,7 +51,7 @@ describe("containers of all namespaces (#276)", () => {
     expect(screen.queryByRole("columnheader", { name: /Namespace/ })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByLabelText("Namespace", { selector: "input" }));
-    fireEvent.click(await screen.findByRole("option", { name: "All namespaces", hidden: true }));
+    fireEvent.click(await screen.findByRole("option", { name: "<All namespaces>", hidden: true }));
     await waitFor(() => expect(router.state.location.search).toEqual({ ns: "*" }));
     expect(await screen.findByText("kube-proxy")).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: /Namespace/ })).toBeInTheDocument();
