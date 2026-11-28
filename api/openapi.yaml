@@ -2451,6 +2451,69 @@ paths:
         "404": { $ref: "#/components/responses/Error" }
         "409": { $ref: "#/components/responses/Error" }
         "503": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/images/builder:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - $ref: "#/components/parameters/Namespace"
+    get:
+      tags: [images]
+      operationId: getBuilderStatus
+      summary: Whether images can be built (BuildKit)
+      description: Requires `images:read`. Looks for buildkitd the way `nerdctl build` does (#45).
+      responses:
+        "200":
+          description: BuildKit status
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BuilderStatus" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+  /api/v1/environments/{env}/images/build:
+    parameters:
+      - $ref: "#/components/parameters/Env"
+      - $ref: "#/components/parameters/Namespace"
+    post:
+      tags: [images]
+      operationId: buildImage
+      summary: Build an image (background job)
+      description: |
+        Requires `images:write` and a compatible host nerdctl (ADR-0011). Builds with
+        `nerdctl build` and BuildKit from a Dockerfile, a Git repository (credentials as for Git
+        stacks) or an uploaded tar or tar.gz context (multipart: the part `request`, then the
+        part `archive`); optionally pushes every tag after the build (#45, ADR-0061). Answers
+        202 with the job; follow it at `/jobs/{id}/stream`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BuildRequest" }
+          multipart/form-data:
+            schema:
+              type: object
+              required: [request, archive]
+              properties:
+                request: { $ref: "#/components/schemas/BuildRequest" }
+                archive: { type: string, format: binary, description: tar or tar.gz of the context }
+            encoding:
+              request: { contentType: application/json }
+      responses:
+        "202":
+          description: Job started
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [job]
+                properties:
+                  job: { $ref: "#/components/schemas/Job" }
+        "400": { $ref: "#/components/responses/Error" }
+        "401": { $ref: "#/components/responses/Error" }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "501": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
   /api/v1/environments/{env}/images/push:
     parameters:
       - $ref: "#/components/parameters/Env"
@@ -5255,6 +5318,35 @@ components:
                 kernel.apparmor_restrict_unprivileged_unconfined=1); images that switch user with
                 gosu hang at start.
               items: { type: string, enum: [apparmor_signals] }
+    BuilderStatus:
+      type: object
+      required: [available]
+      properties:
+        available: { type: boolean }
+        host: { type: string, description: BuildKit address used }
+        error: { type: string, description: Why no BuildKit is available }
+    BuildRequest:
+      type: object
+      required: [source, tags]
+      additionalProperties: false
+      properties:
+        source: { type: string, enum: [dockerfile, git, archive] }
+        dockerfile: { type: string, description: Text of the Dockerfile (dockerfile), built with an empty context }
+        url: { type: string, description: Repository URL (git) }
+        ref: { type: string, description: Branch or tag (git); empty means the default branch }
+        credentialId: { type: integer, format: int64, description: Git credential (git) }
+        context: { type: string, description: Directory of the context in the repository (git) }
+        file: { type: string, description: Path of the Dockerfile in the context (git, archive) }
+        tags: { type: array, minItems: 1, items: { type: string } }
+        args:
+          type: object
+          description: Build arguments (--build-arg); visible in the image history
+          additionalProperties: { type: string }
+        target: { type: string, description: Stage to build }
+        platform: { type: string, description: "e.g. linux/arm64; default: host platform" }
+        noCache: { type: boolean }
+        pull: { type: boolean, description: Pull newer base images }
+        push: { type: boolean, description: Push every tag after the build }
     Container:
       type: object
       required: [id, name, namespace, image, command, state, createdAt, ports, labels]

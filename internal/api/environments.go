@@ -53,8 +53,12 @@ type Handler struct {
 	Settings Settings
 	// Stacks finds compose stacks (#24, ADR-0008); nil disables them.
 	Stacks *stacks.Service
-	// GitStacks deploys stacks from Git repositories (#37, ADR-0039); nil disables them.
+	// GitStacks deploys stacks from Git repositories (#37, ADR-0039); nil disables them. Image
+	// builds from Git use it too.
 	GitStacks *gitstacks.Service
+	// BuildDir holds the contexts of image builds while they run (#45, ADR-0061); empty uses
+	// the system's temporary directory.
+	BuildDir string
 	// Webhooks are the incoming webhooks (#85, #91); nil disables them.
 	Webhooks *webhooks.Service
 	// ImageUpdates checks images for newer registry digests (#53); nil disables it.
@@ -166,6 +170,8 @@ func (h *Handler) runtimeRoutes(r chi.Router, g *authz.Guard) {
 	r.Method(http.MethodPost, "/images/load", g.Protect(authz.ImagesWrite, h.loadImages))
 	r.Method(http.MethodPost, "/images/pull", g.Protect(authz.ImagesWrite, h.pullImage))
 	r.Method(http.MethodPost, "/images/push", g.Protect(authz.ImagesWrite, h.pushImage))
+	r.Method(http.MethodGet, "/images/builder", g.Protect(authz.ImagesRead, h.builderStatus))
+	r.Method(http.MethodPost, "/images/build", g.Protect(authz.ImagesWrite, h.buildImage))
 	r.Method(http.MethodPost, "/images/tag", g.Protect(authz.ImagesWrite, h.tagImage))
 	r.Method(http.MethodPost, "/images/remove", g.Protect(authz.ImagesWrite, h.removeImages))
 	r.Method(http.MethodGet, "/system/prune", g.Protect(authz.SystemRead, h.prunePreview))

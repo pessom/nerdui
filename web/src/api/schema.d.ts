@@ -1962,6 +1962,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/environments/{env}/images/builder": {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Whether images can be built (BuildKit)
+         * @description Requires `images:read`. Looks for buildkitd the way `nerdctl build` does (#45).
+         */
+        get: operations["getBuilderStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/environments/{env}/images/build": {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Build an image (background job)
+         * @description Requires `images:write` and a compatible host nerdctl (ADR-0011). Builds with
+         *     `nerdctl build` and BuildKit from a Dockerfile, a Git repository (credentials as for Git
+         *     stacks) or an uploaded tar or tar.gz context (multipart: the part `request`, then the
+         *     part `archive`); optionally pushes every tag after the build (#45, ADR-0061). Answers
+         *     202 with the job; follow it at `/jobs/{id}/stream`.
+         */
+        post: operations["buildImage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/environments/{env}/images/push": {
         parameters: {
             query?: {
@@ -4179,6 +4235,46 @@ export interface components {
             };
             /** @description Host problems the runtime does not report (ADR-0060), local hosts only. apparmor_signals: AppArmor denies signals inside containers (Linux 7 with kernel.apparmor_restrict_unprivileged_unconfined=1); images that switch user with gosu hang at start. */
             warnings?: "apparmor_signals"[];
+        };
+        BuilderStatus: {
+            available: boolean;
+            /** @description BuildKit address used */
+            host?: string;
+            /** @description Why no BuildKit is available */
+            error?: string;
+        };
+        BuildRequest: {
+            /** @enum {string} */
+            source: "dockerfile" | "git" | "archive";
+            /** @description Text of the Dockerfile (dockerfile) */
+            dockerfile?: string;
+            /** @description Repository URL (git) */
+            url?: string;
+            /** @description Branch or tag (git); empty means the default branch */
+            ref?: string;
+            /**
+             * Format: int64
+             * @description Git credential (git)
+             */
+            credentialId?: number;
+            /** @description Directory of the context in the repository (git) */
+            context?: string;
+            /** @description Path of the Dockerfile in the context (git */
+            file?: string;
+            tags: string[];
+            /** @description Build arguments (--build-arg); visible in the image history */
+            args?: {
+                [key: string]: string;
+            };
+            /** @description Stage to build */
+            target?: string;
+            /** @description e.g. linux/arm64; default: host platform */
+            platform?: string;
+            noCache?: boolean;
+            /** @description Pull newer base images */
+            pull?: boolean;
+            /** @description Push every tag after the build */
+            push?: boolean;
         };
         Container: {
             /** @description Full container ID (64 hex characters) */
@@ -8517,6 +8613,82 @@ export interface operations {
             403: components["responses"]["Error"];
             404: components["responses"]["Error"];
             409: components["responses"]["Error"];
+            503: components["responses"]["Error"];
+        };
+    };
+    getBuilderStatus: {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description BuildKit status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BuilderStatus"];
+                };
+            };
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+        };
+    };
+    buildImage: {
+        parameters: {
+            query?: {
+                /** @description containerd namespace; defaults to the environment's default namespace */
+                namespace?: components["parameters"]["Namespace"];
+            };
+            header?: never;
+            path: {
+                /** @description Environment ID */
+                env: components["parameters"]["Env"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BuildRequest"];
+                "multipart/form-data": {
+                    request: components["schemas"]["BuildRequest"];
+                    /**
+                     * Format: binary
+                     * @description tar or tar.gz of the context
+                     */
+                    archive: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Job started */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        job: components["schemas"]["Job"];
+                    };
+                };
+            };
+            400: components["responses"]["Error"];
+            401: components["responses"]["Error"];
+            403: components["responses"]["Error"];
+            404: components["responses"]["Error"];
+            409: components["responses"]["Error"];
+            501: components["responses"]["Error"];
             503: components["responses"]["Error"];
         };
     };
