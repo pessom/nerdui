@@ -9,9 +9,11 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"mime"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -226,26 +228,25 @@ func (h *Handler) readArchiveBuild(r *http.Request, dir string) (BuildRequest, e
 
 // runBuild prepares the context in dir, builds, and pushes the tags when asked.
 func (h *Handler) runBuild(ctx context.Context, images runtime.Images, ns, dir string, req BuildRequest, out io.Writer) error {
-	ctxDir := dir
+	rel := "." // the context, relative to dir
 	switch req.Source {
 	case BuildFromDockerfile:
 		if err := buildctx.WriteDockerfile(dir, req.Dockerfile); err != nil {
 			return err
 		}
 	case BuildFromGit:
-		repo := filepath.Join(dir, "repo")
 		_, _ = fmt.Fprintf(out, "\x1b[1mCloning %s\x1b[0m\r\n", req.URL)
-		commit, err := h.GitStacks.Clone(ctx, repo, req.URL, req.Ref, req.CredentialID)
+		commit, err := h.GitStacks.Clone(ctx, filepath.Join(dir, "repo"), req.URL, req.Ref, req.CredentialID)
 		if err != nil {
 			return err
 		}
 		_, _ = fmt.Fprintf(out, "Commit %s %s\r\n", commit.Hash[:min(len(commit.Hash), 12)], firstLine(commit.Message))
-		ctxDir = filepath.Join(repo, req.Context)
+		rel = path.Join("repo", filepath.ToSlash(req.Context))
 	}
-	if err := insideContext(dir, ctxDir, req.options().Dockerfile); err != nil {
+	if err := insideContext(dir, rel, req.options().Dockerfile); err != nil {
 		return err
 	}
-	if err := images.Build(ctx, ns, ctxDir, req.options(), out); err != nil {
+	if err := images.Build(ctx, ns, filepath.Join(dir, filepath.FromSlash(rel)), req.options(), out); err != nil {
 		return err
 	}
 	if req.Push {
@@ -258,39 +259,30 @@ func (h *Handler) runBuild(ctx context.Context, images runtime.Images, ns, dir s
 	return nil
 }
 
-// insideContext checks that the context is a directory under base and that the Dockerfile is
-// a regular file in it, after symbolic links: a link must not make the build read a file of
-// the host.
-func insideContext(base, ctxDir, file string) error {
-	realBase, err := filepath.EvalSymlinks(base)
+// insideContext checks, through an os.Root of base, that the context rel is a directory and
+// the Dockerfile a regular file in it. The root follows symbolic links only within base, so a
+// link cannot make the build read a file of the host.
+func insideContext(base, rel, file string) error {
+	root, err := os.OpenRoot(base)
 	if err != nil {
 		return err
 	}
-	within := func(p string) bool {
-		rel, err := filepath.Rel(realBase, p)
-		return err == nil && (rel == "." || filepath.IsLocal(rel))
-	}
-	realCtx, err := filepath.EvalSymlinks(ctxDir)
-	if errors.Is(err, os.ErrNotExist) {
+	defer func() { _ = root.Close() }()
+	fi, err := root.Stat(rel)
+	if errors.Is(err, fs.ErrNotExist) {
 		return fmt.Errorf("%w: the context directory does not exist", errdefs.ErrInvalidArgument)
 	}
-	if err != nil {
-		return err
-	}
-	if fi, err := os.Stat(realCtx); err != nil || !fi.IsDir() || !within(realCtx) {
+	if err != nil || !fi.IsDir() {
 		return fmt.Errorf("%w: the context must be a directory inside the source", errdefs.ErrInvalidArgument)
 	}
 	if file == "" {
 		file = "Dockerfile"
 	}
-	realFile, err := filepath.EvalSymlinks(filepath.Join(realCtx, file))
-	if errors.Is(err, os.ErrNotExist) {
+	fi, err = root.Stat(path.Join(rel, filepath.ToSlash(file)))
+	if errors.Is(err, fs.ErrNotExist) {
 		return fmt.Errorf("%w: no %s in the context", errdefs.ErrInvalidArgument, file)
 	}
-	if err != nil {
-		return err
-	}
-	if fi, err := os.Stat(realFile); err != nil || !fi.Mode().IsRegular() || !within(realFile) {
+	if err != nil || !fi.Mode().IsRegular() {
 		return fmt.Errorf("%w: %s must be a file inside the context", errdefs.ErrInvalidArgument, file)
 	}
 	return nil
