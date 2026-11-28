@@ -40,6 +40,12 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
   containers: images that switch user with `gosu` (MySQL, MariaDB, Percona, PostgreSQL and
   others) hang at start there. docs/deployment.md explains the check and the ways out
   (ADR-0060).
+- Build images (#45): **Build** on the Images page builds with BuildKit from a Dockerfile
+  written in the dialog, a Git repository (with the Git credentials of Git stacks, optionally
+  from a subdirectory) or an uploaded tar or tar.gz context, with tags, build arguments,
+  target, no cache and pull, and optionally pushes the tags. The build runs as a job with its
+  log and can be cancelled. Needs `buildkitd` on the host; the dialog says when it is not
+  running (ADR-0061).
 
 ### Changed
 

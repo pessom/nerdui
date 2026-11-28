@@ -82,6 +82,9 @@ type Config struct {
 	GitStacks *gitstacks.Service
 	// GitAuto handles webhooks of Git stacks (#38); nil answers 501.
 	GitAuto *gitstacks.Auto
+	// BuildDir holds the contexts of image builds while they run (#45); empty uses the
+	// system's temporary directory.
+	BuildDir string
 	// Webhooks are the incoming webhooks (#85, #91); nil answers 501.
 	Webhooks *webhooks.Service
 	// ImageUpdates checks images for newer registry digests (#53); nil disables it.
@@ -169,7 +172,7 @@ func New(cfg Config) http.Handler {
 				Notifications: cfg.Notifications, Notifier: cfg.Notifier, Audit: auditLog,
 				Backup: cfg.Backup, Schedules: cfg.Schedules, Variables: cfg.Variables,
 				VolumeBackups: cfg.VolumeBackups, Templates: cfg.Templates,
-				HostMetrics: cfg.HostMetrics,
+				HostMetrics: cfg.HostMetrics, BuildDir: cfg.BuildDir,
 			}).Routes(r, guard)
 		})
 	})

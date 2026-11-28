@@ -61,6 +61,8 @@ type fakeRuntime struct {
 	tags         [][3]string
 	removed      []string
 	pushes       []pushCall
+	builds       []buildCall
+	builder      runtime.BuilderStatus
 	imageErr     map[string]error // by reference (and registry server for logins)
 	registries   []runtime.Registry
 	prunes       []runtime.PruneOptions
@@ -495,6 +497,30 @@ func (fi fakeImages) Push(_ context.Context, ns, ref string, opts runtime.PushOp
 	fi.f.mu.Unlock()
 	_, _ = io.WriteString(out, "pushing "+ref+"\n")
 	return fi.f.imageErr[ref]
+}
+
+// buildCall records a build with the Dockerfile it would read: the context is removed after.
+type buildCall struct {
+	ns, dir    string
+	opts       runtime.BuildOptions
+	dockerfile string
+}
+
+func (fi fakeImages) Build(_ context.Context, ns, dir string, opts runtime.BuildOptions, out io.Writer) error {
+	file := opts.Dockerfile
+	if file == "" {
+		file = "Dockerfile"
+	}
+	b, _ := os.ReadFile(filepath.Join(dir, file))
+	fi.f.mu.Lock()
+	fi.f.builds = append(fi.f.builds, buildCall{ns, dir, opts, string(b)})
+	fi.f.mu.Unlock()
+	_, _ = io.WriteString(out, "building\n")
+	return fi.f.imageErr["build"]
+}
+
+func (fi fakeImages) BuilderStatus(context.Context, string) runtime.BuilderStatus {
+	return fi.f.builder
 }
 
 func (fi fakeImages) CheckSave(_ context.Context, ns string, names []string) error {

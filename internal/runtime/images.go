@@ -62,6 +62,10 @@ type Images interface {
 	CheckSave(ctx context.Context, namespace string, names []string) error
 	Save(ctx context.Context, namespace string, names []string, w io.Writer) error
 	Load(ctx context.Context, namespace string, r io.Reader) ([]string, error)
+	// Build builds an image from a context directory with nerdctl and BuildKit (#45); it
+	// writes terminal output to out. BuilderStatus tells whether BuildKit is available.
+	Build(ctx context.Context, namespace, dir string, opts BuildOptions, out io.Writer) error
+	BuilderStatus(ctx context.Context, namespace string) BuilderStatus
 }
 
 // Images returns image operations of the local containerd.
