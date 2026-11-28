@@ -9,6 +9,7 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 
 ### Added
 
+- Volumes: a usage filter (All / Used / Unused) like on the Images page.
 - Roles: `admin`, `editor`, `operator` (start, stop, restart, terminal, deploy) and `viewer`
   built in, and custom roles from the same permissions as API keys, e.g. an editor without the
   terminal. Give users a role on the Users page; the menu shows only the sections a role may open.
