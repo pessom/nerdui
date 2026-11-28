@@ -94,7 +94,8 @@ export function useContainerActions(env: string, namespace: string) {
       if (containers.length === 1 && only) {
         const id = only.id;
         const path = { env, id };
-        const query = { namespace };
+        // Each container acts in its own namespace: the list may show all of them (#276).
+        const query = { namespace: only.namespace };
         if (action === "remove") {
           await unwrapEmpty(
             api.DELETE("/api/v1/environments/{env}/containers/{id}", {
@@ -110,17 +111,25 @@ export function useContainerActions(env: string, namespace: string) {
         }
         return [{ id, ok: true }] as BulkResult[];
       }
-      const res = await unwrap(
-        api.POST("/api/v1/environments/{env}/containers/actions", {
-          params: { path: { env }, query: { namespace } },
-          body: {
-            action,
-            ids: containers.map((c) => c.id),
-            ...(action === "remove" ? { force, volumes } : {}),
-          },
-        }),
+      // One bulk request per namespace of the selected containers.
+      const byNamespace = new Map<string, Container[]>();
+      for (const c of containers)
+        byNamespace.set(c.namespace, [...(byNamespace.get(c.namespace) ?? []), c]);
+      const results = await Promise.all(
+        [...byNamespace].map(([ns, group]) =>
+          unwrap(
+            api.POST("/api/v1/environments/{env}/containers/actions", {
+              params: { path: { env }, query: { namespace: ns } },
+              body: {
+                action,
+                ids: group.map((c) => c.id),
+                ...(action === "remove" ? { force, volumes } : {}),
+              },
+            }),
+          ),
+        ),
       );
-      return res.results;
+      return results.flatMap((r) => r.results);
     },
     onMutate: ({ containers }) => {
       setBusy((prev) => new Set([...prev, ...containers.map((c) => c.id)]));
