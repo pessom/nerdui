@@ -3,7 +3,7 @@
 
 import { Alert, Button, Group, Loader, Title } from "@mantine/core";
 import { IconPlus } from "@tabler/icons-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi, useNavigate } from "@tanstack/react-router";
 import {
   containersQuery,
@@ -14,6 +14,7 @@ import {
 import { useAllowedActions, useContainerActions } from "../../../../features/containers/actions";
 import { ContainersTable } from "../../../../features/containers/ContainersTable";
 import { ImageUpdatesContext } from "../../../../features/updates/context";
+import { ALL_NAMESPACES } from "../../../../lib/namespace";
 import { useCan } from "../../../../lib/permissions";
 
 const envRoute = getRouteApi("/_app/env/$env");
@@ -30,7 +31,15 @@ function ContainersPage() {
   const status = useQuery(envStatusQuery(env));
   const namespace = ns ?? status.data?.defaultNamespace ?? "default";
   const list = useQuery(containersQuery(env, namespace));
-  const updates = useQuery(imageUpdatesQuery(env, namespace));
+  // Image updates are per namespace: with all namespaces, those of each listed one (#276).
+  const all = namespace === ALL_NAMESPACES;
+  const updateNamespaces = all
+    ? [...new Set((list.data?.containers ?? []).map((c) => c.namespace))].sort()
+    : [namespace];
+  const updates = useQueries({
+    queries: updateNamespaces.map((n) => imageUpdatesQuery(env, n)),
+    combine: (results) => new Map(results.flatMap((r) => [...updatesByRef(r.data)])),
+  });
   const { run, busy } = useContainerActions(env, namespace);
   const can = useCan();
   const allowed = useAllowedActions();
@@ -48,7 +57,12 @@ function ContainersPage() {
         {can("containers:write") && (
           <Button
             onClick={() =>
-              void navigate({ to: "/env/$env/containers/new", params: { env }, search: { ns } })
+              void navigate({
+                to: "/env/$env/containers/new",
+                params: { env },
+                // A new container goes to one namespace: the default when all are listed.
+                search: { ns: ns === ALL_NAMESPACES ? undefined : ns },
+              })
             }
             leftSection={<IconPlus size={16} />}
             disabled={readOnly}
@@ -64,9 +78,10 @@ function ContainersPage() {
         </Alert>
       )}
       {list.data && (
-        <ImageUpdatesContext.Provider value={updatesByRef(updates.data)}>
+        <ImageUpdatesContext.Provider value={updates}>
           <ContainersTable
             containers={list.data.containers}
+            allNamespaces={all}
             actions={
               allowed.length > 0
                 ? {

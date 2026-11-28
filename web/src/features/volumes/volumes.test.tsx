@@ -92,6 +92,42 @@ describe("volumes", () => {
     await waitFor(() => expect(calls.some((c) => c.method === "DELETE")).toBe(true));
     expect(screen.getByRole("link", { name: "Volumes" })).toHaveAttribute("data-active", "true");
   });
+
+  it("filters volumes by usage like images", async () => {
+    localStorage.removeItem("nerdui.volumes.usage");
+    fakeApi({
+      ...signedIn,
+      [`GET ${base}`]: () => json(200, { namespace: "default", volumes }),
+    });
+    renderApp("/env/local/volumes");
+
+    const table = await screen.findByRole("table");
+    await within(table).findByText("pgdata");
+    expect(within(table).getByText("old")).toBeInTheDocument();
+    const filter = screen.getByRole("radiogroup", { name: "Volume usage filter" });
+    expect(within(filter).getByText("All (2)")).toBeInTheDocument();
+    expect(within(filter).getByText("Used (1)")).toBeInTheDocument();
+
+    fireEvent.click(within(filter).getByText("Unused (1)"));
+    expect(within(table).getByText("old")).toBeInTheDocument();
+    expect(within(table).queryByText("pgdata")).not.toBeInTheDocument();
+
+    fireEvent.click(within(filter).getByText("Used (1)"));
+    expect(within(table).getByText("pgdata")).toBeInTheDocument();
+    expect(within(table).queryByText("old")).not.toBeInTheDocument();
+    localStorage.removeItem("nerdui.volumes.usage");
+  });
+
+  it("explains an empty filter", async () => {
+    localStorage.setItem("nerdui.volumes.usage", JSON.stringify("unused"));
+    fakeApi({
+      ...signedIn,
+      [`GET ${base}`]: () => json(200, { namespace: "default", volumes: [volumes[1]] }),
+    });
+    renderApp("/env/local/volumes");
+    expect(await screen.findByText("No unused volumes.")).toBeInTheDocument();
+    localStorage.removeItem("nerdui.volumes.usage");
+  });
 });
 
 describe("volume browser", () => {

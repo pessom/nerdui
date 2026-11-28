@@ -9,6 +9,7 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 
 ### Added
 
+- Volumes: a usage filter (All / Used / Unused) like on the Images page.
 - Networks: a _Topology_ view next to the table draws networks and the containers attached
   to them, with each container's address on every network; a container on several networks
   is linked to each, and a click opens its page (#61).
@@ -49,6 +50,10 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
   target, no cache and pull, and optionally pushes the tags. The build runs as a job with its
   log and can be cancelled. Needs `buildkitd` on the host; the dialog says when it is not
   running (ADR-0061).
+- Containers of all namespaces: `<All namespaces>` in the namespace selector of the
+  Containers page lists every namespace at once, with a Namespace column, compose projects
+  kept apart per namespace and search by namespace; actions apply in each container's own
+  namespace (#276).
 
 ### Changed
 

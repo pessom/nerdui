@@ -5,6 +5,9 @@
 // unavailable (private mode, blocked site data): reads then return nothing and writes are
 // skipped.
 
+/** The ?ns= value of the container list that shows every namespace (#276). */
+export const ALL_NAMESPACES = "*";
+
 const key = (env: string) => `nerdui.namespace.${env}`;
 
 export function rememberedNamespace(env: string): string | undefined {
