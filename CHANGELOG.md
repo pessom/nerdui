@@ -15,6 +15,9 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
   and button label, shows where to create the client and links to the provider's documentation;
   typed values and the client secret are kept. GitHub needs an OpenID Connect bridge such as dex
   (#99).
+- Networks: a _Topology_ view next to the table draws networks and the containers attached
+  to them, with each container's address on every network; a container on several networks
+  is linked to each, and a click opens its page (#61).
 - Roles: `admin`, `editor`, `operator` (start, stop, restart, terminal, deploy) and `viewer`
   built in, and custom roles from the same permissions as API keys, e.g. an editor without the
   terminal. Give users a role on the Users page; the menu shows only the sections a role may open.
@@ -23,7 +26,7 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
   actions a role allows: a viewer sees no buttons that change anything, an operator can start
   and stop but not remove, the terminal tab needs `containers:exec`, and settings are shown
   read-only without `settings:write`.
-- Single sign-on: a role for accounts created at the first sign-in (*Role of new accounts*).
+- Single sign-on: a role for accounts created at the first sign-in (_Role of new accounts_).
 - Templates for containers: a template with one service deploys as a stack or as a container,
   through the new container form filled in from the template; **Save as template** on a
   container's page turns its settings into a template (a one-service compose file, secrets
@@ -31,7 +34,7 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
   docs/templates.md).
 - Stack templates: Percona Server for MySQL replaces MariaDB in the built-in catalog, also as
   the database of the WordPress template. Stacks deployed from the old templates keep running
-  unchanged. *Mine* explains how to add templates of your own when it is empty.
+  unchanged. _Mine_ explains how to add templates of your own when it is empty.
 - About 120 more built-in templates: MySQL, MongoDB (also with Mongo Express), CouchDB,
   Cassandra, Neo4j, ArangoDB, ClickHouse, Elasticsearch (also with Kibana), Logstash, Fluentd,
   InfluxDB with Telegraf, Chronograf, Kapacitor, RabbitMQ, NATS, ZooKeeper, Mosquitto,
@@ -40,7 +43,7 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
   Nextcloud, ownCloud, Ghost, Drupal, Joomla, Backdrop, MediaWiki, XWiki, Matomo, Odoo,
   EspoCRM, Redmine, Friendica, Rocket.Chat, TeamSpeak, ZNC, Eggdrop and others; images no longer
   maintained are replaced by their successors (Eclipse Temurin for OpenJDK, `jenkins/jenkins`,
-  `hashicorp/vault`). A new *sandbox* category keeps base and language images (Alpine, Ubuntu,
+  `hashicorp/vault`). A new _sandbox_ category keeps base and language images (Alpine, Ubuntu,
   Python, Node.js, Go, Rust, Haskell, R, Java, …) running to work in them from the terminal.
 - Templates for AI and LLM applications in a new *ai* category: Ollama, Open WebUI (with
   Ollama), LocalAI, LobeChat, AnythingLLM, Flowise, Langflow, n8n, LiteLLM (with PostgreSQL),
