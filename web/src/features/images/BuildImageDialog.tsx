@@ -3,6 +3,7 @@
 
 import {
   Alert,
+  Anchor,
   Button,
   Checkbox,
   FileInput,
@@ -21,12 +22,15 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRef, useState, type FormEvent } from "react";
 import { api, unwrap } from "../../api/client";
 import { gitCredentialsQuery } from "../../api/queries";
+import { docsUrl } from "../../lib/docs";
 import { useCan } from "../../lib/permissions";
 import { useJobsPanel } from "../jobs/JobsContext";
 import { isSSH } from "../stacks/gitUrl";
 import { parseArgs, parseTags, uploadBuild, type BuildRequest } from "./build";
 
 type Source = BuildRequest["source"];
+
+const buildDocs = docsUrl("image-builds.md");
 
 /**
  * Builds an image with BuildKit (#45, ADR-0061) from a Dockerfile, a Git repository or an
@@ -151,7 +155,10 @@ export function BuildImageDialog({
           {builder.data && !builder.data.available && (
             <Alert color="yellow" title="BuildKit is not available">
               Building needs buildctl and a running buildkitd on the host (for example{" "}
-              <code>systemctl enable --now buildkit</code> with nerdctl-full). {builder.data.error}
+              <code>systemctl enable --now buildkit</code> with nerdctl-full). {builder.data.error}{" "}
+              <Anchor href={`${buildDocs}#requirements`} target="_blank" rel="noreferrer">
+                How to set up BuildKit
+              </Anchor>
             </Alert>
           )}
           <SegmentedControl
@@ -277,6 +284,7 @@ export function BuildImageDialog({
             />
             <Checkbox
               label="Push after the build"
+              description="Uses the logins on the Registries page"
               checked={push}
               onChange={(e) => setPush(e.currentTarget.checked)}
             />
@@ -290,7 +298,10 @@ export function BuildImageDialog({
             </Alert>
           )}
           <Text size="xs" c="dimmed">
-            The build runs as a job: its log opens in the jobs panel.
+            The build runs as a job: its log opens in the jobs panel.{" "}
+            <Anchor href={buildDocs} target="_blank" rel="noreferrer" inherit>
+              Image builds guide
+            </Anchor>
           </Text>
           <Group justify="flex-end">
             <Button variant="default" onClick={close}>

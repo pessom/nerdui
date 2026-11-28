@@ -23,7 +23,7 @@
   exactly like CLI-created ones ([ADR-0003](adr/0003-nerdctl-binary-runtime-dependency.md))
 - root privileges (rootful containerd/nerdctl; rootless is not supported yet)
 - optional: BuildKit (`buildctl` and a running `buildkitd`, both in nerdctl-full:
-  `systemctl enable --now buildkit`) to build images ([ADR-0061](adr/0061-image-builds.md))
+  `systemctl enable --now buildkit`) to build images, see [Image builds](image-builds.md)
 
 ## Binary with systemd (recommended)
 

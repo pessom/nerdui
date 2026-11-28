@@ -101,6 +101,10 @@ describe("building images (#45)", () => {
     const dialog = await screen.findByRole("dialog", { name: "Build image" });
     expect(await within(dialog).findByText("BuildKit is not available")).toBeInTheDocument();
     expect(within(dialog).getByText(/connection refused/)).toBeInTheDocument();
+    expect(within(dialog).getByRole("link", { name: "How to set up BuildKit" })).toHaveAttribute(
+      "href",
+      "https://github.com/pessom/nerdui/blob/main/docs/image-builds.md#requirements",
+    );
 
     // A Git repository needs its URL.
     fireEvent.click(within(dialog).getByText("Git repository"));

@@ -7,6 +7,11 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 
 ## [Unreleased]
 
+### Added
+
+- Image builds guide ([docs/image-builds.md](docs/image-builds.md)): setting up BuildKit, the
+  build dialog, logs and troubleshooting. The Build dialog links to it.
+
 ## [0.3.0-alpha.1] - 2026-11-28
 
 First pre-release of 0.3, still for one host. Highlights:

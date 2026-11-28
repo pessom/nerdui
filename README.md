@@ -101,6 +101,7 @@ Details: [docs/development.md](docs/development.md).
 - [Deployment](docs/deployment.md)
 - [Notifications](docs/notifications.md)
 - [Git stacks](docs/git-stacks.md)
+- [Image builds](docs/image-builds.md)
 - [Incoming webhooks](docs/webhooks.md)
 - [Reverse proxy](docs/reverse-proxy.md)
 - [Release process](docs/release.md)
