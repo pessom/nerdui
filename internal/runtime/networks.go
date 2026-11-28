@@ -41,11 +41,13 @@ type Networks interface {
 
 // Network is a CNI network. Keep in sync with api/openapi.yaml.
 type Network struct {
-	Name   string            `json:"name"`
-	ID     string            `json:"id,omitempty"`
-	Driver string            `json:"driver"`
-	Labels map[string]string `json:"labels"`
-	IPAM   []NetworkSubnet   `json:"ipam"`
+	Name   string `json:"name"`
+	ID     string `json:"id,omitempty"`
+	Driver string `json:"driver"`
+	// Namespace is the containerd namespace the network was listed in.
+	Namespace string            `json:"namespace"`
+	Labels    map[string]string `json:"labels"`
+	IPAM      []NetworkSubnet   `json:"ipam"`
 	// Parent is the host interface of a macvlan or ipvlan network.
 	Parent string `json:"parent,omitempty"`
 	// Internal bridge networks have no gateway to the outside.

@@ -8,6 +8,7 @@ import { renderApp, signedIn } from "../../test/render";
 import { SilentWebSocket, fakeApi, json } from "../../test/server";
 
 const image = (name: string, digest: string): Image => ({
+  namespace: "default",
   name,
   repository: name.replace("docker.io/library/", "").split(":")[0] ?? "",
   tag: name.split(":")[1] ?? "",

@@ -4,8 +4,6 @@
 package api
 
 import (
-	"context"
-	"fmt"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -22,48 +20,12 @@ import (
 //
 // Filtering and sorting happen client-side (ADR-0006: home-scale collections).
 func (h *Handler) listContainers(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Query().Get("namespace") == AllNamespaces {
-		list, err := h.allContainers(r.Context())
-		if err != nil {
-			httpjson.WriteErr(w, r, h.Logger, err)
-			return
-		}
-		httpjson.Write(w, http.StatusOK, map[string]any{"namespace": AllNamespaces, "containers": list})
-		return
-	}
-	ns, err := Namespace(r)
-	if err != nil {
-		httpjson.WriteErr(w, r, h.Logger, err)
-		return
-	}
-	list, err := EnvFrom(r.Context()).Runtime.Containers().List(r.Context(), ns)
+	ns, list, err := listNamespaces(r, EnvFrom(r.Context()).Runtime.Containers().List, func(*runtime.Container, string) {})
 	if err != nil {
 		httpjson.WriteErr(w, r, h.Logger, err)
 		return
 	}
 	httpjson.Write(w, http.StatusOK, map[string]any{"namespace": ns, "containers": list})
-}
-
-// AllNamespaces lists the containers of every namespace (#276), as the event stream already
-// accepts.
-const AllNamespaces = "*"
-
-// allContainers lists the containers of every namespace; each container carries its own.
-func (h *Handler) allContainers(ctx context.Context) ([]runtime.Container, error) {
-	rt := EnvFrom(ctx).Runtime
-	nss, err := rt.System().Namespaces(ctx)
-	if err != nil {
-		return nil, err
-	}
-	all := []runtime.Container{}
-	for _, ns := range nss {
-		list, err := rt.Containers().List(ctx, ns)
-		if err != nil {
-			return nil, fmt.Errorf("namespace %s: %w", ns, err)
-		}
-		all = append(all, list...)
-	}
-	return all, nil
 }
 
 // inspectContainer returns the container as `nerdctl inspect` shows it (#13):

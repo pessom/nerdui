@@ -1839,7 +1839,7 @@ export interface paths {
          * All images of a namespace, sorted by name
          * @description Requires `images:read` (#42). One entry per stored reference; sizes cover every platform
          *     in the store. Filtering and sorting are done by clients (ADR-0006). Live updates: refetch
-         *     on events from `/events/stream`.
+         *     on events from `/events/stream`. `namespace=*` lists every namespace; each item has its `namespace` (#276).
          */
         get: operations["listImages"];
         put?: never;
@@ -2153,7 +2153,9 @@ export interface paths {
          * @description Requires `stacks:read` (#24, ADR-0008). Stacks in --stacks-dir (`managed`), registered
          *     external directories (`external`) and compose projects known only from container labels
          *     (`unmanaged`). Status compares the services of the compose file (loaded like
-         *     `nerdctl compose`) with the running containers of the project.
+         *     `nerdctl compose`) with the running containers of the project. `namespace=*` lists every namespace; each item has its `namespace` (#276).
+         *     Stack definitions belong to no namespace: with `namespace=*` a stack shows in the
+         *     namespaces where it has containers, or once in the default namespace when it has none.
          */
         get: operations["listStacks"];
         put?: never;
@@ -2854,7 +2856,7 @@ export interface paths {
         /**
          * CNI networks of a namespace
          * @description Requires `networks:read` (#60, ADR-0024). With the containers attached to each network;
-         *     addresses are reported for running containers.
+         *     addresses are reported for running containers. `namespace=*` lists every namespace; each item has its `namespace` (#276).
          */
         get: operations["listNetworks"];
         put?: never;
@@ -2915,7 +2917,7 @@ export interface paths {
          * Volumes of a namespace
          * @description Requires `volumes:read` (#57). nerdctl's named volumes with the containers (running or
          *     not) that mount them. `size=true` walks every volume on disk, like
-         *     `nerdctl volume ls --size`.
+         *     `nerdctl volume ls --size`. `namespace=*` lists every namespace; each item has its `namespace` (#276).
          */
         get: operations["listVolumes"];
         put?: never;
@@ -4690,6 +4692,8 @@ export interface components {
             }[];
         };
         Image: {
+            /** @description containerd namespace */
+            namespace: string;
             /** @example docker.io/library/nginx:1.27 */
             name: string;
             /** @description Short repository name (`nginx`); empty for digest-only (dangling) images */
@@ -5210,6 +5214,8 @@ export interface components {
             tooBig?: boolean;
         };
         Stack: {
+            /** @description containerd namespace */
+            namespace: string;
             name: string;
             /** @enum {string} */
             mode: "managed" | "external" | "git" | "unmanaged";
@@ -5299,6 +5305,8 @@ export interface components {
             conflicts?: string[];
         };
         Network: {
+            /** @description containerd namespace */
+            namespace: string;
             name: string;
             id?: string;
             /**
@@ -5348,6 +5356,8 @@ export interface components {
             };
         };
         Volume: {
+            /** @description containerd namespace */
+            namespace: string;
             name: string;
             mountpoint: string;
             labels: {

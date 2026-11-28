@@ -64,7 +64,7 @@ func TestStacks(t *testing.T) {
 	for _, s := range list.Stacks {
 		got[s.Name] = s
 	}
-	if s := got["app"]; s.Status != stacks.StatusPartial || s.Mode != stacks.ModeManaged || s.Running != 1 || len(s.Services) != 2 {
+	if s := got["app"]; s.Status != stacks.StatusPartial || s.Mode != stacks.ModeManaged || s.Running != 1 || len(s.Services) != 2 || s.Namespace != "k8s.io" {
 		t.Errorf("app %+v", s)
 	}
 	if s := got["broken"]; s.Status != stacks.StatusUnknown || s.Error == "" {

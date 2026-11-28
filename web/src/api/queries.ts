@@ -25,9 +25,15 @@ export const keys = {
   containers: (env: string, ns: string) => ["env", env, "containers", ns] as const,
   /** Under containers(env, ns), so container actions refresh it too. */
   images: (env: string, ns: string) => ["env", env, "images", ns] as const,
+  /** Image lists of every namespace, including the one of all namespaces (#276). */
+  imageLists: (env: string) => ["env", env, "images"] as const,
   registries: (env: string) => ["env", env, "registries"] as const,
   volumes: (env: string, ns: string) => ["env", env, "volumes", ns] as const,
+  /** Volumes lists of every namespace, including the one of all namespaces (#276). */
+  volumeLists: (env: string) => ["env", env, "volumes"] as const,
   networks: (env: string, ns: string) => ["env", env, "networks", ns] as const,
+  /** Networks lists of every namespace, including the one of all namespaces (#276). */
+  networkLists: (env: string) => ["env", env, "networks"] as const,
   ports: (env: string) => ["env", env, "ports"] as const,
   /** Under containers(env, ns): container events and actions refresh stacks too. */
   stacks: (env: string, ns: string) => ["env", env, "containers", ns, "stacks"] as const,

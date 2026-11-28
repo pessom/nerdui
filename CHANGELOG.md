@@ -9,6 +9,11 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 
 ### Added
 
+- `<All namespaces>` in the namespace selector of the Images, Volumes, Networks, Stacks and
+  Events pages, as on Containers (#276). The lists get a Namespace column, and every row acts
+  in its own namespace. Creating (pull, build, load, new volume, network or stack) needs one
+  namespace. The Events page drops its own "All namespaces" switch. The list API accepts
+  `namespace=*` for images, volumes, networks and stacks, and their items carry `namespace`.
 - Image builds guide ([docs/image-builds.md](docs/image-builds.md)): setting up BuildKit, the
   build dialog, logs and troubleshooting. The Build dialog links to it.
 

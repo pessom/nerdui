@@ -114,7 +114,7 @@ export function RemoveVolumeDialog({
       ),
     onSuccess: (_, name) => {
       notifications.show({ message: `Volume ${name} removed` });
-      void queryClient.invalidateQueries({ queryKey: keys.volumes(env, namespace) });
+      void queryClient.invalidateQueries({ queryKey: keys.volumeLists(env) });
       close();
     },
   });
