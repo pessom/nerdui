@@ -61,7 +61,8 @@ type fakeRuntime struct {
 	tags         [][3]string
 	removed      []string
 	pushes       []pushCall
-	imageErr     map[string]error // by reference (and registry server for logins)
+	byNS         map[string][]runtime.Container // containers per namespace, when set
+	imageErr     map[string]error               // by reference (and registry server for logins)
 	registries   []runtime.Registry
 	prunes       []runtime.PruneOptions
 	statsSamples []runtime.StatsSample
@@ -545,6 +546,9 @@ func (f *fakeRuntime) List(_ context.Context, ns string) ([]runtime.Container, e
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.gotNS = ns
+	if f.byNS != nil {
+		return f.byNS[ns], f.err
+	}
 	return f.containers, f.err
 }
 func (f *fakeRuntime) Do(_ context.Context, ns, id string, a runtime.Action, o runtime.ActionOptions) error {

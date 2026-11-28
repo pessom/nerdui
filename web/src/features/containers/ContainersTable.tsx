@@ -92,7 +92,7 @@ const columns = col.columns([
             from="/env/$env/containers"
             to="/env/$env/containers/$id"
             params={(p) => ({ ...p, id: c.id })}
-            search={(s) => ({ ns: s.ns })}
+            search={{ ns: c.namespace }}
             fw={500}
             size="sm"
             title={c.id}
@@ -107,6 +107,15 @@ const columns = col.columns([
         </Group>
       );
     },
+  }),
+  col.accessor("namespace", {
+    header: "Namespace",
+    sortFn: "alphanumeric",
+    cell: ({ getValue }) => (
+      <Badge variant="outline" color="gray" size="sm">
+        {getValue()}
+      </Badge>
+    ),
   }),
   col.accessor("state", {
     header: "State",
@@ -206,10 +215,13 @@ const noActions: TableActions = { run: () => {}, busy: new Set(), disabled: "Not
 export function ContainersTable({
   containers,
   actions,
+  allNamespaces = false,
 }: {
   containers: Container[];
   /** Lifecycle actions (#11); without them the table is read-only. */
   actions?: TableActions;
+  /** The containers come from every namespace: show each one's namespace (#276). */
+  allNamespaces?: boolean;
 }) {
   const [sorting, setSorting] = useState<SortingState>([{ id: "createdAt", desc: true }]);
   const [search, setSearch] = useState("");
@@ -237,7 +249,11 @@ export function ContainersTable({
     columns,
     data,
     getRowId: (c) => c.id,
-    state: { sorting, globalFilter: search, columnVisibility },
+    state: {
+      sorting,
+      globalFilter: search,
+      columnVisibility: { ...columnVisibility, namespace: allNamespaces },
+    },
     onSortingChange: setSorting,
     onGlobalFilterChange: setSearch,
     globalFilterFn: (row, _columnId, value: string) =>
@@ -246,7 +262,10 @@ export function ContainersTable({
 
   const rows = table.getRowModel().rows;
   const groups = grouped
-    ? groupByProject(rows.map((r) => r.original))
+    ? groupByProject(
+        rows.map((r) => r.original),
+        allNamespaces,
+      )
     : [{ project: undefined, containers: rows.map((r) => r.original) }];
   const rowById = new Map(rows.map((r) => [r.original.id, r]));
   const running = containers.filter((c) => c.state === "running").length;
@@ -385,7 +404,7 @@ export function ContainersTable({
               </Table.Tr>
             )}
             {groups.map((g) => (
-              <Fragment key={g.project ?? "__standalone"}>
+              <Fragment key={g.project ? `${g.project}/${g.namespace ?? ""}` : "__standalone"}>
                 {grouped && (g.project || groups.length > 1) && (
                   <Table.Tr>
                     <Table.Td
@@ -400,6 +419,11 @@ export function ContainersTable({
                           <Text fw={600} size="sm">
                             {g.project ?? "Standalone"}
                           </Text>
+                          {g.namespace && (
+                            <Badge variant="outline" color="gray" size="xs">
+                              {g.namespace}
+                            </Badge>
+                          )}
                           <Text size="xs" c="dimmed">
                             {g.containers.filter((c) => c.state === "running").length}/
                             {g.containers.length} running

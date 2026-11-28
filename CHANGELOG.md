@@ -40,6 +40,10 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
   containers: images that switch user with `gosu` (MySQL, MariaDB, Percona, PostgreSQL and
   others) hang at start there. docs/deployment.md explains the check and the ways out
   (ADR-0060).
+- Containers of all namespaces: **All namespaces** in the namespace selector of the
+  Containers page lists every namespace at once, with a Namespace column, compose projects
+  kept apart per namespace and search by namespace; actions apply in each container's own
+  namespace (#276).
 
 ### Changed
 

@@ -13,7 +13,7 @@ import {
 } from "../../../api/queries";
 import { RuntimeBanners } from "../../../components/RuntimeBanners";
 import { useEnvEvents } from "../../../hooks/useEnvEvents";
-import { rememberNamespace, rememberedNamespace } from "../../../lib/namespace";
+import { ALL_NAMESPACES, rememberNamespace, rememberedNamespace } from "../../../lib/namespace";
 
 /**
  * Environment scope (ADR-0006): /env/$env?ns=<namespace>. Hosts the environment and
@@ -42,6 +42,9 @@ function EnvLayout() {
     page === `${envPath}/registries` ||
     page === `${envPath}/settings` ||
     page === `${envPath}/ports`;
+  // Only the container list can show every namespace (#276).
+  const allAllowed = page === `${envPath}/containers`;
+  const leavingAll = ns === ALL_NAMESPACES && !allAllowed;
 
   const envs = useQuery(environmentsQuery);
   const status = useQuery(envStatusQuery(env));
@@ -50,7 +53,24 @@ function EnvLayout() {
   const namespace = ns ?? status.data?.defaultNamespace ?? "default";
   const events = useEnvEvents(env, namespace);
 
-  const nsOptions = Array.from(new Set([...(namespaces.data?.namespaces ?? []), namespace]));
+  const nsOptions = [
+    ...(allAllowed ? [{ value: ALL_NAMESPACES, label: "All namespaces" }] : []),
+    ...Array.from(
+      new Set(
+        [...(namespaces.data?.namespaces ?? []), namespace].filter((n) => n !== ALL_NAMESPACES),
+      ),
+    ).map((n) => ({ value: n, label: n })),
+  ];
+
+  // Other pages show one namespace: leaving the list with "all" goes back to the remembered one.
+  useEffect(() => {
+    if (!leavingAll) return;
+    void navigate({
+      to: ".",
+      search: (prev) => ({ ...prev, ns: rememberedNamespace(env) }),
+      replace: true,
+    });
+  }, [leavingAll, env, navigate]);
 
   // Restore the remembered namespace when the URL has none and it still exists.
   const known = namespaces.data?.namespaces;
@@ -66,7 +86,7 @@ function EnvLayout() {
   }, [env, ns, known, navigate]);
 
   const selectNamespace = (v: string) => {
-    rememberNamespace(env, v);
+    if (v !== ALL_NAMESPACES) rememberNamespace(env, v);
     void navigate({ to: ".", search: (prev) => ({ ...prev, ns: v }) });
   };
   const containerdDown =
@@ -110,7 +130,7 @@ function EnvLayout() {
         acme={version.data?.acme}
         warnings={status.data?.warnings}
       />
-      <Outlet />
+      {!leavingAll && <Outlet />}
     </>
   );
 }
