@@ -100,7 +100,9 @@ func TestIntegrationRecreate(t *testing.T) {
 		t.Errorf("healthcheck of the new container: %s", hc)
 	}
 	if all, _ := exec.Command("nerdctl", "ps", "-aq", "--no-trunc").Output(); strings.Contains(string(all), cs.ID) {
-		t.Error("the previous container was not removed")
+		// The log of the recreate says why removing failed; it is not returned as an error.
+		ps, _ := exec.Command("nerdctl", "ps", "-a").CombinedOutput()
+		t.Errorf("the previous container was not removed\nrecreate log:\n%s\ncontainers:\n%s", out.String(), ps)
 	}
 
 	// A failing recreate (bind source missing) restores the container.
