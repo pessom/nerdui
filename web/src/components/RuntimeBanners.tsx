@@ -4,14 +4,14 @@
 import { Alert, Anchor, Stack } from "@mantine/core";
 import { IconAlertTriangle, IconLock, IconPlugConnectedX } from "@tabler/icons-react";
 import type { components } from "../api/client";
+import { docsUrl } from "../lib/docs";
 
 type RuntimeVersions = components["schemas"]["RuntimeVersions"];
 type ACMEStatus = components["schemas"]["ACMEStatus"];
 type HostWarning = NonNullable<components["schemas"]["EnvironmentStatus"]["warnings"]>[number];
 
 /** The deployment guide's section on the AppArmor signal problem (ADR-0060). */
-const apparmorDocs =
-  "https://github.com/pessom/nerdui/blob/main/docs/deployment.md#apparmor-on-linux-7";
+const apparmorDocs = docsUrl("deployment.md#apparmor-on-linux-7");
 
 /** "2.3.5" → "2.3"; empty for unknown versions. */
 function hostMinor(version: string | undefined): string {
