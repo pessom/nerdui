@@ -8,6 +8,7 @@ import {
   Button,
   Group,
   Loader,
+  SegmentedControl,
   Stack,
   Table,
   Text,
@@ -25,11 +26,12 @@ import {
   CreateNetworkDialog,
   RemoveNetworkDialog,
 } from "../../../../features/networks/NetworkDialogs";
+import { NetworkTopology } from "../../../../features/networks/NetworkTopology";
 import { useCan } from "../../../../lib/permissions";
 
 const envRoute = getRouteApi("/_app/env/$env");
 
-/** CNI networks (#60, ADR-0024): subnets, attached containers with addresses. */
+/** CNI networks (#60, ADR-0024): subnets, attached containers with addresses; topology (#61). */
 export const Route = createFileRoute("/_app/env/$env/networks")({
   component: NetworksPage,
 });
@@ -49,6 +51,7 @@ function NetworksPage() {
   const list = useQuery(networksQuery(env, namespace));
   const [creating, { open, close }] = useDisclosure();
   const [removing, setRemoving] = useState<Network>();
+  const [view, setView] = useState<"table" | "topology">("table");
   const nerdctl = status.data?.runtime?.nerdctl;
   const readOnly = !!nerdctl && !nerdctl.compatible && !nerdctl.checkSkipped;
   const write = useCan()("networks:write");
@@ -68,13 +71,26 @@ function NetworksPage() {
           </Tooltip>
         )}
       </Group>
+      <SegmentedControl
+        aria-label="View"
+        w="fit-content"
+        value={view}
+        onChange={(v) => setView(v as typeof view)}
+        data={[
+          { value: "table", label: "Table" },
+          { value: "topology", label: "Topology" },
+        ]}
+      />
       {list.isPending && <Loader aria-label="Loading" />}
       {list.isError && (
         <Alert color="red" title="Cannot read networks">
           {list.error.message}
         </Alert>
       )}
-      {list.data && (
+      {list.data && view === "topology" && (
+        <NetworkTopology env={env} namespace={namespace} networks={list.data.networks} />
+      )}
+      {list.data && view === "table" && (
         <Table striped verticalSpacing="xs">
           <Table.Thead>
             <Table.Tr>
