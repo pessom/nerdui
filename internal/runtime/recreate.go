@@ -114,10 +114,27 @@ func (cc clientContainers) Recreate(ctx context.Context, namespace, ref string, 
 	}
 
 	_, _ = fmt.Fprintf(out, "\x1b[1mRemoving the previous container\x1b[0m\r\n")
-	if err := cc.Do(bg, namespace, oldID, ActionRemove, ActionOptions{Force: true}); err != nil {
+	if err := cc.removeParked(bg, namespace, oldID, out); err != nil {
 		_, _ = fmt.Fprintf(out, "Could not remove %s (%s): %v\r\n", parked, oldID[:12], err)
 	}
 	return newID, nil
+}
+
+// removeParked removes the previous container of a recreate. Something may have started it
+// again meanwhile (a containerd restart applying its restart policy): then it is stopped
+// again and removed, so a recreate never leaves two running copies.
+func (cc clientContainers) removeParked(ctx context.Context, namespace, id string, out io.Writer) error {
+	var err error
+	for range 3 {
+		if err = cc.Do(ctx, namespace, id, ActionRemove, ActionOptions{Force: true}); err == nil || !errdefs.IsFailedPrecondition(err) {
+			return err
+		}
+		_, _ = fmt.Fprintf(out, "The previous container was started again; stopping it\r\n")
+		if serr := cc.Do(ctx, namespace, id, ActionStop, ActionOptions{}); serr != nil && !errdefs.IsFailedPrecondition(serr) {
+			return serr
+		}
+	}
+	return err
 }
 
 // restart starts a container again when it ran before a failed recreate.

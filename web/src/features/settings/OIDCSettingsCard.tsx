@@ -3,12 +3,14 @@
 
 import {
   Alert,
+  Anchor,
   Button,
   Code,
   CopyButton,
   Group,
   Paper,
   PasswordInput,
+  Select,
   SimpleGrid,
   Stack,
   Switch,
@@ -18,10 +20,22 @@ import {
 } from "@mantine/core";
 import { notifications } from "@mantine/notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { api, unwrap } from "../../api/client";
 import type { components } from "../../api/schema";
 import { RoleSelect } from "../users/Roles";
+import {
+  applyPreset,
+  issuerPlaceholder,
+  oidcPresets,
+  presetFieldLabels,
+  type OIDCPresetFields,
+} from "./oidcPresets";
+
+const providerOptions = [
+  { value: "custom", label: "Custom" },
+  ...oidcPresets.map((p) => ({ value: p.id, label: p.label })),
+];
 
 type Settings = components["schemas"]["OIDCSettings"];
 
@@ -63,6 +77,41 @@ function OIDCForm({ saved }: { saved: Settings }) {
   });
   // undefined keeps the stored secret.
   const [secret, setSecret] = useState<string>();
+  // A provider preset (#99) fills the empty fields; fields with other values are only listed.
+  const [provider, setProvider] = useState("custom");
+  const [conflicts, setConflicts] = useState<(keyof OIDCPresetFields)[]>([]);
+  const issuerRef = useRef<HTMLInputElement>(null);
+  const preset = oidcPresets.find((p) => p.id === provider);
+  const selectPlaceholder = (issuer: string) => {
+    const at = issuerPlaceholder(issuer);
+    if (!at) return;
+    // After the render that shows the new issuer.
+    setTimeout(() => {
+      issuerRef.current?.focus();
+      issuerRef.current?.setSelectionRange(at.start, at.end);
+    });
+  };
+  const choose = (id: string) => {
+    setProvider(id);
+    const p = oidcPresets.find((x) => x.id === id);
+    if (!p) {
+      setConflicts([]);
+      return;
+    }
+    const applied = applyPreset(form, p);
+    setForm(applied.form);
+    setConflicts(applied.conflicts);
+    selectPlaceholder(applied.form.issuer);
+  };
+  const replaceConflicts = () => {
+    if (!preset) return;
+    const next = { ...form };
+    for (const k of conflicts) next[k] = preset.fields[k] ?? "";
+    setForm(next);
+    setConflicts([]);
+    selectPlaceholder(next.issuer);
+  };
+  const placeholder = issuerPlaceholder(form.issuer);
   const set = (k: keyof typeof form) => (e: { currentTarget: { value: string } }) => {
     const value = e.currentTarget.value;
     setForm((f) => ({ ...f, [k]: value }));
@@ -95,6 +144,35 @@ function OIDCForm({ saved }: { saved: Settings }) {
       }}
     >
       <Stack gap="sm">
+        <Select
+          label="Provider"
+          description="Fills the empty fields with the provider's settings; enter the client ID and secret yourself."
+          data={providerOptions}
+          value={provider}
+          onChange={(v) => choose(v ?? "custom")}
+          allowDeselect={false}
+          maw={360}
+        />
+        {preset && (
+          <Alert color="blue" title={preset.label}>
+            <Stack gap={6}>
+              <Text size="sm">{preset.hint} Register the redirect URI below at the provider.</Text>
+              <Anchor href={preset.docs} target="_blank" rel="noreferrer" size="sm">
+                {preset.label} documentation
+              </Anchor>
+              {conflicts.length > 0 && (
+                <Group gap="xs">
+                  <Text size="sm">
+                    Kept your values of {conflicts.map((k) => presetFieldLabels[k]).join(", ")}.
+                  </Text>
+                  <Button size="compact-xs" variant="light" onClick={replaceConflicts}>
+                    Use the {preset.label} values
+                  </Button>
+                </Group>
+              )}
+            </Stack>
+          </Alert>
+        )}
         <Switch
           label="Sign in with an OpenID Connect provider"
           description="The sign-in page shows a button for it; passwords keep working. The provider checks the second factor of these sign-ins."
@@ -117,9 +195,14 @@ function OIDCForm({ saved }: { saved: Settings }) {
         </Text>
         <SimpleGrid cols={{ base: 1, sm: 2 }}>
           <TextInput
+            ref={issuerRef}
             label="Issuer URL"
             placeholder="https://keycloak.example.com/realms/main"
             required={form.enabled}
+            error={
+              placeholder &&
+              `Replace ${form.issuer.slice(placeholder.start, placeholder.end)} with your value`
+            }
             value={form.issuer}
             onChange={set("issuer")}
           />

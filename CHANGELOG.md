@@ -9,6 +9,12 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
 
 ### Added
 
+- Volumes: a usage filter (All / Used / Unused) like on the Images page.
+- Single sign-on: a *Provider* list with settings for Google, Microsoft Entra ID, GitLab,
+  Keycloak, Authentik, Authelia, Okta, Auth0, Zitadel and dex fills the empty issuer URL, scopes
+  and button label, shows where to create the client and links to the provider's documentation;
+  typed values and the client secret are kept. GitHub needs an OpenID Connect bridge such as dex
+  (#99).
 - Roles: `admin`, `editor`, `operator` (start, stop, restart, terminal, deploy) and `viewer`
   built in, and custom roles from the same permissions as API keys, e.g. an editor without the
   terminal. Give users a role on the Users page; the menu shows only the sections a role may open.
@@ -52,6 +58,10 @@ Detailed per-release notes are generated from Conventional Commits on GitHub Rel
   target, no cache and pull, and optionally pushes the tags. The build runs as a job with its
   log and can be cancelled. Needs `buildkitd` on the host; the dialog says when it is not
   running (ADR-0061).
+- Containers of all namespaces: `<All namespaces>` in the namespace selector of the
+  Containers page lists every namespace at once, with a Namespace column, compose projects
+  kept apart per namespace and search by namespace; actions apply in each container's own
+  namespace (#276).
 
 ### Changed
 

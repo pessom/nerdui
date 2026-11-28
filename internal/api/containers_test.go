@@ -42,6 +42,28 @@ func TestListContainers(t *testing.T) {
 	}
 }
 
+func TestListContainersAllNamespaces(t *testing.T) {
+	rt := &fakeRuntime{ns: []string{"default", "k8s.io", "empty"}, byNS: map[string][]runtime.Container{
+		"default": {{ID: "a", Name: "web", Namespace: "default", Labels: map[string]string{}}},
+		"k8s.io":  {{ID: "b", Name: "kube", Namespace: "k8s.io", Labels: map[string]string{}}},
+	}}
+	var got struct {
+		Namespace  string
+		Containers []runtime.Container
+	}
+	rec := do(t, newRouter(rt), "/api/v1/environments/local/containers?namespace=*", &got)
+	if rec.Code != http.StatusOK || got.Namespace != "*" || len(got.Containers) != 2 {
+		t.Fatalf("%d %s", rec.Code, rec.Body)
+	}
+	if got.Containers[0].Namespace != "default" || got.Containers[1].Namespace != "k8s.io" {
+		t.Errorf("containers %+v", got.Containers)
+	}
+	down := &fakeRuntime{err: runtime.ErrNotConnected}
+	if rec := do(t, newRouter(down), "/api/v1/environments/local/containers?namespace=*", nil); rec.Code != http.StatusServiceUnavailable {
+		t.Errorf("containerd down: %d", rec.Code)
+	}
+}
+
 func TestListContainersEmptyIsArray(t *testing.T) {
 	rec := do(t, newRouter(&fakeRuntime{containers: []runtime.Container{}}), "/api/v1/environments/local/containers", nil)
 	if rec.Code != http.StatusOK || rec.Body.String() != "{\"containers\":[],\"namespace\":\"default\"}\n" {

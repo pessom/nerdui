@@ -59,7 +59,16 @@ export function portURL(p: Port, pageHost: string): string | undefined {
 
 /** Text used by the search box. */
 export function searchText(c: Container): string {
-  return [c.name, c.id, c.image, c.compose?.project, c.compose?.service, c.command, c.state]
+  return [
+    c.name,
+    c.id,
+    c.image,
+    c.compose?.project,
+    c.compose?.service,
+    c.command,
+    c.state,
+    c.namespace,
+  ]
     .filter(Boolean)
     .join(" ")
     .toLowerCase();
@@ -67,26 +76,36 @@ export function searchText(c: Container): string {
 
 export interface Group {
   project?: string;
+  /** The namespace of the project, when containers of several namespaces are listed. */
+  namespace?: string;
   containers: Container[];
 }
 
-/** Groups containers by compose project (alphabetically), standalone containers last. */
-export function groupByProject(list: Container[]): Group[] {
-  const byProject = new Map<string, Container[]>();
+/**
+ * Groups containers by compose project (alphabetically), standalone containers last. With
+ * byNamespace, projects of the same name in different namespaces are separate groups (#276).
+ */
+export function groupByProject(list: Container[], byNamespace = false): Group[] {
+  const byProject = new Map<string, Group>();
   const standalone: Container[] = [];
   for (const c of list) {
-    const p = c.compose?.project;
-    if (!p) {
+    const project = c.compose?.project;
+    if (!project) {
       standalone.push(c);
       continue;
     }
-    const items = byProject.get(p) ?? [];
-    items.push(c);
-    byProject.set(p, items);
+    const key = byNamespace ? `${project}\u0000${c.namespace}` : project;
+    const group = byProject.get(key) ?? {
+      project,
+      ...(byNamespace ? { namespace: c.namespace } : {}),
+      containers: [],
+    };
+    group.containers.push(c);
+    byProject.set(key, group);
   }
-  const groups: Group[] = [...byProject.entries()]
+  const groups = [...byProject.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
-    .map(([project, containers]) => ({ project, containers }));
+    .map(([, group]) => group);
   if (standalone.length) groups.push({ containers: standalone });
   return groups;
 }

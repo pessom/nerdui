@@ -8,19 +8,21 @@ import {
   Button,
   Group,
   Loader,
+  SegmentedControl,
   Stack,
   Table,
   Text,
   Title,
   Tooltip,
 } from "@mantine/core";
-import { useDisclosure } from "@mantine/hooks";
+import { useDisclosure, useLocalStorage } from "@mantine/hooks";
 import { IconArchive, IconFolderOpen, IconPlus, IconRuler, IconTrash } from "@tabler/icons-react";
 import { useQuery } from "@tanstack/react-query";
 import { createFileRoute, getRouteApi } from "@tanstack/react-router";
 import { useState } from "react";
 import { envStatusQuery, volumesQuery, type Volume } from "../../../../api/queries";
 import { RouterAnchor } from "../../../../components/RouterAnchor";
+import type { UsageFilter } from "../../../../features/images/format";
 import { formatBytes } from "../../../../features/system/info";
 import { CreateVolumeDialog, RemoveVolumeDialog } from "../../../../features/volumes/VolumeDialogs";
 import { VolumeBrowser } from "../../../../features/volumes/VolumeBrowser";
@@ -52,6 +54,15 @@ function VolumesPage() {
   const readOnly = !!nerdctl && !nerdctl.compatible && !nerdctl.checkSkipped;
   // Browsing, backups and changes run a helper container: volumes:write (ADR-0058).
   const write = useCan()("volumes:write");
+  // Same filter as on the Images page; a volume is used when containers mount it.
+  const [usage, setUsage] = useLocalStorage<UsageFilter>({
+    key: "nerdui.volumes.usage",
+    defaultValue: "all",
+  });
+  const all = list.data?.volumes ?? [];
+  const usedCount = all.filter((v) => v.containers.length > 0).length;
+  const shown =
+    usage === "all" ? all : all.filter((v) => v.containers.length > 0 === (usage === "used"));
 
   return (
     <Stack>
@@ -61,6 +72,16 @@ function VolumesPage() {
           {list.isFetching && !list.isPending && <Loader size="xs" aria-label="Refreshing" />}
         </Group>
         <Group gap="xs">
+          <SegmentedControl
+            aria-label="Volume usage filter"
+            value={usage}
+            onChange={(v) => setUsage(v as UsageFilter)}
+            data={[
+              { value: "all", label: `All (${all.length})` },
+              { value: "used", label: `Used (${usedCount})` },
+              { value: "unused", label: `Unused (${all.length - usedCount})` },
+            ]}
+          />
           <Button
             variant="default"
             leftSection={<IconRuler size={16} />}
@@ -101,16 +122,18 @@ function VolumesPage() {
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
-            {list.data.volumes.length === 0 && (
+            {shown.length === 0 && (
               <Table.Tr>
                 <Table.Td colSpan={5}>
                   <Text c="dimmed" ta="center" py="md">
-                    No volumes in this namespace.
+                    {usage === "all" || all.length === 0
+                      ? "No volumes in this namespace."
+                      : `No ${usage} volumes.`}
                   </Text>
                 </Table.Td>
               </Table.Tr>
             )}
-            {list.data.volumes.map((v) => {
+            {shown.map((v) => {
               const size = sizeOf.get(v.name);
               const used = v.containers.length > 0;
               return (
