@@ -1780,7 +1780,8 @@ export interface paths {
         /**
          * All containers of a namespace (any state), newest first
          * @description Requires `containers:read`. Filtering and sorting are done by clients (ADR-0006).
-         *     Live updates: refetch on events from `/events/stream`.
+         *     Live updates: refetch on events from `/events/stream`. `namespace=*` lists the
+         *     containers of every namespace; each container has its `namespace` (#276).
          */
         get: operations["listContainers"];
         put?: never;
